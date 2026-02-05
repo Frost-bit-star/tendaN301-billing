@@ -1,4 +1,4 @@
-# Tenda Micro-ISP Router Project
+za# Tenda Micro-ISP Router Project
 
 ![PHP](https://img.shields.io/badge/PHP-7.4+-blue) ![SQLite](https://img.shields.io/badge/SQLite-supported-orange) ![License](https://img.shields.io/badge/License-MIT-green) ![Build Status](https://img.shields.io/badge/Status-Active-brightgreen)
 
@@ -103,7 +103,7 @@ Configure blocklists and rules in the SQLite database.
 ### Dashboard Screenshots
 
 **Dashboard Overview**  
-![Dashboard](./Screenshot-(30).png)
+![Dashboard](https://github.com/Frost-bit-star/tendaN301-billing/blob/main/Screenshot%20(30).png)
 
 **Router Device List**  
 ![Device List](./Screenshot-(31).png)
@@ -115,3 +115,4 @@ Configure blocklists and rules in the SQLite database.
 
 
 ### Regularly update PHP and server packages to minimize vulnerabilities.
+
