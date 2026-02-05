@@ -1,0 +1,236 @@
+#!/usr/bin/env php
+<?php
+// stack - PHP mini-framework CLI launcher
+// Usage: php stack [install|dev|start|cron|cron:list]
+
+$argv0 = $argv;
+array_shift($argv0);
+$command = $argv0[0] ?? 'dev';
+
+$host = '0.0.0.0';
+$port = 8000;
+
+define('ROOT', __DIR__);
+define('LOGS', ROOT . '/logs');
+define('CRON_PID', LOGS . '/cron.pid');
+
+/* =====================
+   CLI UI helpers
+===================== */
+function color($text, $color) {
+    $c = [
+        'red' => "\033[31m",
+        'green' => "\033[32m",
+        'yellow' => "\033[33m",
+        'blue' => "\033[34m",
+        'cyan' => "\033[36m",
+        'bold' => "\033[1m",
+        'reset' => "\033[0m",
+    ];
+    return ($c[$color] ?? '') . $text . $c['reset'];
+}
+
+function title($text) {
+    echo "\n" . color("▶ $text\n", 'cyan');
+}
+
+function ok($text) {
+    echo color("✔ $text\n", 'green');
+}
+
+function warn($text) {
+    echo color("⚠ $text\n", 'yellow');
+}
+
+function fail($text) {
+    echo color("✖ $text\n", 'red');
+    exit(1);
+}
+
+/* =====================
+   System helpers
+===================== */
+function hasExtension($ext) {
+    return extension_loaded($ext);
+}
+
+function commandExists($cmd) {
+    return trim(shell_exec("command -v $cmd")) !== '';
+}
+
+function isTermux() {
+    return is_dir('/data/data/com.termux');
+}
+
+function getLocalIP() {
+    $out = shell_exec("hostname -I 2>/dev/null");
+    if ($out) {
+        foreach (explode(' ', trim($out)) as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP) && $ip !== '127.0.0.1') {
+                return $ip;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
+$localIP = getLocalIP();
+
+/* =====================
+   Commands
+===================== */
+switch ($command) {
+
+    /* ---------- INSTALL ---------- */
+    case 'install':
+        title("Stack Installer");
+
+        if (!file_exists(ROOT . '/composer.json')) {
+            fail("composer.json not found");
+        }
+
+        if (!commandExists('composer')) {
+            fail("Composer is not installed");
+        }
+
+        title("Installing Composer dependencies");
+        passthru("composer install --no-interaction", $code);
+        if ($code !== 0) fail("Composer install failed");
+        ok("Composer dependencies installed");
+
+        title("Checking PostgreSQL PDO driver");
+
+        if (hasExtension('pdo_pgsql')) {
+            ok("pdo_pgsql already enabled");
+            break;
+        }
+
+        warn("pdo_pgsql not found, installing…");
+
+        if (isTermux()) {
+            passthru("pkg install -y postgresql php-pgsql", $code);
+        } elseif (commandExists('apt')) {
+            passthru("sudo apt update && sudo apt install -y php-pgsql", $code);
+        } elseif (commandExists('brew')) {
+            passthru("brew install postgresql", $code);
+        } else {
+            fail("Unsupported OS — install pdo_pgsql manually");
+        }
+
+        if (!hasExtension('pdo_pgsql')) {
+            fail("pdo_pgsql install failed — restart PHP");
+        }
+
+        ok("PostgreSQL PDO driver installed");
+        title("Installation complete 🎉");
+        break;
+
+    /* ---------- DEV ---------- */
+    case 'dev':
+        title("Development Server");
+
+        ini_set('display_errors', 1);
+        error_reporting(E_ALL);
+
+        echo color("Local:   ", 'bold') . "http://localhost:$port\n";
+        echo color("Network: ", 'bold') . "http://$localIP:$port\n";
+        warn("Press Ctrl+C to stop");
+
+        passthru("php -S $host:$port -t .");
+        break;
+
+    /* ---------- START ---------- */
+    case 'start':
+        title("Production Server");
+
+        if (!is_dir(LOGS)) mkdir(LOGS, 0755, true);
+
+        ini_set('display_errors', 0);
+        ini_set('log_errors', 1);
+        ini_set('error_log', LOGS . '/server.log');
+        error_reporting(E_ALL);
+
+        echo color("Local:   ", 'bold') . "http://localhost:$port\n";
+        echo color("Network: ", 'bold') . "http://$localIP:$port\n";
+
+        if (!file_exists(CRON_PID)) {
+            title("Starting cron runner");
+            exec("php " . ROOT . "/stack cron > /dev/null 2>&1 & echo $! > " . CRON_PID);
+            ok("Cron started");
+        } else {
+            warn("Cron already running");
+        }
+
+        passthru("php -S $host:$port -t .");
+        break;
+
+    /* ---------- CRON LIST ---------- */
+    case 'cron:list':
+        title("Cron Status");
+
+        if (!file_exists(CRON_PID)) {
+            warn("Cron is not running");
+            break;
+        }
+
+        $pid = trim(file_get_contents(CRON_PID));
+
+        if (!posix_kill((int)$pid, 0)) {
+            warn("Cron PID file exists but process is dead");
+            unlink(CRON_PID);
+            break;
+        }
+
+        ok("Cron is running");
+        echo color("PID: ", 'bold') . "$pid\n";
+
+        $started = trim(shell_exec("ps -o lstart= -p $pid"));
+        if ($started) {
+            echo color("Started: ", 'bold') . "$started\n";
+        }
+
+        $cronDir = ROOT . '/utils/cron';
+        echo "\n" . color("Registered Jobs:", 'cyan') . "\n";
+
+        if (!is_dir($cronDir)) {
+            warn("utils/cron directory missing");
+            break;
+        }
+
+        $jobs = glob("$cronDir/*.php");
+        if (!$jobs) {
+            warn("No cron jobs found");
+            break;
+        }
+
+        foreach ($jobs as $job) {
+            ok(basename($job));
+        }
+        break;
+
+    /* ---------- CRON ---------- */
+    case 'cron':
+        if (!is_dir(LOGS)) mkdir(LOGS, 0755, true);
+        file_put_contents(CRON_PID, getmypid());
+
+        title("Cron Runner Active");
+
+        $cronDir = ROOT . '/utils/cron';
+        if (!is_dir($cronDir)) {
+            fail("utils/cron directory missing");
+        }
+
+        while (true) {
+            foreach (glob("$cronDir/*.php") as $job) {
+                try {
+                    include $job;
+                } catch (Throwable $e) {
+                    error_log($e);
+                }
+            }
+            sleep(60);
+        }
+
+    default:
+        fail("Unknown command");
+}
