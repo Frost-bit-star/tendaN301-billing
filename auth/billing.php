@@ -1,10 +1,9 @@
 <?php
-// /auth/billing.php
 require_once __DIR__ . '/config.php';
 header('Content-Type: application/json');
 
 // -----------------------
-// GET REQUEST PARAMS
+// PARAMS
 // -----------------------
 $router_id = $_GET['id'] ?? null;
 $paid_mac  = $_GET['paid_mac'] ?? null;
@@ -12,12 +11,12 @@ $plan_id   = $_GET['plan_id'] ?? null;
 
 if (!$router_id) {
     http_response_code(400);
-    echo json_encode(['error' => 'Router ID not specified.']);
+    echo json_encode(['error' => 'Router ID missing']);
     exit;
 }
 
 // -----------------------
-// FETCH ROUTER CONFIG
+// ROUTER CONFIG
 // -----------------------
 $routerData = getRouterConfig($router_id);
 if (!$routerData) {
@@ -32,32 +31,34 @@ $router   = "http://$ip" . ($port != 80 ? ":$port" : "");
 $password = $routerData['password'];
 
 // -----------------------
-// LOGIN TO ROUTER
+// LOGIN
 // -----------------------
 $cookie = createCookieFile();
-curl_post("$router/login/Auth", ["password" => base64_encode($password)], $cookie);
+curl_post("$router/login/Auth", [
+    "password" => base64_encode($password)
+], $cookie);
 
 // -----------------------
-// CONNECT TO DATABASE
+// DATABASE
 // -----------------------
 $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // -----------------------
-// UPDATE USER INTERNET ACCESS
+// MARK PAID USER
 // -----------------------
 if ($paid_mac) {
     $paid_mac = strtolower($paid_mac);
-    $stmt = $db->prepare("UPDATE users SET internet_access = 1, plan_id = :plan_id WHERE mac = :mac AND router_id = :router_id");
-    $stmt->execute([
-        ':mac'       => $paid_mac,
-        ':router_id' => $router_id,
-        ':plan_id'   => $plan_id ?? null
-    ]);
+    $stmt = $db->prepare("
+        UPDATE users
+        SET internet_access = 1, plan_id = ?
+        WHERE mac = ? AND router_id = ?
+    ");
+    $stmt->execute([$plan_id, $paid_mac, $router_id]);
 }
 
 // -----------------------
-// FETCH CURRENT ONLINE & BLACKLIST
+// FETCH ALL DEVICES
 // -----------------------
 $qos_json = curl_get(
     "$router/goform/getQos?random=" . microtime(true) . "&modules=onlineList,blackList",
@@ -65,108 +66,115 @@ $qos_json = curl_get(
     "$router/index.html"
 );
 
-$qos    = json_decode($qos_json, true);
+$qos    = json_decode($qos_json, true) ?: [];
 $online = $qos['onlineList'] ?? [];
 $black  = $qos['blackList'] ?? [];
 
-// -----------------------
-// BUILD NEW BLOCKLIST (like Python version)
-// -----------------------
-$new_blacklist = [];
-$all_macs = [];
-
-foreach (array_merge($online, $black) as $dev) {
-    $mac = strtolower($dev['qosListMac'] ?? '');
-    if (!$mac || in_array($mac, $all_macs)) continue;
-    $all_macs[] = $mac;
-
-    // Check user in DB
-    $stmt = $db->prepare("SELECT internet_access FROM users WHERE mac = ? AND router_id = ?");
-    $stmt->execute([$mac, $router_id]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$user) {
-        // Insert unknown device
-        $stmt = $db->prepare("
-            INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
-            VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
-            ON CONFLICT(mac, router_id) DO UPDATE SET hostname=excluded.hostname, ip=excluded.ip
-        ");
-        $stmt->execute([
-            $dev['qosListHostname'] ?? 'unknown',
-            $dev['qosListIP'] ?? '',
-            $mac,
-            $router_id
-        ]);
-        $user = ['internet_access' => 0];
-    }
-
-    // Block if no internet access
-    if ((int)$user['internet_access'] === 0) {
-        $dev['qosListAccess']    = 'false';
-        $dev['qosListUpLimit']   = '0';
-        $dev['qosListDownLimit'] = '0';
-        $new_blacklist[$mac] = $dev;
+// Merge unique MACs
+$devices = [];
+foreach (array_merge($online, $black) as $d) {
+    if (!empty($d['qosListMac'])) {
+        $mac = strtolower($d['qosListMac']);
+        $devices[$mac] = $d;
     }
 }
 
 // -----------------------
-// REBUILD FULL QOS TABLE
+// SYNC ALL DEVICES TO DB
 // -----------------------
-$qosList = "";
-
-// Online devices
-foreach ($online as $dev) {
-    $mac = strtolower($dev['qosListMac'] ?? '');
-    if (!$mac) continue;
-    if (isset($new_blacklist[$mac])) $dev = $new_blacklist[$mac];
-
-    $qosList .= sprintf(
-        "%s\t%s\t%s\t%s\t%s\t%s\n",
+foreach ($devices as $mac => $dev) {
+    $stmt = $db->prepare("
+        INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
+        VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+        ON CONFLICT(mac, router_id)
+        DO UPDATE SET hostname=excluded.hostname, ip=excluded.ip
+    ");
+    $stmt->execute([
         $dev['qosListHostname'] ?? 'unknown',
-        $dev['qosListRemark'] ?? '',
-        $dev['qosListMac'] ?? '',
-        $dev['qosListUpLimit'] ?? '0',
-        $dev['qosListDownLimit'] ?? '0',
-        $dev['qosListAccess'] ?? 'true'
+        $dev['qosListIP'] ?? '',
+        $mac,
+        $router_id
+    ]);
+}
+
+// -----------------------
+// BUILD QOS + MAC BLOCKLIST
+// -----------------------
+$qosList      = "";
+$macBlockList = [];
+
+$stmt = $db->prepare("
+    SELECT mac, internet_access
+    FROM users
+    WHERE router_id = ?
+");
+$stmt->execute([$router_id]);
+
+$users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($users as $u) {
+    $mac = strtolower($u['mac']);
+    if (!isset($devices[$mac])) continue;
+
+    $blocked = ((int)$u['internet_access'] === 0);
+
+    // QoS rule (1kbps = unusable)
+    $qosList .= sprintf(
+        "%s\t\t%s\t%s\t%s\t%s\n",
+        $devices[$mac]['qosListHostname'] ?? 'unknown',
+        strtoupper($mac),
+        $blocked ? '1' : '0',
+        $blocked ? '1' : '0',
+        $blocked ? 'false' : 'true'
     );
-}
 
-// Offline blocked devices
-foreach ($new_blacklist as $mac => $dev) {
-    $found = false;
-    foreach ($online as $o) {
-        if (strtolower($o['qosListMac']) === $mac) {
-            $found = true;
-            break;
-        }
-    }
-    if (!$found) {
-        $qosList .= sprintf(
-            "%s\t%s\t%s\t%s\t%s\t%s\n",
-            $dev['qosListHostname'] ?? 'unknown',
-            $dev['qosListRemark'] ?? '',
-            $dev['qosListMac'] ?? '',
-            $dev['qosListUpLimit'] ?? '0',
-            $dev['qosListDownLimit'] ?? '0',
-            $dev['qosListAccess'] ?? 'false'
-        );
+    // MAC FILTER (REAL BLOCK)
+    if ($blocked) {
+        $macBlockList[] = strtoupper($mac);
     }
 }
 
 // -----------------------
-// PUSH NEW QOS TO ROUTER
+// PUSH QOS
 // -----------------------
-curl_post("$router/goform/setQos", ['module1' => 'qosList', 'qosList' => $qosList], $cookie, "$router/index.html");
+$qosLen = substr_count(trim($qosList), "\n") + 1;
+
+curl_post("$router/goform/setQos", [
+    'module1'     => 'qosList',
+    'qosList'     => $qosList,
+    'qosListLen'  => $qosLen,
+    'qosEn'       => '1',
+    'qosAccessEn' => '1'
+], $cookie, "$router/index.html");
 
 // -----------------------
-// RETURN RESPONSE
+// APPLY MAC FILTER (BLOCK MODE)
+// -----------------------
+if (!empty($macBlockList)) {
+
+    curl_post("$router/goform/setMacFilter", [
+        'macFilterEn'  => '1',
+        'macFilterMode'=> 'deny',
+        'macList'      => implode(';', $macBlockList),
+        'macListLen'   => count($macBlockList)
+    ], $cookie, "$router/index.html");
+}
+
+// -----------------------
+// FORCE SAVE (NVRAM COMMIT)
+// -----------------------
+curl_post("$router/goform/save", [
+    'random' => time()
+], $cookie, "$router/index.html");
+
+// -----------------------
+// RESPONSE
 // -----------------------
 echo json_encode([
-    'router_id'     => $router_id,
-    'blocked_count' => count($new_blacklist),
-    'status'        => 'Billing updated successfully',
-    'paid_mac'      => $paid_mac ?? null,
-    'plan_id'       => $plan_id ?? null
+    'router_id'       => $router_id,
+    'total_devices'  => count($devices),
+    'blocked_devices'=> count($macBlockList),
+    'status'         => 'QoS + MAC filter enforced (persistent)',
+    'paid_mac'       => $paid_mac,
+    'plan_id'        => $plan_id
 ]);
-
