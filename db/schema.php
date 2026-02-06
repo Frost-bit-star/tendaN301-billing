@@ -49,4 +49,21 @@ CREATE TABLE IF NOT EXISTS users (
 )
 ");
 
+// -------------------------
+// Devices table (new)
+// -------------------------
+$db->exec("
+CREATE TABLE IF NOT EXISTS devices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    mac TEXT NOT NULL,
+    router_id INTEGER NOT NULL,
+    plan_id INTEGER DEFAULT NULL,
+    internet_access INTEGER DEFAULT 1,  -- 1 = Yes, 0 = No
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(router_id) REFERENCES routers(id),
+    FOREIGN KEY(plan_id) REFERENCES plans(id),
+    UNIQUE(mac, router_id)  -- enforce uniqueness per router
+)
+");
+
 echo "Database and tables created successfully.\n";

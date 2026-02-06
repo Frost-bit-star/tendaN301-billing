@@ -165,7 +165,7 @@
                 </li>
 
                 <li class="nav-item">
-                    <a href="add_user" class="nav-link">
+                    <a href="#" class="nav-link">
                         <i class="nav-icon fas fa-user-plus"></i>
                         <p>Add User</p>
                     </a>

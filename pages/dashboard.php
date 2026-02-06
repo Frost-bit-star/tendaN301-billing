@@ -97,7 +97,6 @@ include __DIR__ . '/../components/sidebar.php';
 .online { background:#1cc88a; }
 .offline { background:#e74a3b; }
 
-/* Plan badges */
 .plan-badge {
     display: inline-block;
     background: #4e73df;
@@ -202,7 +201,7 @@ async function showDevices(routerId, routerName) {
                     if (plan.hours) parts.push(`${plan.hours}h`);
                     if (plan.minutes) parts.push(`${plan.minutes}m`);
                     let duration = parts.join(' ') || '0m';
-                    plansHTML += `<span class="plan-badge" onclick="applyPlan('${dev.mac}', ${plan.id})">
+                    plansHTML += `<span class="plan-badge" onclick="redirectToAddUser('${dev.mac}', ${plan.id})">
                         ${plan.name} (${duration})
                     </span>`;
                 });
@@ -226,31 +225,11 @@ async function showDevices(routerId, routerName) {
     }
 }
 
-// Apply plan: mark as paid and remove from blacklist
-async function applyPlan(mac, planId) {
-    try {
-        const routerId = document.getElementById('routerNameHeading').dataset.routerId;
-        const formData = new URLSearchParams();
-        formData.append('id', routerId);
-        formData.append('paid_mac', mac);
-        formData.append('plan_id', planId); // optional: store plan
-
-        const res = await fetch(`/auth/billing.php?${formData.toString()}`, {
-            method: 'GET'
-        });
-
-        const json = await res.json();
-        if (json.status === 'Billing updated successfully') {
-            alert(`Plan applied! Device ${mac} now has access.`);
-            // Refresh table to show device unlocked
-            showDevices(routerId, document.getElementById('routerNameHeading').textContent);
-        } else {
-            alert(`Failed to apply plan: ${json.error || 'Unknown error'}`);
-        }
-    } catch (err) {
-        console.error(err);
-        alert('Error applying plan. Check console.');
-    }
+// Redirect to add_user.php with plan data in URL
+function redirectToAddUser(mac, planId) {
+    const routerId = document.getElementById('routerNameHeading').dataset.routerId;
+    const url = `/add_user?router_id=${routerId}&paid_mac=${mac}&plan_id=${planId}`;
+    window.location.href = url;
 }
 
 // Back to routers

@@ -7,7 +7,7 @@ session_start();
 error_reporting(E_ALL & ~E_DEPRECATED);
 
 // Optional: Display all errors except deprecations
-ini_set('display_errors', '1');
+//ini_set('display_errors', '1');
 
 // -----------------------------
 // Simple dynamic router
@@ -22,21 +22,13 @@ $page = trim($request, '/');
 
 // Default page
 if ($page === '') {
-    $page = 'dashboard'; // Default page is login
+    $page = 'dashboard'; // Default page is dashboard
 }
 
 // Sanitize page name to prevent directory traversal
-$page = basename($page);
+$page = basename($page); // Only get the last part of the URL
 
-// Check if the page is allowed for public access (e.g. login page)
-$publicPages = ['login'];
-
-if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
-    header('Location: /dashboard');
-    exit;
-}
-
-// Full path to page
+// Check if the page file exists
 $pageFile = __DIR__ . "/pages/$page.php";
 
 // Check if file exists
@@ -46,4 +38,3 @@ if (file_exists($pageFile)) {
     http_response_code(404);
     echo "<h1>404 - Page Not Found</h1>";
 }
-

@@ -1,22 +1,41 @@
 #!/usr/bin/env php
 <?php
 // stack - PHP mini-framework CLI launcher
-// Usage: php stack [install|dev|start|cron|cron:list]
+// Usage: php stack [install|dev|start|cron|cron:list|help|-h|build]
 
 $argv0 = $argv;
 array_shift($argv0);
-$command = $argv0[0] ?? 'dev';
+$command = $argv0[0] ?? 'help';  // Default to 'help' if no command is provided
 
 $host = '0.0.0.0';
 $port = 8000;
+$wsPort = 8001;  // WebSocket server on port 8001
 
 define('ROOT', __DIR__);
 define('LOGS', ROOT . '/logs');
 define('CRON_PID', LOGS . '/cron.pid');
 
-/* =====================
-   CLI UI helpers
-===================== */
+// =====================
+// System helpers
+// =====================
+function getLocalIP() {
+    $out = shell_exec("hostname -I 2>/dev/null");
+    if ($out) {
+        foreach (explode(' ', trim($out)) as $ip) {
+            if (filter_var($ip, FILTER_VALIDATE_IP) && $ip !== '127.0.0.1') {
+                return $ip;
+            }
+        }
+    }
+    return '127.0.0.1';
+}
+
+// Initialize the $localIP immediately after defining constants
+$localIP = getLocalIP(); // This will properly set $localIP for use later
+
+// =====================
+// CLI UI helpers
+// =====================
 function color($text, $color) {
     $c = [
         'red' => "\033[31m",
@@ -47,41 +66,107 @@ function fail($text) {
     exit(1);
 }
 
-/* =====================
-   System helpers
-===================== */
-function hasExtension($ext) {
-    return extension_loaded($ext);
-}
+// =====================
+// WebSocket Server (TCP-based)
+// =====================
+function startWebSocketServer($port) {
+    $address = "tcp://0.0.0.0:$port";
 
-function commandExists($cmd) {
-    return trim(shell_exec("command -v $cmd")) !== '';
-}
+    // Create WebSocket server
+    $server = stream_socket_server($address, $errno, $errstr);
+    if (!$server) {
+        fail("Error starting WebSocket server: $errstr ($errno)");
+    }
 
-function isTermux() {
-    return is_dir('/data/data/com.termux');
-}
+    title("WebSocket Server running at $address");
 
-function getLocalIP() {
-    $out = shell_exec("hostname -I 2>/dev/null");
-    if ($out) {
-        foreach (explode(' ', trim($out)) as $ip) {
-            if (filter_var($ip, FILTER_VALIDATE_IP) && $ip !== '127.0.0.1') {
-                return $ip;
+    while (true) {
+        $client = stream_socket_accept($server);
+        if ($client) {
+            // Read WebSocket handshake request
+            fread($client, 1024);
+
+            // Send WebSocket handshake response
+            $headers = "HTTP/1.1 101 Switching Protocols\r\n" .
+                       "Upgrade: websocket\r\n" .
+                       "Connection: Upgrade\r\n" .
+                       "Sec-WebSocket-Accept: " . base64_encode(sha1(
+                           trim(explode(' ', fgets(fgets($client), 1024))[1]) .
+                           '258EAFA5-E914-47DA-95CA-C5D5AA10A8F0', true)) .
+                       "\r\n\r\n";
+            fwrite($client, $headers);
+
+            // Keep the connection open
+            while (true) {
+                // Read WebSocket frame
+                $data = fread($client, 1024);
+                if ($data) {
+                    // Process message (echo back for now)
+                    fwrite($client, $data);
+                } else {
+                    // Close connection on client disconnect
+                    fclose($client);
+                    break;
+                }
             }
         }
     }
-    return '127.0.0.1';
 }
 
-$localIP = getLocalIP();
+// =====================
+// Development Server (php -S)
+// =====================
+function startDevServer($host, $port) {
+    title("Development Server");
 
-/* =====================
-   Commands
-===================== */
+    ini_set('display_errors', 1);
+    error_reporting(E_ALL);
+
+    echo color("Local:   ", 'bold') . "http://localhost:$port\n";
+    echo color("Network: ", 'bold') . "http://$localIP:$port\n"; // Now using the initialized $localIP
+    warn("Press Ctrl+C to stop");
+
+    passthru("php -S $host:$port -t .");  // Regular PHP development server
+}
+
+// =====================
+// Commands
+// =====================
 switch ($command) {
 
-    /* ---------- INSTALL ---------- */
+    // ---------- HELP or -h ----------
+    case 'help':
+    case '-h':
+        title("Help");
+        echo color("Usage: php stack [command]\n", 'bold');
+        echo "\n";
+        echo color("Commands:\n", 'cyan');
+        echo "  install    Install dependencies and set up environment\n";
+        echo "  dev        Start the development server\n";
+        echo "  start      Start the production server (HTTP + WebSocket)\n";
+        echo "  cron:list  List current cron jobs\n";
+        echo "  cron       Run cron jobs in the background\n";
+        echo "  build      Run database schema build script\n";
+        echo "  help, -h   Show this help message\n";
+        break;
+
+    // ---------- BUILD ----------
+    case 'build':
+        title("Running Schema Build");
+
+        if (!file_exists(ROOT . '/db/schema.php')) {
+            fail("Schema file (db/schema.php) not found.");
+        }
+
+        passthru("php " . ROOT . "/db/schema.php", $code);
+        if ($code !== 0) {
+            fail("Schema build failed");
+        }
+
+        ok("Schema build completed successfully.");
+        break;
+
+    // ---------- INSTALL ----------
     case 'install':
         title("Stack Installer");
 
@@ -98,73 +183,25 @@ switch ($command) {
         if ($code !== 0) fail("Composer install failed");
         ok("Composer dependencies installed");
 
-        title("Checking PostgreSQL PDO driver");
-
-        if (hasExtension('pdo_pgsql')) {
-            ok("pdo_pgsql already enabled");
-            break;
-        }
-
-        warn("pdo_pgsql not found, installing…");
-
-        if (isTermux()) {
-            passthru("pkg install -y postgresql php-pgsql", $code);
-        } elseif (commandExists('apt')) {
-            passthru("sudo apt update && sudo apt install -y php-pgsql", $code);
-        } elseif (commandExists('brew')) {
-            passthru("brew install postgresql", $code);
-        } else {
-            fail("Unsupported OS — install pdo_pgsql manually");
-        }
-
-        if (!hasExtension('pdo_pgsql')) {
-            fail("pdo_pgsql install failed — restart PHP");
-        }
-
-        ok("PostgreSQL PDO driver installed");
-        title("Installation complete 🎉");
+        ok("Installation complete 🎉");
         break;
 
-    /* ---------- DEV ---------- */
+    // ---------- DEV ----------
     case 'dev':
-        title("Development Server");
-
-        ini_set('display_errors', 1);
-        error_reporting(E_ALL);
-
-        echo color("Local:   ", 'bold') . "http://localhost:$port\n";
-        echo color("Network: ", 'bold') . "http://$localIP:$port\n";
-        warn("Press Ctrl+C to stop");
-
-        passthru("php -S $host:$port -t .");
+        startDevServer($host, $port);  // Use the development server
         break;
 
-    /* ---------- START ---------- */
+    // ---------- START ----------
     case 'start':
-        title("Production Server");
+        // Start HTTP server
+        startDevServer($host, $port);  // Same as dev, no need for TCP
 
-        if (!is_dir(LOGS)) mkdir(LOGS, 0755, true);
+        // Start WebSocket server (on port 8001)
+        startWebSocketServer($wsPort);  // Start WebSocket server
 
-        ini_set('display_errors', 0);
-        ini_set('log_errors', 1);
-        ini_set('error_log', LOGS . '/server.log');
-        error_reporting(E_ALL);
-
-        echo color("Local:   ", 'bold') . "http://localhost:$port\n";
-        echo color("Network: ", 'bold') . "http://$localIP:$port\n";
-
-        if (!file_exists(CRON_PID)) {
-            title("Starting cron runner");
-            exec("php " . ROOT . "/stack cron > /dev/null 2>&1 & echo $! > " . CRON_PID);
-            ok("Cron started");
-        } else {
-            warn("Cron already running");
-        }
-
-        passthru("php -S $host:$port -t .");
         break;
 
-    /* ---------- CRON LIST ---------- */
+    // ---------- CRON LIST ----------
     case 'cron:list':
         title("Cron Status");
 
@@ -208,7 +245,7 @@ switch ($command) {
         }
         break;
 
-    /* ---------- CRON ---------- */
+    // ---------- CRON ----------
     case 'cron':
         if (!is_dir(LOGS)) mkdir(LOGS, 0755, true);
         file_put_contents(CRON_PID, getmypid());
