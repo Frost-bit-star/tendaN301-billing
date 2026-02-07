@@ -49,7 +49,6 @@ function curl_get($url, $cookieFile = '', $referer = '') {
     return $res;
 }
 
-// Only define createCookieFile if not already defined
 if (!function_exists('createCookieFile')) {
     function createCookieFile() {
         return tempnam(sys_get_temp_dir(), 'cookie_');
@@ -79,44 +78,50 @@ foreach ($routers as $routerData) {
         curl_post("$router/login/Auth", ["password" => base64_encode($password)], $cookie);
 
         // -----------------------
-        // FETCH CURRENT ONLINE & BLOCKED DEVICES
+        // FETCH CURRENT ONLINE DEVICES
         // -----------------------
         $qos_json = curl_get("$router/goform/getQos?random=" . microtime(true) . "&modules=onlineList,macFilter", $cookie, "$router/index.html");
         $qos = json_decode($qos_json, true) ?: [];
         $online = $qos['onlineList'] ?? [];
-        $black  = $qos['macFilterList'] ?? [];
 
-        // Merge devices by MAC
-        $devices = [];
-        foreach (array_merge($online, $black) as $d) {
-            if (!empty($d['qosListMac'])) {
-                $mac = strtoupper($d['qosListMac']);
-                $devices[$mac] = $d;
+        // -----------------------
+        // SYNC NEW DEVICES TO DATABASE
+        // -----------------------
+        foreach ($online as $d) {
+            if (empty($d['qosListMac'])) continue;
+            $mac = strtoupper($d['qosListMac']);
+
+            // Check if device exists
+            $stmt = $db->prepare("SELECT 1 FROM users WHERE mac = ? AND router_id = ?");
+            $stmt->execute([$mac, $routerId]);
+            if (!$stmt->fetch()) {
+                // New device -> blocked by default
+                $stmtInsert = $db->prepare("
+                    INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
+                    VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+                ");
+                $stmtInsert->execute([
+                    $d['qosListHostname'] ?? 'unknown',
+                    $d['qosListIP'] ?? '',
+                    $mac,
+                    $routerId
+                ]);
+            } else {
+                // Existing device -> update hostname/IP if changed
+                $stmtUpdate = $db->prepare("UPDATE users SET hostname = ?, ip = ? WHERE mac = ? AND router_id = ?");
+                $stmtUpdate->execute([
+                    $d['qosListHostname'] ?? 'unknown',
+                    $d['qosListIP'] ?? '',
+                    $mac,
+                    $routerId
+                ]);
             }
         }
 
         // -----------------------
-        // SYNC DEVICES TO DATABASE
+        // FETCH FULL USERS LIST
         // -----------------------
-        foreach ($devices as $mac => $dev) {
-            $stmt = $db->prepare("
-                INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
-                VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
-                ON CONFLICT(mac, router_id)
-                DO UPDATE SET hostname=excluded.hostname, ip=excluded.ip
-            ");
-            $stmt->execute([
-                $dev['qosListHostname'] ?? 'unknown',
-                $dev['qosListIP'] ?? '',
-                $mac,
-                $routerId
-            ]);
-        }
-
-        // -----------------------
-        // FETCH USERS & PREPARE LISTS
-        // -----------------------
-        $stmt = $db->prepare("SELECT mac, internet_access, hostname FROM users WHERE router_id = ?");
+        $stmt = $db->prepare("SELECT * FROM users WHERE router_id = ?");
         $stmt->execute([$routerId]);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -125,52 +130,50 @@ foreach ($routers as $routerData) {
 
         foreach ($users as $u) {
             $mac = strtoupper($u['mac']);
-            if (!isset($devices[$mac])) continue;
+            $hostname = $u['hostname'] ?: 'unknown';
+            $upLimit = '0';
+            $downLimit = '0';
+            $blocked = ((int)$u['internet_access'] === 0); // blocked if internet_access = 0
+            $access = $blocked ? 'false' : 'true';
 
-            $blocked = ((int)$u['internet_access'] === 0);
-            $hostname = $u['hostname'] ?: $devices[$mac]['qosListHostname'] ?? 'unknown';
-            $upLimit   = $devices[$mac]['qosListUpLimit'] ?? '0';
-            $downLimit = $devices[$mac]['qosListDownLimit'] ?? '0';
-            $access    = $blocked ? 'false' : 'true';
-
+            // Online list entry
             $onlineList[] = "$hostname\t$hostname\t$mac\t$upLimit\t$downLimit\t$access";
 
+            // Blocked devices go into MAC filter
             if ($blocked) {
                 $macFilterList[] = "$hostname\t$hostname\t$mac\t$upLimit\t$downLimit\tfalse";
             }
         }
 
         $onlineListStr = implode("\n", $onlineList);
-        $macFilterStr  = implode("\n", $macFilterList);
+        $macFilterStr = implode("\n", $macFilterList);
 
         // -----------------------
-        // APPLY TO ROUTER (combined POST)
+        // PUSH TO ROUTER
         // -----------------------
-        $curFilterMode = count($macFilterList) > 0 ? 'deny' : 'pass';
-
         curl_post("$router/goform/setQos", [
             'module1'       => 'onlineList',
             'onlineList'    => $onlineListStr,
             'onlineListLen' => count($onlineList),
             'qosEn'         => '1',
-            'qosAccessEn'   => '1',
-            'module2'       => 'macFilter',
-            'macFilterList' => $macFilterStr,
-            'macFilterListLen' => count($macFilterList),
-            'curFilterMode' => $curFilterMode
+            'qosAccessEn'   => '1'
         ], $cookie, "$router/index.html");
 
-        // -----------------------
-        // SAVE SETTINGS
-        // -----------------------
+        curl_post("$router/goform/setMacFilter", [
+            'macFilterEn'      => count($macFilterList) > 0 ? '1' : '0',
+            'macFilterMode'    => 'deny',
+            'macFilterList'    => $macFilterStr,
+            'macFilterListLen' => count($macFilterList)
+        ], $cookie, "$router/index.html");
+
         curl_post("$router/goform/save", ['random' => time()], $cookie, "$router/index.html");
 
         $results[] = [
             'router_id'       => $routerId,
             'ip'              => $ip,
-            'total_devices'   => count($devices),
+            'total_devices'   => count($users),
             'blocked_devices' => count($macFilterList),
-            'status'          => 'QoS + MAC filter enforced'
+            'status'          => 'Full blocklist enforced'
         ];
 
     } catch (Exception $e) {

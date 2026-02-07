@@ -44,10 +44,12 @@ CREATE TABLE IF NOT EXISTS users (
     internet_access INTEGER DEFAULT 1,  -- 1 = Yes, 0 = No
     connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(router_id) REFERENCES routers(id),
-    FOREIGN KEY(plan_id) REFERENCES plans(id),
-    UNIQUE(mac, router_id)  -- enforce uniqueness per router
+    FOREIGN KEY(plan_id) REFERENCES plans(id)
 )
 ");
+
+// Ensure UNIQUE(mac, router_id) exists for users
+$db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_mac_router ON users(mac, router_id)");
 
 // -------------------------
 // Devices table (new)
@@ -61,9 +63,11 @@ CREATE TABLE IF NOT EXISTS devices (
     internet_access INTEGER DEFAULT 1,  -- 1 = Yes, 0 = No
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(router_id) REFERENCES routers(id),
-    FOREIGN KEY(plan_id) REFERENCES plans(id),
-    UNIQUE(mac, router_id)  -- enforce uniqueness per router
+    FOREIGN KEY(plan_id) REFERENCES plans(id)
 )
 ");
 
-echo "Database and tables created successfully.\n";
+// Ensure UNIQUE(mac, router_id) exists for devices
+$db->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_mac_router ON devices(mac, router_id)");
+
+echo "Database and tables created/updated successfully.\n";
