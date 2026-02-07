@@ -5,7 +5,7 @@
 
 this document focuses on the practical outcome and observations.  
 for a detailed, step-by-step technical breakdown of the reverse-engineering process, see  
-[reverse-engineer.md](./reverse-engineer.md)
+[full Docs](./Reverse-process.md)
 
 **Router Device List**  
 ![Device List](https://github.com/Frost-bit-star/tendaN301-billing/blob/main/Screenshot%20(31).png)
