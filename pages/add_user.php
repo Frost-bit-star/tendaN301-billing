@@ -10,7 +10,7 @@ $routerId = isset($_GET['router_id']) ? $_GET['router_id'] : '';
 $macAddress = isset($_GET['paid_mac']) ? $_GET['paid_mac'] : '';
 $planId = isset($_GET['plan_id']) ? $_GET['plan_id'] : '';
 
-// Handle validation or fetch data if needed (like router name, device details, etc.)
+// Handle validation
 if (empty($routerId) || empty($macAddress) || empty($planId)) {
     echo "<p class='text-danger'>Missing required parameters. Please check the URL and try again.</p>";
     exit;
@@ -35,48 +35,61 @@ $db->exec("CREATE TABLE IF NOT EXISTS billing (
     UNIQUE(mac, router_id)
 )");
 
-// Fetch router details from the database (just the name)
+// Fetch router details from the database
 $routerStmt = $db->prepare("SELECT name FROM routers WHERE id = ?");
 $routerStmt->execute([$routerId]);
 $router = $routerStmt->fetch(PDO::FETCH_ASSOC);
 
-// Fetch plan details from the database (name and duration)
+// Fetch plan details from the database
 $planStmt = $db->prepare("SELECT * FROM plans WHERE id = ?");
 $planStmt->execute([$planId]);
 $plan = $planStmt->fetch(PDO::FETCH_ASSOC);
 
-// Check if router and plan data exist
+// Check if router and plan exist
 if (!$router || !$plan) {
     echo "<p class='text-danger'>Invalid router or plan data. Please check the URL and try again.</p>";
     exit;
 }
 
 // Calculate plan duration in seconds
-$durationInSeconds = 0;
-if ($plan['days'] > 0) {
-    $durationInSeconds += $plan['days'] * 86400; // 1 day = 86400 seconds
-}
-if ($plan['hours'] > 0) {
-    $durationInSeconds += $plan['hours'] * 3600; // 1 hour = 3600 seconds
-}
-if ($plan['minutes'] > 0) {
-    $durationInSeconds += $plan['minutes'] * 60; // 1 minute = 60 seconds
-}
+$durationInSeconds = ($plan['days'] ?? 0) * 86400 + ($plan['hours'] ?? 0) * 3600 + ($plan['minutes'] ?? 0) * 60;
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'];
     $phoneNumber = $_POST['phone_number'];
 
-    // Insert the user into the billing table
-    $stmt = $db->prepare("INSERT INTO billing (router_id, mac, plan_id, name, phone_number, remaining_time) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$routerId, $macAddress, $planId, $name, $phoneNumber, $durationInSeconds]);
+    try {
+        // 1️⃣ Insert into billing table
+        $stmt = $db->prepare("INSERT INTO billing (router_id, mac, plan_id, name, phone_number, remaining_time) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$routerId, $macAddress, $planId, $name, $phoneNumber, $durationInSeconds]);
 
-    // Redirect back to dashboard after successful insert
-    header("Location: /dashboard");
-    exit;
+        // 2️⃣ Update the users table to mark the user as paid (internet_access = 1)
+        $stmt2 = $db->prepare("UPDATE users SET internet_access = 1 WHERE mac = ? AND router_id = ?");
+        $stmt2->execute([$macAddress, $routerId]);
+
+        // Optional: if user doesn't exist in 'users' yet, insert them with internet_access = 1
+        if ($stmt2->rowCount() === 0) {
+            $stmt3 = $db->prepare("
+                INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
+                VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+            ");
+            $stmt3->execute([
+                'unknown',        // hostname
+                '',               // ip
+                $macAddress,
+                $routerId
+            ]);
+        }
+
+        // Redirect back to dashboard after successful insert
+        header("Location: /dashboard");
+        exit;
+
+    } catch (PDOException $e) {
+        echo "<p class='text-danger'>Database error: " . htmlspecialchars($e->getMessage()) . "</p>";
+    }
 }
-
 ?>
 
 <div class="content-wrapper">
@@ -92,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p><strong>Plan Name: </strong><?php echo htmlspecialchars($plan['name']); ?></p>
                     <p><strong>Plan Duration: </strong>
                         <?php
-                            echo $plan['days'] . " days " . $plan['hours'] . " hours " . $plan['minutes'] . " minutes";
+                            echo ($plan['days'] ?? 0) . " days " . ($plan['hours'] ?? 0) . " hours " . ($plan['minutes'] ?? 0) . " minutes";
                         ?>
                     </p>
                 </div>
@@ -107,8 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="hidden" name="paid_mac" value="<?php echo htmlspecialchars($macAddress); ?>">
                         <input type="hidden" name="plan_id" value="<?php echo htmlspecialchars($planId); ?>">
                         <input type="hidden" name="remaining_time" value="<?php echo $durationInSeconds; ?>">
-                        
-                        <!-- New input fields for user details -->
+
+                        <!-- User details -->
                         <div class="form-group">
                             <label for="userName">Name</label>
                             <input type="text" name="name" id="userName" class="form-control" placeholder="Enter Name" required>

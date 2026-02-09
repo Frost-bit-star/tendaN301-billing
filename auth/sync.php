@@ -49,12 +49,6 @@ function curl_get($url, $cookieFile = '', $referer = '') {
     return $res;
 }
 
-if (!function_exists('createCookieFile')) {
-    function createCookieFile() {
-        return tempnam(sys_get_temp_dir(), 'cookie_');
-    }
-}
-
 // -----------------------
 // GET ALL ROUTERS
 // -----------------------
@@ -74,7 +68,7 @@ foreach ($routers as $routerData) {
         // -----------------------
         // LOGIN
         // -----------------------
-        $cookie = createCookieFile();
+        $cookie = createCookieFile(); // from config.php
         curl_post("$router/login/Auth", ["password" => base64_encode($password)], $cookie);
 
         // -----------------------
@@ -91,11 +85,11 @@ foreach ($routers as $routerData) {
             if (empty($d['qosListMac'])) continue;
             $mac = strtoupper($d['qosListMac']);
 
-            // Check if device exists
             $stmt = $db->prepare("SELECT 1 FROM users WHERE mac = ? AND router_id = ?");
             $stmt->execute([$mac, $routerId]);
+
             if (!$stmt->fetch()) {
-                // New device -> blocked by default
+                // New device -> set internet_access = 0 (unpaid/throttle)
                 $stmtInsert = $db->prepare("
                     INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
                     VALUES (?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
@@ -107,7 +101,7 @@ foreach ($routers as $routerData) {
                     $routerId
                 ]);
             } else {
-                // Existing device -> update hostname/IP if changed
+                // Update hostname/IP if changed
                 $stmtUpdate = $db->prepare("UPDATE users SET hostname = ?, ip = ? WHERE mac = ? AND router_id = ?");
                 $stmtUpdate->execute([
                     $d['qosListHostname'] ?? 'unknown',
@@ -126,23 +120,24 @@ foreach ($routers as $routerData) {
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $onlineList = [];
-        $macFilterList = [];
+        $macFilterList = []; // optional, we keep empty because throttling replaces blocking
 
         foreach ($users as $u) {
             $mac = strtoupper($u['mac']);
             $hostname = $u['hostname'] ?: 'unknown';
-            $upLimit = '0';
-            $downLimit = '0';
-            $blocked = ((int)$u['internet_access'] === 0); // blocked if internet_access = 0
-            $access = $blocked ? 'false' : 'true';
 
-            // Online list entry
-            $onlineList[] = "$hostname\t$hostname\t$mac\t$upLimit\t$downLimit\t$access";
-
-            // Blocked devices go into MAC filter
-            if ($blocked) {
-                $macFilterList[] = "$hostname\t$hostname\t$mac\t$upLimit\t$downLimit\tfalse";
+            // Determine bandwidth limits
+            if ((int)$u['internet_access'] === 1) {
+                // Paid user -> 10 MB/s = 10240 KB/s
+                $upLimit = 10240;
+                $downLimit = 10240;
+            } else {
+                // Unpaid -> throttle to 1 KB/s
+                $upLimit = 1;
+                $downLimit = 1;
             }
+
+            $onlineList[] = "$hostname\t$hostname\t$mac\t$upLimit\t$downLimit\ttrue";
         }
 
         $onlineListStr = implode("\n", $onlineList);
@@ -159,6 +154,7 @@ foreach ($routers as $routerData) {
             'qosAccessEn'   => '1'
         ], $cookie, "$router/index.html");
 
+        // Push empty MAC filter (optional)
         curl_post("$router/goform/setMacFilter", [
             'macFilterEn'      => count($macFilterList) > 0 ? '1' : '0',
             'macFilterMode'    => 'deny',
@@ -172,8 +168,8 @@ foreach ($routers as $routerData) {
             'router_id'       => $routerId,
             'ip'              => $ip,
             'total_devices'   => count($users),
-            'blocked_devices' => count($macFilterList),
-            'status'          => 'Full blocklist enforced'
+            'throttled_devices' => count(array_filter($users, fn($x) => (int)$x['internet_access'] === 0)),
+            'status'          => 'QoS throttling enforced'
         ];
 
     } catch (Exception $e) {

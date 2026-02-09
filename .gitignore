@@ -7,6 +7,9 @@
 # Ignore logs
 /logs/
 
+# Ignore Node.js modules
+/node_modules/
+
 # Optional: Ignore common PHP temporary files
 *.log
 *.cache

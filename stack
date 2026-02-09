@@ -1,132 +1,150 @@
 #!/usr/bin/env php
 <?php
 // stack - PHP mini-framework CLI launcher
-// Usage: php stack [install|dev|start|cron|cron:list|help|-h|build]
+// Usage: php stack [install|dev|start|cron|run:worker|stop:worker|help|-h]
 
 $argv0 = $argv;
 array_shift($argv0);
-$command = $argv0[0] ?? 'help';  // Default to 'help' if no command is provided
+$command = $argv0[0] ?? 'help';
 
 $host = '0.0.0.0';
 $port = 8000;
-$wsPort = 8001;  // WebSocket server on port 8001
 
 define('ROOT', __DIR__);
 define('LOGS', ROOT . '/logs');
-define('CRON_PID', LOGS . '/cron.pid');
+if (!is_dir(LOGS)) mkdir(LOGS, 0777, true);
+
+/**
+ * 🔒 Always run from project root
+ */
+chdir(ROOT);
 
 // =====================
-// System helpers
+// Helpers
 // =====================
 function getLocalIP() {
-    $out = shell_exec("hostname -I 2>/dev/null");
-    if ($out) {
-        foreach (explode(' ', trim($out)) as $ip) {
-            if (filter_var($ip, FILTER_VALIDATE_IP) && $ip !== '127.0.0.1') {
-                return $ip;
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        $out = shell_exec("ipconfig");
+        if ($out && preg_match('/IPv4 Address[. ]*: ([0-9\.]+)/', $out, $m)) return $m[1];
+    } else {
+        $out = shell_exec("hostname -I 2>/dev/null");
+        if ($out) {
+            foreach (explode(' ', trim($out)) as $ip) {
+                if (filter_var($ip, FILTER_VALIDATE_IP) && $ip !== '127.0.0.1') return $ip;
             }
         }
     }
     return '127.0.0.1';
 }
+$localIP = getLocalIP();
 
-// Initialize the $localIP immediately after defining constants
-$localIP = getLocalIP(); // This will properly set $localIP for use later
-
-// =====================
-// CLI UI helpers
-// =====================
 function color($text, $color) {
     $c = [
-        'red' => "\033[31m",
+        'red'   => "\033[31m",
         'green' => "\033[32m",
-        'yellow' => "\033[33m",
-        'blue' => "\033[34m",
-        'cyan' => "\033[36m",
-        'bold' => "\033[1m",
+        'yellow'=> "\033[33m",
+        'cyan'  => "\033[36m",
+        'bold'  => "\033[1m",
         'reset' => "\033[0m",
     ];
     return ($c[$color] ?? '') . $text . $c['reset'];
 }
 
-function title($text) {
-    echo "\n" . color("▶ $text\n", 'cyan');
-}
+function title($text) { echo "\n" . color("▶ $text\n", 'cyan'); }
+function ok($text)    { echo color("✔ $text\n", 'green'); }
+function warn($text)  { echo color("⚠ $text\n", 'yellow'); }
+function fail($text)  { echo color("✖ $text\n", 'red'); exit(1); }
 
-function ok($text) {
-    echo color("✔ $text\n", 'green');
-}
+// =====================
+// ASCII Banner
+// =====================
+function showBanner() {
+    echo color("
+███████╗████████╗ █████╗  ██████╗██╗  ██╗
+██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
+███████╗   ██║   ███████║██║     █████╔╝
+╚════██║   ██║   ██╔══██║██║     ██╔═██╗
+███████║   ██║   ██║  ██║╚██████╗██║  ██╗
+╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+", 'cyan');
 
-function warn($text) {
-    echo color("⚠ $text\n", 'yellow');
-}
-
-function fail($text) {
-    echo color("✖ $text\n", 'red');
-    exit(1);
+    echo color(" Lightweight PHP Stack • Dev Server • Workers\n\n", 'bold');
 }
 
 // =====================
-// WebSocket Server (TCP-based)
+// PM2 resolver
 // =====================
-function startWebSocketServer($port) {
-    $address = "tcp://0.0.0.0:$port";
+function resolvePm2() {
+    exec("pm2 --version 2>&1", $o, $c);
+    if ($c === 0) return "pm2";
 
-    // Create WebSocket server
-    $server = stream_socket_server($address, $errno, $errstr);
-    if (!$server) {
-        fail("Error starting WebSocket server: $errstr ($errno)");
+    if (file_exists(ROOT . '/node_modules/.bin/pm2')) {
+        return '"' . ROOT . '/node_modules/.bin/pm2"';
     }
 
-    title("WebSocket Server running at $address");
+    exec("npx pm2 --version 2>&1", $o, $c);
+    if ($c === 0) return "npx pm2";
 
-    while (true) {
-        $client = stream_socket_accept($server);
-        if ($client) {
-            // Read WebSocket handshake request
-            fread($client, 1024);
-
-            // Send WebSocket handshake response
-            $headers = "HTTP/1.1 101 Switching Protocols\r\n" .
-                       "Upgrade: websocket\r\n" .
-                       "Connection: Upgrade\r\n" .
-                       "Sec-WebSocket-Accept: " . base64_encode(sha1(
-                           trim(explode(' ', fgets(fgets($client), 1024))[1]) .
-                           '258EAFA5-E914-47DA-95CA-C5D5AA10A8F0', true)) .
-                       "\r\n\r\n";
-            fwrite($client, $headers);
-
-            // Keep the connection open
-            while (true) {
-                // Read WebSocket frame
-                $data = fread($client, 1024);
-                if ($data) {
-                    // Process message (echo back for now)
-                    fwrite($client, $data);
-                } else {
-                    // Close connection on client disconnect
-                    fclose($client);
-                    break;
-                }
-            }
-        }
-    }
+    fail("PM2 not found. Run: npm install pm2");
 }
 
 // =====================
-// Development Server (php -S)
+// Development server
 // =====================
-function startDevServer($host, $port) {
+function startDevServer($host, $port, $localIP) {
     title("Development Server");
-
-    ini_set('display_errors', 1);
-    error_reporting(E_ALL);
-
     echo color("Local:   ", 'bold') . "http://localhost:$port\n";
-    echo color("Network: ", 'bold') . "http://$localIP:$port\n"; // Now using the initialized $localIP
+    echo color("Network: ", 'bold') . "http://$localIP:$port\n";
     warn("Press Ctrl+C to stop");
+    passthru("php -S $host:$port -t .");
+}
 
-    passthru("php -S $host:$port -t .");  // Regular PHP development server
+// =====================
+// Sync loop
+// =====================
+function startSync() {
+    $file = ROOT . '/auth/sync.php';
+    if (!file_exists($file)) fail("/auth/sync.php not found!");
+
+    title("Starting sync loop");
+    while (true) {
+        try { require $file; }
+        catch (Throwable $e) { error_log($e); }
+        sleep(60);
+    }
+}
+
+// =====================
+// PM2 worker
+// =====================
+function startPm2Worker() {
+    $file = ROOT . '/auth/sync.php';
+    if (!file_exists($file)) fail("/auth/sync.php not found!");
+
+    $pm2 = resolvePm2();
+    title("Starting PM2 worker");
+
+    $cmd = sprintf(
+        '%s start php --name stack-sync-worker -- %s --log %s/sync.log --time 2>&1',
+        $pm2,
+        escapeshellarg($file),
+        LOGS
+    );
+
+    passthru($cmd, $code);
+    if ($code !== 0) fail("PM2 failed to start worker");
+
+    ok("PM2 worker running (stack-sync-worker)");
+}
+
+function stopPm2Worker() {
+    $pm2 = resolvePm2();
+    title("Stopping PM2 worker");
+
+    passthru("$pm2 stop stack-sync-worker 2>&1");
+    passthru("$pm2 delete stack-sync-worker 2>&1");
+
+    ok("PM2 worker stopped");
 }
 
 // =====================
@@ -134,140 +152,61 @@ function startDevServer($host, $port) {
 // =====================
 switch ($command) {
 
-    // ---------- HELP or -h ----------
+    case 'install':
+        title("Installing PHP dependencies (Composer)");
+
+        exec("composer --version 2>&1", $o, $c);
+        if ($c === 0) {
+            passthru("composer install 2>&1", $c);
+        } elseif (file_exists(ROOT . '/composer.phar')) {
+            passthru("php composer.phar install 2>&1", $c);
+        } else {
+            fail("Composer not found");
+        }
+
+        if ($c !== 0) fail("Composer install failed");
+        ok("Composer installed");
+
+        title("Installing Node dependencies (npm)");
+        passthru("npm install 2>&1", $c);
+        if ($c !== 0) fail("npm install failed");
+
+        ok("NPM installed");
+        ok("All dependencies installed");
+        break;
+
+    case 'run:worker':
+        startPm2Worker();
+        break;
+
+    case 'stop:worker':
+        stopPm2Worker();
+        break;
+
+    case 'dev':
+        startDevServer($host, $port, $localIP);
+        break;
+
+    case 'start':
+        showBanner();
+        startDevServer($host, $port, $localIP);
+        break;
+
+    case 'cron':
+        startSync();
+        break;
+
     case 'help':
     case '-h':
         title("Help");
-        echo color("Usage: php stack [command]\n", 'bold');
-        echo "\n";
-        echo color("Commands:\n", 'cyan');
-        echo "  install    Install dependencies and set up environment\n";
-        echo "  dev        Start the development server\n";
-        echo "  start      Start the production server (HTTP + WebSocket)\n";
-        echo "  cron:list  List current cron jobs\n";
-        echo "  cron       Run cron jobs in the background\n";
-        echo "  build      Run database schema build script\n";
-        echo "  help, -h   Show this help message\n";
+        echo "php stack install\n";
+        echo "php stack dev\n";
+        echo "php stack start\n";
+        echo "php stack run:worker\n";
+        echo "php stack stop:worker\n";
+        echo "php stack cron\n";
         break;
-
-    // ---------- BUILD ----------
-    case 'build':
-        title("Running Schema Build");
-
-        if (!file_exists(ROOT . '/db/schema.php')) {
-            fail("Schema file (db/schema.php) not found.");
-        }
-
-        passthru("php " . ROOT . "/db/schema.php", $code);
-        if ($code !== 0) {
-            fail("Schema build failed");
-        }
-
-        ok("Schema build completed successfully.");
-        break;
-
-    // ---------- INSTALL ----------
-    case 'install':
-        title("Stack Installer");
-
-        if (!file_exists(ROOT . '/composer.json')) {
-            fail("composer.json not found");
-        }
-
-        if (!commandExists('composer')) {
-            fail("Composer is not installed");
-        }
-
-        title("Installing Composer dependencies");
-        passthru("composer install --no-interaction", $code);
-        if ($code !== 0) fail("Composer install failed");
-        ok("Composer dependencies installed");
-
-        ok("Installation complete 🎉");
-        break;
-
-    // ---------- DEV ----------
-    case 'dev':
-        startDevServer($host, $port);  // Use the development server
-        break;
-
-    // ---------- START ----------
-    case 'start':
-        // Start HTTP server
-        startDevServer($host, $port);  // Same as dev, no need for TCP
-
-        // Start WebSocket server (on port 8001)
-        startWebSocketServer($wsPort);  // Start WebSocket server
-
-        break;
-
-    // ---------- CRON LIST ----------
-    case 'cron:list':
-        title("Cron Status");
-
-        if (!file_exists(CRON_PID)) {
-            warn("Cron is not running");
-            break;
-        }
-
-        $pid = trim(file_get_contents(CRON_PID));
-
-        if (!posix_kill((int)$pid, 0)) {
-            warn("Cron PID file exists but process is dead");
-            unlink(CRON_PID);
-            break;
-        }
-
-        ok("Cron is running");
-        echo color("PID: ", 'bold') . "$pid\n";
-
-        $started = trim(shell_exec("ps -o lstart= -p $pid"));
-        if ($started) {
-            echo color("Started: ", 'bold') . "$started\n";
-        }
-
-        $cronDir = ROOT . '/utils/cron';
-        echo "\n" . color("Registered Jobs:", 'cyan') . "\n";
-
-        if (!is_dir($cronDir)) {
-            warn("utils/cron directory missing");
-            break;
-        }
-
-        $jobs = glob("$cronDir/*.php");
-        if (!$jobs) {
-            warn("No cron jobs found");
-            break;
-        }
-
-        foreach ($jobs as $job) {
-            ok(basename($job));
-        }
-        break;
-
-    // ---------- CRON ----------
-    case 'cron':
-        if (!is_dir(LOGS)) mkdir(LOGS, 0755, true);
-        file_put_contents(CRON_PID, getmypid());
-
-        title("Cron Runner Active");
-
-        $cronDir = ROOT . '/utils/cron';
-        if (!is_dir($cronDir)) {
-            fail("utils/cron directory missing");
-        }
-
-        while (true) {
-            foreach (glob("$cronDir/*.php") as $job) {
-                try {
-                    include $job;
-                } catch (Throwable $e) {
-                    error_log($e);
-                }
-            }
-            sleep(60);
-        }
 
     default:
-        fail("Unknown command");
+        fail("Unknown command: $command");
 }
