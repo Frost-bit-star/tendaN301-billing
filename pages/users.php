@@ -1,5 +1,4 @@
 <?php
-// Start output buffering
 ob_start();
 
 // Include header and sidebar
@@ -10,63 +9,49 @@ include __DIR__ . '/../components/sidebar.php';
 $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Fetch all routers from the database
-$routerStmt = $db->prepare("SELECT id, name FROM routers");
-$routerStmt->execute();
-$routers = $routerStmt->fetchAll(PDO::FETCH_ASSOC);
+// Fetch all routers and plans
+$routers = $db->query("SELECT id, name FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+$plans = $db->query("SELECT * FROM plans")->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch all plans for the dropdowns
-$plansStmt = $db->prepare("SELECT * FROM plans");
-$plansStmt->execute();
-$plans = $plansStmt->fetchAll(PDO::FETCH_ASSOC);
+// Function to format remaining time (for initial render)
+function formatRemainingTime($seconds) {
+    $days = floor($seconds / 86400);
+    $hours = floor(($seconds % 86400) / 3600);
+    $minutes = floor(($seconds % 3600) / 60);
+    $secs = $seconds % 60;
+    return "{$days}d {$hours}h {$minutes}m {$secs}s";
+}
 
-// Handle the form submission for plan change or renewal
+// Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Handle Renew Plan or Change Plan
-    if (isset($_POST['user_id']) && isset($_POST['new_plan_id'])) {
+    if (isset($_POST['user_id'], $_POST['new_plan_id'])) {
         $userId = $_POST['user_id'];
         $newPlanId = $_POST['new_plan_id'];
 
-        // Fetch the new plan details
         $newPlanStmt = $db->prepare("SELECT * FROM plans WHERE id = ?");
         $newPlanStmt->execute([$newPlanId]);
         $newPlan = $newPlanStmt->fetch(PDO::FETCH_ASSOC);
 
-        // Calculate new remaining time based on the new plan
-        $durationInSeconds = 0;
-        if ($newPlan['days'] > 0) {
-            $durationInSeconds += $newPlan['days'] * 86400; // 1 day = 86400 seconds
-        }
-        if ($newPlan['hours'] > 0) {
-            $durationInSeconds += $newPlan['hours'] * 3600; // 1 hour = 3600 seconds
-        }
-        if ($newPlan['minutes'] > 0) {
-            $durationInSeconds += $newPlan['minutes'] * 60; // 1 minute = 60 seconds
-        }
+        $durationInSeconds = ($newPlan['days'] ?? 0) * 86400
+                           + ($newPlan['hours'] ?? 0) * 3600
+                           + ($newPlan['minutes'] ?? 0) * 60;
 
-        // Update the billing table with the new plan and remaining time
         $updateStmt = $db->prepare("UPDATE billing SET plan_id = ?, remaining_time = ? WHERE id = ?");
         $updateStmt->execute([$newPlanId, $durationInSeconds, $userId]);
 
-        // Redirect back to the users page
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
     }
 
-    // Handle User Deletion
     if (isset($_POST['delete_user_id'])) {
         $deleteUserId = $_POST['delete_user_id'];
-
-        // Delete the user from the billing table
         $deleteStmt = $db->prepare("DELETE FROM billing WHERE id = ?");
         $deleteStmt->execute([$deleteUserId]);
 
-        // Redirect back to the users page
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
     }
 }
-
 ?>
 
 <div class="content-wrapper">
@@ -78,74 +63,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <h2><?php echo htmlspecialchars($router['name']); ?></h2>
 
                 <?php
-                // Fetch users for the current router
-                $stmt = $db->prepare("SELECT b.id, b.router_id, b.mac, b.name, b.phone_number, b.remaining_time, b.created_at, r.name AS router_name, p.name AS plan_name, p.days, p.hours, p.minutes 
-                                      FROM billing b
-                                      JOIN routers r ON b.router_id = r.id
-                                      JOIN plans p ON b.plan_id = p.id
-                                      WHERE b.router_id = ?");
+                $stmt = $db->prepare("
+                    SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
+                    FROM billing b
+                    JOIN plans p ON b.plan_id = p.id
+                    WHERE b.router_id = ?
+                    ORDER BY b.created_at DESC
+                ");
                 $stmt->execute([$router['id']]);
                 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 ?>
 
-                <!-- Display user table for the current router -->
-                <div class="card shadow mb-4">
-                    <div class="card-body">
-                        <table class="table table-bordered table-striped">
-                            <thead>
-                                <tr>
-                                    <th>User Name</th>
-                                    <th>Phone Number</th>
-                                    <th>Plan</th>
-                                    <th>Remaining Time</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($users as $user): 
-                                    // Calculate remaining time in a human-readable format (DD:HH:MM:SS)
-                                    $remainingTime = $user['remaining_time'];
-                                    $remainingTimeFormatted = gmdate("d:H:i:s", $remainingTime);
-                                    $isExpired = $remainingTime <= 0;
-                                ?>
-                                    <tr style="background-color: <?php echo $isExpired ? 'red' : ''; ?>">
-                                        <td><?php echo htmlspecialchars($user['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
-                                        <td><?php echo $remainingTimeFormatted; ?></td>
-                                        <td>
-                                            <!-- Change Plan Form -->
-                                            <form method="POST" class="d-inline-block">
-                                                <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                <select name="new_plan_id" class="form-control">
-                                                    <?php foreach ($plans as $plan): ?>
-                                                        <option value="<?php echo $plan['id']; ?>"><?php echo htmlspecialchars($plan['name']); ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <button type="submit" class="btn btn-info btn-sm mt-2">Change Plan</button>
-                                            </form>
-                                            <!-- Delete User Form -->
-                                            <form method="POST" class="d-inline-block mt-2">
-                                                <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
-                                                <button type="submit" class="btn btn-danger btn-sm">Delete User</button>
-                                            </form>
-                                        </td>
+                <?php if ($users): ?>
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Phone Number</th>
+                                        <th>MAC Address</th>
+                                        <th>Plan</th>
+                                        <th>Plan Duration</th>
+                                        <th>Remaining Time</th>
+                                        <th>Created At</th>
+                                        <th>Actions</th>
                                     </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($users as $user):
+                                        $planDuration = ($user['days'] ?? 0) . "d "
+                                                      . ($user['hours'] ?? 0) . "h "
+                                                      . ($user['minutes'] ?? 0) . "m";
+                                        $isExpired = $user['remaining_time'] <= 0;
+                                    ?>
+                                        <tr id="user-<?php echo $user['id']; ?>" style="background-color: <?php echo $isExpired ? '#f8d7da' : ''; ?>">
+                                            <td><?php echo htmlspecialchars($user['name']); ?></td>
+                                            <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
+                                            <td><?php echo htmlspecialchars($user['mac']); ?></td>
+                                            <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
+                                            <td><?php echo $planDuration; ?></td>
+                                            <td class="remaining-time" 
+                                                data-user-id="<?php echo $user['id']; ?>" 
+                                                data-remaining="<?php echo $user['remaining_time']; ?>">
+                                                <?php echo formatRemainingTime($user['remaining_time']); ?>
+                                            </td>
+                                            <td><?php echo $user['created_at']; ?></td>
+                                            <td>
+                                                <form method="POST" class="mb-1">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <select name="new_plan_id" class="form-control form-control-sm mb-1" <?php echo $isExpired ? 'disabled' : ''; ?>>
+                                                        <?php foreach ($plans as $plan): ?>
+                                                            <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $user['plan_id'] ? 'selected' : ''; ?>>
+                                                                <?php echo htmlspecialchars($plan['name']); ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                    <button type="submit" class="btn btn-info btn-sm w-100" <?php echo $isExpired ? 'disabled' : ''; ?>>Change Plan</button>
+                                                </form>
+                                                <form method="POST">
+                                                    <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
-
+                <?php else: ?>
+                    <p>No users found for this router.</p>
+                <?php endif; ?>
             <?php endforeach; ?>
-
         </div>
     </section>
 </div>
 
-<?php include __DIR__ . '/../components/footer.php'; ?>
+<script>
+// JavaScript countdown, directly using remaining_time from DB
+document.querySelectorAll('.remaining-time').forEach(td => {
+    let remaining = parseInt(td.dataset.remaining);
+    const userId = td.dataset.userId;
 
-<?php
-// End output buffering and flush the output
-ob_end_flush();
-?>
+    const interval = setInterval(() => {
+        if (remaining > 0) remaining--;
+
+        let d = Math.floor(remaining / 86400);
+        let h = Math.floor((remaining % 86400) / 3600);
+        let m = Math.floor((remaining % 3600) / 60);
+        let s = remaining % 60;
+        td.textContent = `${d}d ${h}h ${m}m ${s}s`;
+
+        // Mark expired
+        if (remaining <= 0) {
+            const row = document.getElementById('user-' + userId);
+            row.style.backgroundColor = '#f8d7da';
+            const select = row.querySelector('select');
+            const button = row.querySelector('button');
+            if (select) select.disabled = true;
+            if (button) button.disabled = true;
+            clearInterval(interval);
+        }
+    }, 1000);
+});
+</script>
+
+<?php include __DIR__ . '/../components/footer.php'; ?>
+<?php ob_end_flush(); ?>

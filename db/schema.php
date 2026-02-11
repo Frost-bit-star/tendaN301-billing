@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS routers (
 )
 ");
 
-// 🔥 Add missing router columns
+//  Add missing router columns
 addColumnIfMissing($db, 'routers', 'last_run', 'TEXT');
 addColumnIfMissing($db, 'routers', 'last_qos_hash', 'TEXT');
 
