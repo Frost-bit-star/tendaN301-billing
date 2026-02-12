@@ -3,6 +3,14 @@ require_once __DIR__ . '/config.php';
 header('Content-Type: application/json');
 
 // -----------------------
+// INTERNAL LOOP SETUP
+// -----------------------
+// Run once, then sleep 60 seconds before next iteration
+$loop = true; // you can set to false if you only want it once
+
+do {
+
+// -----------------------
 // DATABASE CONNECTION
 // -----------------------
 if (!file_exists(DB_PATH)) {
@@ -178,3 +186,12 @@ foreach ($routers as $routerData) {
 // FINAL RESPONSE
 // -----------------------
 echo json_encode($results, JSON_PRETTY_PRINT);
+
+// -----------------------
+// WAIT 1 MINUTE BEFORE NEXT ITERATION
+// -----------------------
+if ($loop) {
+    sleep(60); // wait 60 seconds
+}
+
+} while($loop);
