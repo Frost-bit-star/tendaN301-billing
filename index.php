@@ -7,7 +7,7 @@ session_start();
 error_reporting(E_ALL & ~E_DEPRECATED);
 
 // Optional: Display all errors except deprecations
-//ini_set('display_errors', '1');
+ini_set('display_errors', '1');
 
 // -----------------------------
 // Simple dynamic router
@@ -22,13 +22,21 @@ $page = trim($request, '/');
 
 // Default page
 if ($page === '') {
-    $page = 'dashboard'; // Default page is dashboard
+    $page = 'login'; // Default page is login
 }
 
 // Sanitize page name to prevent directory traversal
-$page = basename($page); // Only get the last part of the URL
+$page = basename($page);
 
-// Check if the page file exists
+// Check if the page is allowed for public access (e.g. login page)
+$publicPages = ['login'];
+
+if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
+    header('Location: /login');
+    exit;
+}
+
+// Full path to page
 $pageFile = __DIR__ . "/pages/$page.php";
 
 // Check if file exists

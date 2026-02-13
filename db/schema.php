@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS routers (
 )
 ");
 
-//  Add missing router columns
+// Add missing router columns
 addColumnIfMissing($db, 'routers', 'last_run', 'TEXT');
 addColumnIfMissing($db, 'routers', 'last_qos_hash', 'TEXT');
 
@@ -91,4 +91,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_mac_router
 ON devices(mac, router_id)
 ");
 
-echo "Database schema verified and missing columns added successfully.\n";
+// -------------------------
+// Admins table (login & recovery)
+// -------------------------
+$db->exec("
+CREATE TABLE IF NOT EXISTS admins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+");
+
+// Insert default admin if not exists
+$check = $db->prepare("SELECT COUNT(*) FROM admins WHERE username = :username");
+$check->execute([':username' => 'admin']);
+if ($check->fetchColumn() == 0) {
+    $insert = $db->prepare("
+        INSERT INTO admins (username, password, email)
+        VALUES (:username, :password, :email)
+    ");
+    // Password stored as plaintext for simplicity (consider using password_hash() for production)
+    $insert->execute([
+        ':username' => 'admin',
+        ':password' => '1111',
+        ':email' => 'jnyaragita12@gmail.com'
+    ]);
+}
+
+echo "Database schema verified and default admin added successfully.\n";
