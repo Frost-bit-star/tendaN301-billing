@@ -1,5 +1,5 @@
 <?php
-// create_db.php
+// schema.php
 
 $db = new PDO('sqlite:' . __DIR__ . '/routers.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -70,7 +70,7 @@ ON users(mac, router_id)
 ");
 
 // -------------------------
-// Devices table
+// Devices table (billing / active users)
 // -------------------------
 $db->exec("
 CREATE TABLE IF NOT EXISTS devices (
@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS devices (
     plan_id INTEGER DEFAULT NULL,
     internet_access INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    remaining_time INTEGER DEFAULT 0,
+    end_at TEXT DEFAULT NULL,
     FOREIGN KEY(router_id) REFERENCES routers(id),
     FOREIGN KEY(plan_id) REFERENCES plans(id)
 )
@@ -112,7 +114,7 @@ if ($check->fetchColumn() == 0) {
         INSERT INTO admins (username, password, email)
         VALUES (:username, :password, :email)
     ");
-    // Password stored as plaintext for simplicity (consider using password_hash() for production)
+    // Password stored as plaintext for simplicity (consider using password_hash() in production)
     $insert->execute([
         ':username' => 'admin',
         ':password' => '1111',
@@ -120,4 +122,10 @@ if ($check->fetchColumn() == 0) {
     ]);
 }
 
-echo "Database schema verified and default admin added successfully.\n";
+// -------------------------
+// Add missing columns for devices table if script re-run
+// -------------------------
+addColumnIfMissing($db, 'devices', 'remaining_time', 'INTEGER DEFAULT 0');
+addColumnIfMissing($db, 'devices', 'end_at', 'TEXT');
+
+echo "Database schema verified, devices table updated with end_at and remaining_time.\n";

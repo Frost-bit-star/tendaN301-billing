@@ -9,7 +9,7 @@ require_once __DIR__ . '/../auth/config.php';
 // RETRIEVE PARAMETERS
 // -----------------------
 $routerId   = $_GET['router_id'] ?? '';
-$macAddress = strtoupper($_GET['paid_mac'] ?? ''); // Ensure uppercase MAC
+$macAddress = strtoupper($_GET['paid_mac'] ?? '');
 $planId     = $_GET['plan_id'] ?? '';
 
 if (!$routerId || !$macAddress || !$planId) {
@@ -23,7 +23,7 @@ if (!$routerId || !$macAddress || !$planId) {
 $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Create billing table if not exists
+// Ensure billing table has necessary columns
 $db->exec("
 CREATE TABLE IF NOT EXISTS billing (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,13 +32,25 @@ CREATE TABLE IF NOT EXISTS billing (
     plan_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     phone_number TEXT NOT NULL,
-    remaining_time INTEGER NOT NULL,
+    remaining_time INTEGER,
+    end_at TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(router_id) REFERENCES routers(id),
     FOREIGN KEY(plan_id) REFERENCES plans(id),
     UNIQUE(mac, router_id)
-)");
- 
+)
+");
+
+// Add missing columns if they do not exist
+$columns = $db->query("PRAGMA table_info(billing)")->fetchAll(PDO::FETCH_ASSOC);
+$colNames = array_column($columns, 'name');
+if (!in_array('remaining_time', $colNames)) {
+    $db->exec("ALTER TABLE billing ADD COLUMN remaining_time INTEGER DEFAULT 0");
+}
+if (!in_array('end_at', $colNames)) {
+    $db->exec("ALTER TABLE billing ADD COLUMN end_at TEXT DEFAULT NULL");
+}
+
 // -----------------------
 // FETCH ROUTER & PLAN
 // -----------------------
@@ -56,7 +68,10 @@ if (!$router || !$plan) {
 }
 
 // Calculate plan duration in seconds
-$durationInSeconds = ($plan['days'] ?? 0) * 86400 + ($plan['hours'] ?? 0) * 3600 + ($plan['minutes'] ?? 0) * 60;
+$durationInSeconds = ($plan['days'] ?? 0) * 86400
+                   + ($plan['hours'] ?? 0) * 3600
+                   + ($plan['minutes'] ?? 0) * 60;
+$endAt = date('Y-m-d H:i:s', time() + $durationInSeconds);
 
 // -----------------------
 // CURL HELPERS
@@ -99,16 +114,16 @@ function curl_get($url, $cookieFile = '', $referer = '') {
 // HANDLE FORM SUBMISSION
 // -----------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = $_POST['name'];
-    $phoneNumber = $_POST['phone_number'];
+    $name = $_POST['name'] ?? 'Unknown';
+    $phoneNumber = $_POST['phone_number'] ?? '';
 
     try {
         // 1️⃣ Insert into billing
         $stmt = $db->prepare("
-            INSERT INTO billing (router_id, mac, plan_id, name, phone_number, remaining_time)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO billing (router_id, mac, plan_id, name, phone_number, remaining_time, end_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->execute([$routerId, $macAddress, $planId, $name, $phoneNumber, $durationInSeconds]);
+        $stmt->execute([$routerId, $macAddress, $planId, $name, $phoneNumber, $durationInSeconds, $endAt]);
 
         // 2️⃣ Update or insert user as paid
         $stmtCheck = $db->prepare("SELECT * FROM users WHERE mac = ? AND router_id = ?");
@@ -116,11 +131,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $existingUser = $stmtCheck->fetch(PDO::FETCH_ASSOC);
 
         if ($existingUser) {
-            // Mark as paid, preserve hostname/IP if exists
             $stmtUpdate = $db->prepare("UPDATE users SET internet_access = 1 WHERE mac = ? AND router_id = ?");
             $stmtUpdate->execute([$macAddress, $routerId]);
         } else {
-            // Insert new paid user
             $stmtInsert = $db->prepare("
                 INSERT INTO users (hostname, ip, mac, router_id, internet_access, connected_at)
                 VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
@@ -139,12 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cookie = createCookieFile();
         curl_post("$routerUrl/login/Auth", ["password" => base64_encode($password)], $cookie);
 
-        // Fetch all online devices
-        $qos_json = curl_get("$routerUrl/goform/getQos?random=" . microtime(true) . "&modules=onlineList,macFilter", $cookie, "$routerUrl/index.html");
-        $qos = json_decode($qos_json, true) ?: [];
-        $online = $qos['onlineList'] ?? [];
-
-        // Fetch all users from DB for this router
         $stmtUsers = $db->prepare("SELECT * FROM users WHERE router_id = ?");
         $stmtUsers->execute([$routerId]);
         $users = $stmtUsers->fetchAll(PDO::FETCH_ASSOC);
@@ -153,14 +160,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($users as $u) {
             $mac = strtoupper($u['mac']);
             $hostname = $u['hostname'] ?: 'unknown';
-
             $upLimit = ((int)$u['internet_access'] === 1) ? 10240 : 1;
             $downLimit = $upLimit;
-
             $onlineList[] = "$hostname\t$hostname\t$mac\t$upLimit\t$downLimit\ttrue";
         }
 
-        // Push full online list
         curl_post("$routerUrl/goform/setQos", [
             'module1' => 'onlineList',
             'onlineList' => implode("\n", $onlineList),
@@ -171,7 +175,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         curl_post("$routerUrl/goform/save", ['random' => time()], $cookie, "$routerUrl/index.html");
 
-        // Redirect to dashboard
         header("Location: /dashboard");
         exit;
 
@@ -189,12 +192,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="card shadow mb-4">
                 <div class="card-body">
                     <h4>Router Name: <?php echo htmlspecialchars($router['name']); ?></h4>
-                    <p><strong>MAC Address: </strong><?php echo htmlspecialchars($macAddress); ?></p>
-                    <p><strong>Plan Name: </strong><?php echo htmlspecialchars($plan['name']); ?></p>
-                    <p><strong>Plan Duration: </strong>
-                        <?php
-                            echo ($plan['days'] ?? 0) . " days " . ($plan['hours'] ?? 0) . " hours " . ($plan['minutes'] ?? 0) . " minutes";
-                        ?>
+                    <p><strong>MAC Address:</strong> <?php echo htmlspecialchars($macAddress); ?></p>
+                    <p><strong>Plan Name:</strong> <?php echo htmlspecialchars($plan['name']); ?></p>
+                    <p><strong>Plan Duration:</strong>
+                        <?php echo ($plan['days'] ?? 0) . " days " . ($plan['hours'] ?? 0) . " hours " . ($plan['minutes'] ?? 0) . " minutes"; ?>
                     </p>
                 </div>
             </div>
