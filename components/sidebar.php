@@ -144,7 +144,7 @@
                 </li>
 
                 <li class="nav-item">
-                    <a href="routers" class="nav-link">
+                    <a href="view" class="nav-link">
                         <i class="nav-icon fas fa-network-wired"></i>
                         <p>View Routers</p>
                     </a>

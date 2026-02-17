@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         curl_post("$routerUrl/goform/save", ['random' => time()], $cookie, "$routerUrl/index.html");
 
-        header("Location: /dashboard");
+        header("Location: /view");
         exit;
 
     } catch (Exception $e) {
