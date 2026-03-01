@@ -165,7 +165,7 @@
                 </li>
 
                 <li class="nav-item">
-                    <a href="#" class="nav-link">
+                    <a href="billuser" class="nav-link">
                         <i class="nav-icon fas fa-user-plus"></i>
                         <p>Add User</p>
                     </a>
@@ -193,9 +193,9 @@
                 </li>
 
                 <li class="nav-item">
-                    <a href="logs" class="nav-link">
+                    <a href="mikrotik" class="nav-link">
                         <i class="nav-icon fas fa-file-alt"></i>
-                        <p>Activity Logs</p>
+                        <p>Mikrotik </p>
                     </a>
                 </li>
 

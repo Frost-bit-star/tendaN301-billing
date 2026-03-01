@@ -28,8 +28,10 @@ CREATE TABLE IF NOT EXISTS routers (
 ");
 
 // Add missing router columns
-addColumnIfMissing($db, 'routers', 'last_run', 'TEXT');
-addColumnIfMissing($db, 'routers', 'last_qos_hash', 'TEXT');
+addColumnIfMissing($db, 'routers', 'last_run', 'TEXT');          // last time router was processed
+addColumnIfMissing($db, 'routers', 'last_qos_hash', 'TEXT');     // last QoS state hash
+addColumnIfMissing($db, 'routers', 'last_mode', 'TEXT');         // 'blacklist' or 'whitelist'
+addColumnIfMissing($db, 'routers', 'last_sync', 'INTEGER');      // unix timestamp of last push
 
 // -------------------------
 // Plans table
@@ -68,6 +70,10 @@ $db->exec("
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_mac_router
 ON users(mac, router_id)
 ");
+
+// Add missing sync tracking columns for users
+addColumnIfMissing($db, 'users', 'last_router_state', 'TEXT');  // true/false
+addColumnIfMissing($db, 'users', 'last_synced_at', 'INTEGER');   // unix timestamp
 
 // -------------------------
 // Devices table (billing / active users)
@@ -128,4 +134,4 @@ if ($check->fetchColumn() == 0) {
 addColumnIfMissing($db, 'devices', 'remaining_time', 'INTEGER DEFAULT 0');
 addColumnIfMissing($db, 'devices', 'end_at', 'TEXT');
 
-echo "Database schema verified, devices table updated with end_at and remaining_time.\n";
+echo "Database schema verified and updated with sync tracking columns.\n";

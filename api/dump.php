@@ -6,9 +6,9 @@ $routerIP = "192.168.0.1"; // router IP
 $files = [
     "userManage.js"    => "/js/userManage.js",
     "advanced.js"      => "/js/advanced.js",
-    "net-control.html" => "/net-control.html",
-    "login.html"       => "/login.html",
-    "wireless.js"      => "/js/wireless.js"
+    "net-control.js"   => "/js/net-control.js",
+    "ajax.js"       => "/js/libs/ajaxupload.js",
+    "system.js"      => "/js/system.js"
 ];
 $saveDir = __DIR__ . "/router_files";
 
