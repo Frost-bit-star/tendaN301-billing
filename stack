@@ -116,10 +116,10 @@ function startSync() {
 
 // =====================
 // PM2 worker
-// =====================
+// =====================s
 function startPm2Worker() {
-    $file = ROOT . '/auth/clean-table.php';
-    if (!file_exists($file)) fail("/auth/clean-table.php not found!");
+    $file = ROOT . '/auth/worker.php';
+    if (!file_exists($file)) fail("/auth/worker.php not found!");
 
     $pm2 = resolvePm2();
     title("Starting PM2 worker");

@@ -79,12 +79,12 @@ addColumnIfMissing($db, 'users', 'last_synced_at', 'INTEGER');   // unix timesta
 // Devices table (billing / active users)
 // -------------------------
 $db->exec("
-CREATE TABLE IF NOT EXISTS devices (
+CREATE TABLE IF NOT EXISTS billing (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     mac TEXT NOT NULL,
     router_id INTEGER NOT NULL,
     plan_id INTEGER DEFAULT NULL,
-    internet_access INTEGER DEFAULT 1,
+    internet_access INTEGER DEFAULT 1,  -- Add internet_access column here
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     remaining_time INTEGER DEFAULT 0,
     end_at TEXT DEFAULT NULL,
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS devices (
 // Ensure UNIQUE(mac, router_id)
 $db->exec("
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_mac_router
-ON devices(mac, router_id)
+ON billing(mac, router_id)
 ");
 
 // -------------------------
@@ -131,7 +131,13 @@ if ($check->fetchColumn() == 0) {
 // -------------------------
 // Add missing columns for devices table if script re-run
 // -------------------------
-addColumnIfMissing($db, 'devices', 'remaining_time', 'INTEGER DEFAULT 0');
-addColumnIfMissing($db, 'devices', 'end_at', 'TEXT');
+addColumnIfMissing($db, 'billing', 'remaining_time', 'INTEGER DEFAULT 0');
+addColumnIfMissing($db, 'billing', 'end_at', 'TEXT');
 
+// -------------------------
+// Ensure `internet_access` column exists in `billing` table
+addColumnIfMissing($db, 'billing', 'internet_access', 'INTEGER DEFAULT 1');
+
+// -------------------------
 echo "Database schema verified and updated with sync tracking columns.\n";
+?>
