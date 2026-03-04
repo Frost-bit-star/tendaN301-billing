@@ -195,7 +195,7 @@
                 <li class="nav-item">
                     <a href="mikrotik" class="nav-link">
                         <i class="nav-icon fas fa-file-alt"></i>
-                        <p>Mikrotik </p>
+                        <p>Wired Devices </p>
                     </a>
                 </li>
 

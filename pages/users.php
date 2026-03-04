@@ -13,7 +13,7 @@ $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $routers = $db->query("SELECT id, name FROM routers")->fetchAll(PDO::FETCH_ASSOC);
 $plans = $db->query("SELECT * FROM plans")->fetchAll(PDO::FETCH_ASSOC);
 
-// Function to format remaining time (for initial render)
+// Function to format remaining time
 function formatRemainingTime($seconds) {
     if ($seconds <= 0) return "0d 0h 0m 0s";
     $days = floor($seconds / 86400);
@@ -23,7 +23,7 @@ function formatRemainingTime($seconds) {
     return "{$days}d {$hours}h {$minutes}m {$secs}s";
 }
 
-// Handle POST actions
+// Handle POST actions (plan change or delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['user_id'], $_POST['new_plan_id'])) {
         $userId = $_POST['user_id'];
@@ -47,8 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Calculate end_at
         $endAt = date('Y-m-d H:i:s', $createdAt + $durationInSeconds);
 
-        // Update billing table
-        $updateStmt = $db->prepare("UPDATE billing SET plan_id = ?, remaining_time = ?, end_at = ? WHERE id = ?");
+        // Update billing table and restore internet access
+        $updateStmt = $db->prepare("UPDATE billing SET plan_id = ?, remaining_time = ?, end_at = ?, internet_access = 1 WHERE id = ?");
         $updateStmt->execute([$newPlanId, $durationInSeconds, $endAt, $userId]);
 
         header("Location: " . $_SERVER['PHP_SELF']);
@@ -69,6 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="content-wrapper">
     <section class="content">
         <div class="container-fluid">
+            <!-- Real-time Clock Card -->
+            <div id="clock-card" style="margin-bottom: 20px; font-size: 1.2em; padding: 10px; border: 1px solid #ccc; display: inline-block;">
+                <span id="time"></span> <span id="ampm"></span><br>
+                <span id="date"></span>
+            </div>
+
             <h1 class="mt-4 mb-4 text-center">Users by Router</h1>
 
             <?php foreach ($routers as $router): ?>
@@ -108,24 +114,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <?php foreach ($users as $user):
                                         $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
                                         $isExpired = $remainingSeconds <= 0;
-
-                                        // If expired, update internet_access to 0
-                                        if ($isExpired) {
-                                            $updateAccessStmt = $db->prepare("UPDATE billing SET internet_access = 0 WHERE id = ?");
-                                            $updateAccessStmt->execute([$user['id']]);
-                                        }
-
                                         $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
                                     ?>
-                                    <tr id="user-<?php echo $user['id']; ?>" style="background-color: <?php echo $isExpired ? '#f8d7da' : ''; ?>">
+                                    <tr id="user-<?php echo $user['id']; ?>" 
+                                        data-router-id="<?php echo $router['id']; ?>"
+                                        data-mac="<?php echo $user['mac']; ?>"
+                                        style="background-color: <?php echo $isExpired ? '#f8d7da' : ''; ?>">
                                         <td><?php echo htmlspecialchars($user['name']); ?></td>
                                         <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
                                         <td><?php echo htmlspecialchars($user['mac']); ?></td>
                                         <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
                                         <td><?php echo $planDuration; ?></td>
-                                        <td class="remaining-time" 
-                                            data-user-id="<?php echo $user['id']; ?>" 
-                                            data-end="<?php echo $user['end_at']; ?>">
+                                        <td class="remaining-time" data-end="<?php echo $user['end_at']; ?>">
                                             <?php echo formatRemainingTime($remainingSeconds); ?>
                                         </td>
                                         <td><?php echo $user['created_at']; ?></td>
@@ -163,15 +163,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-// JavaScript countdown using end_at
-document.querySelectorAll('.remaining-time').forEach(td => {
-    const userId = td.dataset.userId;
-    const endAt = new Date(td.dataset.end);
-    const row = document.getElementById('user-' + userId);
+// Real-time clock and auto throttle
+function updateClock() {
+    const now = new Date();
 
-    const interval = setInterval(() => {
-        const now = new Date();
-        let remaining = Math.floor((endAt - now) / 1000); // seconds
+    // 12-hour format
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+
+    document.getElementById("time").textContent = `${hours}:${minutes}`;
+    document.getElementById("ampm").textContent = ampm;
+
+    // Full date
+    const dateOptions = { weekday: "long", month: "long", day: "numeric" };
+    document.getElementById("date").textContent = now.toLocaleDateString(undefined, dateOptions);
+
+    // Update remaining time and throttle
+    document.querySelectorAll('.remaining-time').forEach(td => {
+        const row = td.closest('tr');
+        const endAt = new Date(td.dataset.end);
+        const routerId = row.dataset.routerId;
+        const mac = row.dataset.mac;
+
+        let remaining = Math.floor((endAt - now) / 1000);
         if (remaining < 0) remaining = 0;
 
         let d = Math.floor(remaining / 86400);
@@ -180,11 +196,29 @@ document.querySelectorAll('.remaining-time').forEach(td => {
         let s = remaining % 60;
         td.textContent = `${d}d ${h}h ${m}m ${s}s`;
 
-        if (remaining <= 0) {
-            row.style.backgroundColor = '#f8d7da';
+        // Determine throttle values
+        const upLimit = remaining <= 0 ? 1 : 38528;
+        const downLimit = remaining <= 0 ? 1 : 38528;
+
+        // Update row background
+        row.style.backgroundColor = remaining <= 0 ? '#f8d7da' : '';
+
+        // Auto throttle via endpoint
+        if (!row.dataset.throttled || row.dataset.throttled != `${upLimit}-${downLimit}`) {
+            row.dataset.throttled = `${upLimit}-${downLimit}`;
+            fetch(`/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=${upLimit}&down=${downLimit}`)
+                .then(res => res.json())
+                .then(data => console.log(`Throttled ${mac} to ${upLimit}/${downLimit}:`, data))
+                .catch(err => console.error(`Failed to throttle ${mac}:`, err));
         }
-    }, 1000);
-});
+    });
+}
+
+// Initial run
+updateClock();
+
+// Update every second
+setInterval(updateClock, 1000);
 </script>
 
 <?php include __DIR__ . '/../components/footer.php'; ?>

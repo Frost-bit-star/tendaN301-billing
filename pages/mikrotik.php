@@ -3,238 +3,143 @@ include __DIR__ . '/../components/header.php';
 include __DIR__ . '/../components/sidebar.php';
 ?>
 
-<div class="flex flex-col sm:flex-row h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-blue-900">
-  
-  <!-- Sidebar (Ensure it's responsive) -->
-  <aside class="w-full sm:w-64 bg-gray-800 p-4 flex-none z-10">
-    <?php include __DIR__ . '/../components/sidebar.php'; ?>
-  </aside>
+<div class="content-wrapper">
+    <section class="content">
+        <div class="container-fluid">
+            <h1 class="mt-4 mb-4 text-center">Users by Router (Wired Only)</h1>
 
-  <!-- Main Content -->
-  <main class="flex-1 overflow-y-auto p-4 space-y-4">
-    <h1 class="mt-4 mb-4 text-center text-white">WiFi Routers Dashboard</h1>
-
-    <!-- Routers List -->
-    <div id="routersList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        <div class="col-12 text-center text-muted">Loading routers...</div>
-    </div>
-
-    <!-- Devices Table (hidden initially) -->
-    <div id="devicesSection" style="display:none;">
-        <div class="mb-3">
-            <button class="btn btn-secondary" onclick="backToRouters()">← Back to Routers</button>
-        </div>
-        <h3 id="routerNameHeading" class="mb-3" data-router-id=""></h3>
-        <div class="card shadow">
-            <div class="card-body p-0">
-                <table class="table table-bordered table-striped mb-0" id="devicesTable">
-                    <thead class="thead-dark">
-                        <tr>
-                            <th>Hostname</th>
-                            <th>IP</th>
-                            <th>MAC</th>
-                            <th>Connection</th>
-                            <th>Plans</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="5" class="text-center text-muted">Select a router to view devices</td></tr>
-                    </tbody>
-                </table>
+            <div id="routersContainer">
+                <div class="text-center text-muted">Loading routers...</div>
             </div>
+
         </div>
-    </div>
-
-  </main>
-
+    </section>
 </div>
 
-<style>
-/* Routers grid container */
-.routers-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));  /* Dynamic grid layout */
-    gap: 25px;
-}
-
-/* Router card styling */
-.router-card {
-    background: linear-gradient(135deg, #ffffff, #4e73df);
-    color: #1a1a1a;
-    font-weight: 600;
-    border-radius: 16px;
-    padding: 25px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    height: 200px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.router-card h4 {
-    margin-bottom: 8px;
-    color: #224abe;
-}
-.router-card p {
-    margin: 3px 0;
-    font-size: 0.9rem;
-}
-.router-card .device-info {
-    margin-top: 10px;
-    font-size: 0.85rem;
-    color: #555;
-}
-.router-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.2);
-}
-
-/* Status Dot */
-.status-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 5px;
-}
-.online { background:#1cc88a; }
-.offline { background:#e74a3b; }
-
-.plan-badge {
-    display: inline-block;
-    background: #4e73df;
-    color: #fff;
-    padding: 6px 12px;
-    border-radius: 16px;
-    margin: 3px 2px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s;
-}
-.plan-badge:hover {
-    background: #224abe;
-}
-
-/* Responsive adjustments */
-@media (max-width: 1024px) {
-    .routers-grid { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 600px) {
-    .routers-grid { grid-template-columns: 1fr; }
-}
-</style>
-
 <script>
-// Load routers with device counts
+const throttleApi = '/auth/throttle.php';
+
 async function loadRouters() {
-    const res = await fetch('/api/control.php');
-    const json = await res.json();
-    const container = document.getElementById('routersList');
-    container.innerHTML = '';
-
-    if (!json.success || !json.routers.length) {
-        container.innerHTML = `<div class="col-12 text-center text-danger">No routers found</div>`;
-        return;
-    }
-
-    for (const router of json.routers) {
-        const devicesRes = await fetch(`/auth/login.php?id=${router.id}`);
-        const devicesJson = await devicesRes.json();
-
-        const totalDevices = devicesJson.devices ? devicesJson.devices.length : 0;
-        const onlineDevices = devicesJson.devices ? devicesJson.devices.filter(d => d.online).length : 0;
-
-        const status = router.online
-            ? `<span class="status-dot online"></span>Online`
-            : `<span class="status-dot offline"></span>Offline`;
-
-        const cardDiv = document.createElement('div');
-        cardDiv.className = 'router-card';
-        cardDiv.innerHTML = `
-            <h4>${router.name}</h4>
-            <p>${status}</p>
-            <div class="device-info">
-                Devices: ${totalDevices}<br>
-                Online: ${onlineDevices}
-            </div>
-        `;
-        cardDiv.onclick = () => showDevices(router.id, router.name);
-        container.appendChild(cardDiv);
-    }
-}
-
-// Show devices and plans
-async function showDevices(routerId, routerName) {
-    document.getElementById('routersList').style.display = 'none';
-    const section = document.getElementById('devicesSection');
-    section.style.display = 'block';
-    const heading = document.getElementById('routerNameHeading');
-    heading.textContent = routerName;
-    heading.dataset.routerId = routerId; // store router ID for applyPlan
-
-    const tbody = document.querySelector('#devicesTable tbody');
-    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-info">Loading devices...</td></tr>`;
+    const container = document.getElementById('routersContainer');
+    container.innerHTML = '<div class="text-center text-info">Loading routers...</div>';
 
     try {
-        const res = await fetch(`/auth/login.php?id=${routerId}`);
-        const json = await res.json();
+        const res = await fetch(throttleApi);
+        const data = await res.json();
 
-        if (!json.devices || !json.devices.length) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No devices connected</td></tr>`;
+        if (!data.routers || !data.routers.length) {
+            container.innerHTML = '<div class="text-center text-danger">No routers found</div>';
             return;
         }
 
-        const plansRes = await fetch(`/api/plans.php?router_id=${routerId}`);
-        const plansJson = await plansRes.json();
+        container.innerHTML = '';
 
-        tbody.innerHTML = '';
-        json.devices.forEach(dev => {
-            let plansHTML = '';
-            if (plansJson.success && plansJson.plans.length) {
-                plansJson.plans.forEach(plan => {
-                    let parts = [];
-                    if (plan.days) parts.push(`${plan.days}d`);
-                    if (plan.hours) parts.push(`${plan.hours}h`);
-                    if (plan.minutes) parts.push(`${plan.minutes}m`);
-                    let duration = parts.join(' ') || '0m';
-                    plansHTML += `<span class="plan-badge" onclick="redirectToAddUser('${dev.mac}', ${plan.id})">
-                        ${plan.name} (${duration})
-                    </span>`;
-                });
+        data.routers.forEach(router => {
+
+            const wiredUsers = router.users.filter(u => u.interface === 'wires');
+
+            let tableHTML = '';
+
+            if (wiredUsers.length) {
+
+                const rows = wiredUsers.map(user => `
+                    <tr id="user-${user.mac}" 
+                        style="background-color:${user.internet_access ? '' : '#f8d7da'}">
+                        <td>${user.mac}</td>
+                        <td>${user.ip}</td>
+                        <td>${user.hostname}</td>
+                        <td>${user.internet_access ? 'Yes' : 'No'}</td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm up-speed"
+                                   value="${user.upLimit}">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm down-speed"
+                                   value="${user.downLimit}">
+                        </td>
+                        <td>${user.last_seen}</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm throttle-btn"
+                                data-mac="${user.mac}" data-router-id="${router.router_id}">
+                                Set Throttle
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+
+                tableHTML = `
+                    <div class="card shadow mb-4">
+                        <div class="card-body">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>MAC</th>
+                                        <th>IP</th>
+                                        <th>Hostname</th>
+                                        <th>Access</th>
+                                        <th>Up (kbps)</th>
+                                        <th>Down (kbps)</th>
+                                        <th>Last Seen</th>
+                                        <th>Throttle</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${rows}</tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
             } else {
-                plansHTML = '<span class="text-muted">No plans</span>';
+                tableHTML = '<p>No wired users found for this router.</p>';
             }
 
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${dev.hostname}</td>
-                <td>${dev.ip}</td>
-                <td>${dev.mac}</td>
-                <td>${dev.type}</td>
-                <td>${plansHTML}</td>
+            container.innerHTML += `
+                <h2>${router.name} (${router.status})</h2>
+                ${tableHTML}
             `;
-            tbody.appendChild(tr);
         });
+
+        attachThrottleHandlers();
+
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Failed to fetch devices</td></tr>`;
+        container.innerHTML = '<div class="text-danger">Failed to load router data</div>';
         console.error(err);
     }
 }
 
-// Redirect to add_user.php with plan data in URL
-function redirectToAddUser(mac, planId) {
-    const routerId = document.getElementById('routerNameHeading').dataset.routerId;
-    const url = `/add_user?router_id=${routerId}&paid_mac=${mac}&plan_id=${planId}`;
-    window.location.href = url;
-}
+function attachThrottleHandlers() {
+    document.querySelectorAll('.throttle-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
 
-// Back to routers
-function backToRouters() {
-    document.getElementById('devicesSection').style.display = 'none';
-    document.getElementById('routersList').style.display = 'grid';
+            const row = btn.closest('tr');
+            const mac = btn.dataset.mac;
+            const routerId = btn.dataset.routerId; // pass router_id now
+            const up = row.querySelector('.up-speed').value;
+            const down = row.querySelector('.down-speed').value;
+
+            btn.disabled = true;
+            btn.innerText = "Setting...";
+
+            try {
+                const response = await fetch(
+                    `${throttleApi}?action=set_throttle&router_id=${routerId}&mac=${mac}&up=${up}&down=${down}`
+                );
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`✅ Throttle set for ${mac}`);
+                } else {
+                    alert(`❌ Failed to set throttle: ${result.error || 'Unknown error'}`);
+                }
+
+            } catch (err) {
+                console.error(err);
+                alert('⚠️ Error contacting throttle API');
+            }
+
+            btn.disabled = false;
+            btn.innerText = "Set Throttle";
+        });
+    });
 }
 
 // Initial load
