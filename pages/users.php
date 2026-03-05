@@ -23,7 +23,7 @@ function formatRemainingTime($seconds) {
     return "{$days}d {$hours}h {$minutes}m {$secs}s";
 }
 
-// Handle POST actions (plan change or delete)
+// Handle POST actions (plan change, delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['user_id'], $_POST['new_plan_id'])) {
         $userId = $_POST['user_id'];
@@ -113,13 +113,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <tbody>
                                     <?php foreach ($users as $user):
                                         $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
-                                        $isExpired = $remainingSeconds <= 0;
                                         $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
                                     ?>
                                     <tr id="user-<?php echo $user['id']; ?>" 
                                         data-router-id="<?php echo $router['id']; ?>"
-                                        data-mac="<?php echo $user['mac']; ?>"
-                                        style="background-color: <?php echo $isExpired ? '#f8d7da' : ''; ?>">
+                                        data-mac="<?php echo $user['mac']; ?>">
                                         <td><?php echo htmlspecialchars($user['name']); ?></td>
                                         <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
                                         <td><?php echo htmlspecialchars($user['mac']); ?></td>
@@ -131,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <td><?php echo $user['created_at']; ?></td>
                                         <td><?php echo $user['end_at']; ?></td>
                                         <td>
+                                            <!-- Change Plan Form -->
                                             <form method="POST" class="mb-1">
                                                 <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
                                                 <select name="new_plan_id" class="form-control form-control-sm mb-1">
@@ -142,10 +141,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                 </select>
                                                 <button type="submit" class="btn btn-info btn-sm w-100">Change Plan</button>
                                             </form>
-                                            <form method="POST">
+
+                                            <!-- Delete Form -->
+                                            <form method="POST" class="mb-1">
                                                 <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
                                                 <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
                                             </form>
+
+                                            <!-- Throttle / Unthrottle Buttons -->
+                                            <button class="btn btn-warning btn-sm w-100 mb-1 throttle-btn" 
+                                                data-router-id="<?php echo $router['id']; ?>" 
+                                                data-mac="<?php echo $user['mac']; ?>">Throttle</button>
+                                            <button class="btn btn-success btn-sm w-100 unthrottle-btn" 
+                                                data-router-id="<?php echo $router['id']; ?>" 
+                                                data-mac="<?php echo $user['mac']; ?>">Unthrottle</button>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -163,7 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-// Real-time clock and auto throttle
+// Real-time clock
 function updateClock() {
     const now = new Date();
 
@@ -180,45 +189,45 @@ function updateClock() {
     const dateOptions = { weekday: "long", month: "long", day: "numeric" };
     document.getElementById("date").textContent = now.toLocaleDateString(undefined, dateOptions);
 
-    // Update remaining time and throttle
+    // Update remaining time
     document.querySelectorAll('.remaining-time').forEach(td => {
-        const row = td.closest('tr');
         const endAt = new Date(td.dataset.end);
-        const routerId = row.dataset.routerId;
-        const mac = row.dataset.mac;
-
         let remaining = Math.floor((endAt - now) / 1000);
         if (remaining < 0) remaining = 0;
-
         let d = Math.floor(remaining / 86400);
         let h = Math.floor((remaining % 86400) / 3600);
         let m = Math.floor((remaining % 3600) / 60);
         let s = remaining % 60;
         td.textContent = `${d}d ${h}h ${m}m ${s}s`;
-
-        // Determine throttle values
-        const upLimit = remaining <= 0 ? 1 : 38528;
-        const downLimit = remaining <= 0 ? 1 : 38528;
-
-        // Update row background
-        row.style.backgroundColor = remaining <= 0 ? '#f8d7da' : '';
-
-        // Auto throttle via endpoint
-        if (!row.dataset.throttled || row.dataset.throttled != `${upLimit}-${downLimit}`) {
-            row.dataset.throttled = `${upLimit}-${downLimit}`;
-            fetch(`/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=${upLimit}&down=${downLimit}`)
-                .then(res => res.json())
-                .then(data => console.log(`Throttled ${mac} to ${upLimit}/${downLimit}:`, data))
-                .catch(err => console.error(`Failed to throttle ${mac}:`, err));
-        }
     });
 }
 
 // Initial run
 updateClock();
-
-// Update every second
 setInterval(updateClock, 1000);
+
+// Manual throttle/unthrottle
+document.querySelectorAll('.throttle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const routerId = btn.dataset.routerId;
+        const mac = btn.dataset.mac;
+        fetch(`/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=1&down=1`)
+            .then(res => res.json())
+            .then(data => alert(`User ${mac} throttled to 1kbps`))
+            .catch(err => console.error(err));
+    });
+});
+
+document.querySelectorAll('.unthrottle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const routerId = btn.dataset.routerId;
+        const mac = btn.dataset.mac;
+        fetch(`/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=38256&down=38256`)
+            .then(res => res.json())
+            .then(data => alert(`User ${mac} unthrottled to 38256kbps`))
+            .catch(err => console.error(err));
+    });
+});
 </script>
 
 <?php include __DIR__ . '/../components/footer.php'; ?>
