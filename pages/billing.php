@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <tbody>
                                     <?php foreach ($users as $user):
                                         $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
-                                        $isExpired = $remainingSeconds <= 0;
+                                        $rowId = 'user-' . $user['id'];
 
                                         // Ensure internet_access is 0 for expired users
                                         $updateAccessStmt = $db->prepare("UPDATE billing SET internet_access = 0 WHERE id = ?");
@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                                         $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
                                     ?>
-                                    <tr id="user-<?php echo $user['id']; ?>" style="background-color: #f8d7da;">
+                                    <tr id="<?php echo $rowId; ?>" style="background-color: #f8d7da;">
                                         <td><?php echo htmlspecialchars($user['name']); ?></td>
                                         <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
                                         <td><?php echo htmlspecialchars($user['mac']); ?></td>
@@ -140,10 +140,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                 </select>
                                                 <button type="submit" class="btn btn-info btn-sm w-100">Change Plan</button>
                                             </form>
-                                            <form method="POST">
+                                            <form method="POST" class="mb-1">
                                                 <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
                                                 <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
                                             </form>
+                                            <!-- Throttle/Unthrottle buttons -->
+                                            <button class="btn btn-warning btn-sm w-100 mb-1" onclick="throttleDevice('<?php echo $user['mac']; ?>')">Throttle</button>
+                                            <button class="btn btn-success btn-sm w-100" onclick="unthrottleDevice('<?php echo $user['mac']; ?>')">Unthrottle</button>
                                         </td>
                                     </tr>
                                     <?php endforeach; ?>
@@ -183,6 +186,47 @@ document.querySelectorAll('.remaining-time').forEach(td => {
         }
     }, 1000);
 });
+
+// --- Throttle/Unthrottle functions ---
+async function throttleDevice(mac) {
+    try {
+        const res = await fetch('/auth/v2.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'throttle_device', mac })
+        });
+        const json = await res.json();
+        if (json.success) {
+            alert(`Device ${mac} throttled successfully`);
+            location.reload(); // refresh page to update status
+        } else {
+            alert(json.message || 'Failed to throttle device');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error throttling device');
+    }
+}
+
+async function unthrottleDevice(mac) {
+    try {
+        const res = await fetch('/auth/v2.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'unthrottle_device', mac })
+        });
+        const json = await res.json();
+        if (json.success) {
+            alert(`Device ${mac} unthrottled successfully`);
+            location.reload(); // refresh page to update status
+        } else {
+            alert(json.message || 'Failed to unthrottle device');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error unthrottling device');
+    }
+}
 </script>
 
 <?php include __DIR__ . '/../components/footer.php'; ?>
