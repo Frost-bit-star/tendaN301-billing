@@ -1,4 +1,3 @@
-<!-- components/sidebar.php -->
 <style>
 /* ===== Professional Sidebar with Multi-Color Accents ===== */
 .sidebar-glass {
@@ -6,10 +5,14 @@
     color: #fff !important;
     height: 100vh;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch; /* smooth scroll on mobile */
     position: fixed;
     width: 250px;
-    z-index: 1000;
+    z-index: 1050; /* above content overlay */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* pushes logout to bottom */
 }
 
 /* Brand */
@@ -63,16 +66,16 @@
 }
 
 /* Icons - cycle colors */
-.sidebar-glass .nav-item:nth-child(1) .nav-icon { color: #dc3545; } /* red */
-.sidebar-glass .nav-item:nth-child(2) .nav-icon { color: #28a745; } /* green */
-.sidebar-glass .nav-item:nth-child(3) .nav-icon { color: #ffc107; } /* yellow */
-.sidebar-glass .nav-item:nth-child(4) .nav-icon { color: #007bff; } /* blue */
-.sidebar-glass .nav-item:nth-child(5) .nav-icon { color: #17a2b8; } /* cyan */
-.sidebar-glass .nav-item:nth-child(6) .nav-icon { color: #6f42c1; } /* purple */
-.sidebar-glass .nav-item:nth-child(7) .nav-icon { color: #fd7e14; } /* orange */
-.sidebar-glass .nav-item:nth-child(8) .nav-icon { color: #20c997; } /* teal */
-.sidebar-glass .nav-item:nth-child(9) .nav-icon { color: #e83e8c; } /* pink */
-.sidebar-glass .nav-item:nth-child(10) .nav-icon { color: #343a40; } /* dark */
+.sidebar-glass .nav-item:nth-child(1) .nav-icon { color: #dc3545; }
+.sidebar-glass .nav-item:nth-child(2) .nav-icon { color: #28a745; }
+.sidebar-glass .nav-item:nth-child(3) .nav-icon { color: #ffc107; }
+.sidebar-glass .nav-item:nth-child(4) .nav-icon { color: #007bff; }
+.sidebar-glass .nav-item:nth-child(5) .nav-icon { color: #17a2b8; }
+.sidebar-glass .nav-item:nth-child(6) .nav-icon { color: #6f42c1; }
+.sidebar-glass .nav-item:nth-child(7) .nav-icon { color: #fd7e14; }
+.sidebar-glass .nav-item:nth-child(8) .nav-icon { color: #20c997; }
+.sidebar-glass .nav-item:nth-child(9) .nav-icon { color: #e83e8c; }
+.sidebar-glass .nav-item:nth-child(10) .nav-icon { color: #343a40; }
 
 /* Treeview arrows */
 .sidebar-glass .right {
@@ -97,11 +100,9 @@
 
 /* Logout button at bottom */
 .sidebar-logout {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    margin-top: auto; /* pushes logout to bottom in flex layout */
     width: 80%;
+    align-self: center;
 }
 .sidebar-logout a {
     display: block;
@@ -116,6 +117,13 @@
 }
 .sidebar-logout a:hover {
     background: #c82333;
+}
+
+/* Mobile adjustments (optional) */
+@media (max-width: 767px) {
+    .sidebar-glass {
+        width: 220px;
+    }
 }
 </style>
 
@@ -134,7 +142,7 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="mt-3">
+        <nav class="mt-3 flex-grow-1">
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview">
                 <li class="nav-item">
                     <a href="dashboard" class="nav-link active">
@@ -142,63 +150,54 @@
                         <p>Dashboard</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="view" class="nav-link">
                         <i class="nav-icon fas fa-network-wired"></i>
                         <p>View Routers</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="add_router" class="nav-link">
                         <i class="nav-icon fas fa-plus-circle"></i>
                         <p>Add Router</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="users" class="nav-link">
                         <i class="nav-icon fas fa-users"></i>
                         <p>Manage Users</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="billuser" class="nav-link">
                         <i class="nav-icon fas fa-user-plus"></i>
                         <p>Add User</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="billing" class="nav-link">
                         <i class="nav-icon fas fa-file-invoice-dollar"></i>
                         <p>Billing</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="plans" class="nav-link">
                         <i class="nav-icon fas fa-layer-group"></i>
                         <p>Plans</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="reports" class="nav-link">
                         <i class="nav-icon fas fa-chart-bar"></i>
                         <p>Reports</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="mikrotik" class="nav-link">
                         <i class="nav-icon fas fa-file-alt"></i>
-                        <p>Wired Devices </p>
+                        <p>Wired Devices</p>
                     </a>
                 </li>
-
                 <li class="nav-item">
                     <a href="support" class="nav-link">
                         <i class="nav-icon fas fa-headset"></i>
