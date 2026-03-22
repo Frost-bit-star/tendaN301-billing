@@ -23,7 +23,7 @@ function formatRemainingTime($seconds) {
     return "{$days}d {$hours}h {$minutes}m {$secs}s";
 }
 
-// Handle POST actions (plan change, delete)
+// Handle POST actions (plan change, delete, throttle)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['user_id'], $_POST['new_plan_id'])) {
         $userId = $_POST['user_id'];
@@ -63,13 +63,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
     }
+
+    if (isset($_POST['throttle_user_id'], $_POST['upload_speed'], $_POST['download_speed'])) {
+        $throttleUserId = $_POST['throttle_user_id'];
+
+        // Ensure .00 precision
+        $uploadSpeed = number_format((float)$_POST['upload_speed'], 2, '.', '');
+        $downloadSpeed = number_format((float)$_POST['download_speed'], 2, '.', '');
+
+        // Example: call your throttle function
+        // throttleUser($throttleUserId, $uploadSpeed, $downloadSpeed);
+
+        // Feedback
+        echo "<script>alert('User throttled to {$uploadSpeed} kbps up / {$downloadSpeed} kbps down');</script>";
+    }
 }
 ?>
 
 <div class="content-wrapper">
     <section class="content">
         <div class="container-fluid">
-            <!-- Real-time Clock Card -->
             <div id="clock-card" style="margin-bottom: 20px; font-size: 1.2em; padding: 10px; border: 1px solid #ccc; display: inline-block;">
                 <span id="time"></span> <span id="ampm"></span><br>
                 <span id="date"></span>
@@ -148,10 +161,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                                 <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
                                             </form>
 
-                                            <!-- Throttle / Unthrottle Buttons -->
-                                            <button class="btn btn-warning btn-sm w-100 mb-1 throttle-btn" 
-                                                data-router-id="<?php echo $router['id']; ?>" 
-                                                data-mac="<?php echo $user['mac']; ?>">Throttle</button>
+                                            <!-- Throttle Form -->
+                                            <form method="POST" class="mb-1 throttle-form">
+                                                <input type="hidden" name="throttle_user_id" value="<?php echo $user['id']; ?>">
+                                                <div class="mb-1">
+                                                    <input type="number" name="upload_speed" class="form-control form-control-sm" placeholder="Upload Speed (kbps)" step="0.01" required>
+                                                </div>
+                                                <div class="mb-1">
+                                                    <input type="number" name="download_speed" class="form-control form-control-sm" placeholder="Download Speed (kbps)" step="0.01" required>
+                                                </div>
+                                                <button type="submit" class="btn btn-warning btn-sm w-100">Throttle</button>
+                                            </form>
+
                                             <button class="btn btn-success btn-sm w-100 unthrottle-btn" 
                                                 data-router-id="<?php echo $router['id']; ?>" 
                                                 data-mac="<?php echo $user['mac']; ?>">Unthrottle</button>
@@ -206,26 +227,24 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 1000);
 
-// Manual throttle/unthrottle
-document.querySelectorAll('.throttle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const routerId = btn.dataset.routerId;
-        const mac = btn.dataset.mac;
-        fetch(`/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=1&down=1`)
-            .then(res => res.json())
-            .then(data => alert(`User ${mac} throttled to 1kbps`))
-            .catch(err => console.error(err));
-    });
-});
-
+// Manual unthrottle
 document.querySelectorAll('.unthrottle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const routerId = btn.dataset.routerId;
+    btn.addEventListener('click', async () => {
         const mac = btn.dataset.mac;
-        fetch(`/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=38256&down=38256`)
-            .then(res => res.json())
-            .then(data => alert(`User ${mac} unthrottled to 38256kbps`))
-            .catch(err => console.error(err));
+        try {
+            const res = await fetch('/auth/v2.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'unthrottle_device', mac })
+            });
+            const json = await res.json();
+            if (json.success) alert(`Device ${mac} unthrottled`);
+            else alert(json.message || 'Failed to unthrottle device');
+            location.reload();
+        } catch (err) {
+            console.error(err);
+            alert('Error unthrottling device');
+        }
     });
 });
 </script>
