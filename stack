@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 // stack - PHP mini-framework CLI launcher
-// Usage: php stack [install|dev|start|cron|run:worker|stop:worker|help|-h]
+// Usage: php stack [install|dev|start|cron|run:worker|stop:worker|build|help|-h]
 
 $argv0 = $argv;
 array_shift($argv0);
@@ -116,7 +116,7 @@ function startSync() {
 
 // =====================
 // PM2 worker
-// =====================s
+// =====================
 function startPm2Worker() {
     $file = ROOT . '/auth/worker.php';
     if (!file_exists($file)) fail("/auth/worker.php not found!");
@@ -148,11 +148,41 @@ function stopPm2Worker() {
 }
 
 // =====================
+// SQLite Extension Check
+// =====================
+function checkSQLiteExtension() {
+    title("Checking SQLite extension");
+
+    if (!extension_loaded('sqlite3')) {
+        warn("SQLite not enabled. Enabling...");
+
+        $ini = php_ini_loaded_file();
+        if (!$ini) fail("php.ini not found");
+
+        file_put_contents($ini, "\nextension=sqlite3\n", FILE_APPEND);
+
+        ok("SQLite extension added to php.ini");
+        warn("Restart your terminal to apply changes");
+    } else {
+        ok("SQLite already enabled");
+    }
+
+    // Optional: Verify DLL exists (Windows-safe)
+    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+        $extDir = ini_get('extension_dir');
+        if (!file_exists($extDir . '/php_sqlite3.dll')) {
+            fail("php_sqlite3.dll not found in ext folder");
+        }
+    }
+}
+
+// =====================
 // Commands
 // =====================
 switch ($command) {
 
     case 'install':
+        checkSQLiteExtension(); // Check SQLite extension before installation
         title("Installing PHP dependencies (Composer)");
 
         exec("composer --version 2>&1", $o, $c);
@@ -196,6 +226,24 @@ switch ($command) {
         startSync();
         break;
 
+    case 'build':
+        title("Building database (schema)");
+
+        $file = ROOT . '/db/schema.php';
+
+        if (!file_exists($file)) {
+            fail("/db/schema.php not found!");
+        }
+
+        passthru("php " . escapeshellarg($file) . " 2>&1", $code);
+
+        if ($code !== 0) {
+            fail("Schema build failed");
+        }
+
+        ok("Database schema built successfully");
+        break;
+
     case 'help':
     case '-h':
         title("Help");
@@ -205,6 +253,7 @@ switch ($command) {
         echo "php stack run:worker\n";
         echo "php stack stop:worker\n";
         echo "php stack cron\n";
+        echo "php stack build\n"; // Updated help
         break;
 
     default:
