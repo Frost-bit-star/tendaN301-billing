@@ -37,4 +37,4 @@ Filename: "{app}\php\php.exe"; Parameters: "stack start"; WorkingDir: "{app}"; T
 
 [Icons]
 ; Conditional desktop shortcut
-Name: "{commondesktop}\tendaN301-billing"; Filename: "explorer.exe"; Parameters: "http://127.0.0.1:8000"; IconFilename: "{app}\tenda-inside.jpg"; Tasks: desktopicon
+Name: "{commondesktop}\tendaN301-billing"; Filename: "explorer.exe"; Parameters: "http://127.0.0.1:8000"; IconFilename: "{app}\wifi.png"; Tasks: desktopicon
