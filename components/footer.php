@@ -1,37 +1,39 @@
 <!-- components/footer.php -->
 <style>
-/* ===== Footer Styling ===== */
+/* ===== Footer Styling (Centered, Black & White) ===== */
 .main-footer {
-    background: #23272b; /* matches sidebar brand */
-    color: #fff;
-    padding: 1rem 1.5rem;
+    background: #000;          /* pure black */
+    color: #fff;               /* white text */
+    padding: 1rem;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-top: 1px solid #3c4043;
-    position: relative; /* keeps footer at bottom if content is short */
-    z-index: 500;
+    flex-direction: column;    /* stack items */
+    justify-content: center;
+    align-items: center;       /* center horizontally */
+    text-align: center;        /* center text */
+
+    border-top: 1px solid #fff;
 }
 
-/* Copyright text */
+/* Remove colored accents */
 .main-footer strong {
-    color: #007bff; /* blue accent */
+    color: #fff;
 }
 
-/* Optional hover effect for links if any */
+/* Links (if any) */
 .main-footer a {
-    color: #ffc107; /* yellow accent for links */
-    text-decoration: none;
-    transition: color 0.25s ease;
-}
-.main-footer a:hover {
-    color: #28a745; /* green on hover */
+    color: #fff;
+    text-decoration: underline;
 }
 
-/* Control sidebar fix */
+.main-footer a:hover {
+    color: #ccc;
+}
+
+/* Control sidebar */
 .control-sidebar {
-    background: #343a40; /* match dashboard background */
+    background: #000;
 }
 </style>
 
