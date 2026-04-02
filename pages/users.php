@@ -23,6 +23,34 @@ function formatRemainingTime($seconds) {
     return "{$days}d {$hours}h {$minutes}m {$secs}s";
 }
 
+// Fetch whitelist from API with improved error handling
+function getRouterWhitelist($routerId) {
+    $url = "/auth/v2.php";
+    $payload = json_encode([
+        "action" => "get_users",
+        "router_id" => $routerId
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_TIMEOUT => 10
+    ]);
+
+    $res = curl_exec($ch);
+    curl_close($ch);
+
+    if ($res === false) {
+        return [];
+    }
+
+    $data = json_decode($res, true);
+    return $data && !empty($data['results'][0]['whitelist']) ? array_keys($data['results'][0]['whitelist']) : [];
+}
+
 // Handle POST actions (plan change, delete, throttle)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['user_id'], $_POST['new_plan_id'])) {
@@ -77,6 +105,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Feedback
         echo "<script>alert('User throttled to {$uploadSpeed} kbps up / {$downloadSpeed} kbps down');</script>";
     }
+
+    // Sync Logic
+    if (isset($_POST['sync_router_id'])) {
+        $routerId = $_POST['sync_router_id'];
+        $stmtRouter = $db->prepare("SELECT * FROM routers WHERE id = ?");
+        $stmtRouter->execute([$routerId]);
+        $router = $stmtRouter->fetch(PDO::FETCH_ASSOC);
+
+        if ($router) {
+            // Fetch whitelist and compare
+            $whitelistMacs = array_map(function($mac) {
+                return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
+            }, getRouterWhitelist($router['id']));
+
+            $stmt = $db->prepare("
+                SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
+                FROM billing b
+                JOIN plans p ON b.plan_id = p.id
+                WHERE b.router_id = ?
+                ORDER BY b.created_at DESC
+            ");
+            $stmt->execute([$router['id']]);
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Recalculate DB MACs
+            $dbMacs = array_map(function($u) {
+                return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $u['mac'])));
+            }, $users);
+
+            $missingInDb = array_diff($whitelistMacs, $dbMacs);
+            $extraInDb   = array_diff($dbMacs, $whitelistMacs);
+
+            //  Add missing
+            foreach ($missingInDb as $mac) {
+                $stmtCheck = $db->prepare("SELECT COUNT(*) FROM billing WHERE mac = ? AND router_id = ?");
+                $stmtCheck->execute([$mac, $router['id']]);
+
+                if ($stmtCheck->fetchColumn() == 0) {
+                    $stmtInsert = $db->prepare("
+                        INSERT INTO billing 
+                        (name, phone_number, mac, router_id, plan_id, created_at, end_at, internet_access)
+                        VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'), 1)
+                    ");
+                    $stmtInsert->execute([
+                        'Auto-Added Device',
+                        '',
+                        $mac,
+                        $router['id'],
+                        1
+                    ]);
+                }
+            }
+
+            //  Disable extra (DO NOT DELETE)
+            foreach ($extraInDb as $mac) {
+                $stmtUpdate = $db->prepare("
+                    UPDATE billing 
+                    SET internet_access = 0 
+                    WHERE mac = ? AND router_id = ?
+                ");
+                $stmtUpdate->execute([$mac, $router['id']]);
+            }
+
+            //  Reload page after sync
+            header("Location: " . $_SERVER['PHP_SELF']);
+            exit;
+        }
+    }
 }
 ?>
 
@@ -93,6 +189,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php foreach ($routers as $router): ?>
                 <h2><?php echo htmlspecialchars($router['name']); ?></h2>
 
+                <form method="POST" class="mb-2">
+                    <input type="hidden" name="sync_router_id" value="<?php echo $router['id']; ?>">
+                    <button class="btn btn-primary btn-sm"> Sync Router</button>
+                </form>
+
                 <?php
                 // Fetch all users for the router
                 $stmt = $db->prepare("
@@ -104,7 +205,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ");
                 $stmt->execute([$router['id']]);
                 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                // Fetch whitelist and compare
+                $whitelistMacs = array_map(function($mac) {
+                    return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
+                }, getRouterWhitelist($router['id']));
+                $dbMacs = array_map(function($u) {
+                    return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $u['mac'])));
+                }, $users);
+                $missingInDb = array_diff($whitelistMacs, $dbMacs);
+                $extraInDb   = array_diff($dbMacs, $whitelistMacs);
                 ?>
+
+                <div class="alert alert-info">
+                    <strong>Sync Status:</strong><br>
+                    Whitelist: <?php echo count($whitelistMacs); ?> |
+                    Database: <?php echo count($dbMacs); ?><br>
+                    Missing in DB: <?php echo count($missingInDb); ?><br>
+                    Extra in DB: <?php echo count($extraInDb); ?>
+                </div>
 
                 <?php if ($users): ?>
                     <div class="card shadow mb-4">
