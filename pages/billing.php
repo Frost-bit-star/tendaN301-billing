@@ -29,25 +29,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userId = $_POST['user_id'];
         $newPlanId = $_POST['new_plan_id'];
 
-        $newPlanStmt = $db->prepare("SELECT * FROM plans WHERE id = ?");
-        $newPlanStmt->execute([$newPlanId]);
-        $newPlan = $newPlanStmt->fetch(PDO::FETCH_ASSOC);
-
-        $durationInSeconds = ($newPlan['days'] ?? 0) * 86400
-                           + ($newPlan['hours'] ?? 0) * 3600
-                           + ($newPlan['minutes'] ?? 0) * 60;
-
-        $userStmt = $db->prepare("SELECT created_at FROM billing WHERE id = ?");
+        // Get user info (including MAC + router)
+        $userStmt = $db->prepare("SELECT mac, router_id FROM billing WHERE id = ?");
         $userStmt->execute([$userId]);
         $user = $userStmt->fetch(PDO::FETCH_ASSOC);
-        $createdAt = strtotime($user['created_at']);
 
-        $endAt = date('Y-m-d H:i:s', $createdAt + $durationInSeconds);
+        if (!$user) {
+            die("User not found");
+        }
 
-        $updateStmt = $db->prepare("UPDATE billing SET plan_id = ?, remaining_time = ?, end_at = ? WHERE id = ?");
-        $updateStmt->execute([$newPlanId, $durationInSeconds, $endAt, $userId]);
+        // Get plan
+        $planStmt = $db->prepare("SELECT * FROM plans WHERE id = ?");
+        $planStmt->execute([$newPlanId]);
+        $plan = $planStmt->fetch(PDO::FETCH_ASSOC);
 
-        header("Location: " . $_SERVER['PHP_SELF']);
+        if (!$plan) {
+            die("Plan not found");
+        }
+
+        // Calculate duration
+        $duration = ($plan['days'] ?? 0) * 86400 +
+                    ($plan['hours'] ?? 0) * 3600 +
+                    ($plan['minutes'] ?? 0) * 60;
+
+        // Use current time
+        $now = time();
+        $endAt = date('Y-m-d H:i:s', $now + $duration);
+
+        // Update using MAC + router_id (IMPORTANT)
+        $update = $db->prepare("
+            UPDATE billing 
+            SET plan_id = ?, remaining_time = ?, end_at = ?, internet_access = 1 
+            WHERE mac = ? AND router_id = ?
+        ");
+
+        $update->execute([
+            $newPlanId,
+            $duration,
+            $endAt,
+            $user['mac'],
+            $user['router_id']
+        ]);
+
+        echo "Updated rows: " . $update->rowCount();
         exit;
     }
 
