@@ -51,7 +51,7 @@ function getRouterWhitelist($routerId) {
     return $data && !empty($data['results'][0]['whitelist']) ? array_keys($data['results'][0]['whitelist']) : [];
 }
 
-// Handle POST actions (plan change, delete, throttle)
+// Handle POST actions (plan change, delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['user_id'], $_POST['new_plan_id'])) {
         $userId = $_POST['user_id'];
@@ -90,20 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         header("Location: " . $_SERVER['PHP_SELF']);
         exit;
-    }
-
-    if (isset($_POST['throttle_user_id'], $_POST['upload_speed'], $_POST['download_speed'])) {
-        $throttleUserId = $_POST['throttle_user_id'];
-
-        // Ensure .00 precision
-        $uploadSpeed = number_format((float)$_POST['upload_speed'], 2, '.', '');
-        $downloadSpeed = number_format((float)$_POST['download_speed'], 2, '.', '');
-
-        // Call the throttle function
-        throttleUser($throttleUserId, $uploadSpeed, $downloadSpeed);
-
-        // Feedback
-        echo "<script>alert('User throttled to {$uploadSpeed} kbps up / {$downloadSpeed} kbps down');</script>";
     }
 
     // Sync Logic
@@ -363,6 +349,38 @@ document.querySelectorAll('.unthrottle-btn').forEach(btn => {
         } catch (err) {
             console.error(err);
             alert('Error unthrottling device');
+        }
+    });
+});
+
+// Throttle form submission with JS
+document.querySelectorAll('.throttle-form').forEach(form => {
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const row = form.closest('tr');
+        const mac = row.dataset.mac;
+        const routerId = row.dataset.routerId;
+
+        const upload = form.querySelector('[name="upload_speed"]').value;
+        const download = form.querySelector('[name="download_speed"]').value;
+
+        try {
+            const res = await fetch(
+                `/auth/throttle.php?action=set_throttle&router_id=${routerId}&mac=${mac}&up=${upload}&down=${download}`
+            );
+
+            const result = await res.json();
+
+            if (result.success) {
+                alert(` Throttle set for ${mac}`);
+            } else {
+                alert(` Failed: ${result.error || 'Unknown error'}`);
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert(' Error applying throttle');
         }
     });
 });
