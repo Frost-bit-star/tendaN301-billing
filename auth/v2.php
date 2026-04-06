@@ -184,6 +184,7 @@ foreach ($routers as $r) {
             case 'get_users':
                 $results[] = [
                     'router_id'      => $routerId,
+                    'name'           => $r['name'],   
                     'status'         => 'online',
                     'filter_mode'    => $currentMode,
                     'whitelist'      => $whitelist,
@@ -207,6 +208,7 @@ foreach ($routers as $r) {
 
                 $results[] = [
                     'router_id' => $routerId,
+                    'name'      => $r['name'],   
                     'status'    => 'mode_updated',
                     'new_mode'  => $newMode
                 ];
@@ -238,6 +240,7 @@ foreach ($routers as $r) {
 
                 $results[] = [
                     'router_id'       => $routerId,
+                    'name'            => $r['name'],   
                     'status'          => 'device_added',
                     'whitelist_count' => count($whitelist)
                 ];
@@ -246,6 +249,7 @@ foreach ($routers as $r) {
             case 'get_routers':
                 $results[] = [
                     'router_id'   => $routerId,
+                    'name'        => $r['name'],  
                     'ip'          => $r['ip'],
                     'port'        => $r['port'] ?: 80,
                     'status'      => 'online',
@@ -260,6 +264,7 @@ foreach ($routers as $r) {
     } catch (Exception $e) {
         $results[] = [
             'router_id'=>$routerId,
+            'name'     => $r['name'],  
             'status'=>'failed',
             'error'=>$e->getMessage()
         ];
