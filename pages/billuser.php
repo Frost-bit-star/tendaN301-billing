@@ -166,11 +166,11 @@ async function loadRouters() {
             const cardDiv = document.createElement('div');
             cardDiv.className = 'router-card';
             cardDiv.innerHTML = `
-                <h4>Router ${router.router_id}</h4>
+                <h4>${router.name}</h4>
                 <p>Filter Mode: ${filterMode}</p>
                 <div class="device-info">Devices: ${totalDevices}</div>
             `;
-            cardDiv.onclick = () => showDevices(router.router_id, `Router ${router.router_id}`, filterMode);
+            cardDiv.onclick = () => showDevices(router.router_id, router.name, filterMode);
             container.appendChild(cardDiv);
         }
 
