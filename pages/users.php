@@ -99,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $uploadSpeed = number_format((float)$_POST['upload_speed'], 2, '.', '');
         $downloadSpeed = number_format((float)$_POST['download_speed'], 2, '.', '');
 
-        // Example: call your throttle function
-        // throttleUser($throttleUserId, $uploadSpeed, $downloadSpeed);
+        // Call the throttle function
+        throttleUser($throttleUserId, $uploadSpeed, $downloadSpeed);
 
         // Feedback
         echo "<script>alert('User throttled to {$uploadSpeed} kbps up / {$downloadSpeed} kbps down');</script>";
