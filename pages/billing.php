@@ -54,21 +54,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Use current time
         $now = time();
+        $createdAt = date('Y-m-d H:i:s', $now);
         $endAt = date('Y-m-d H:i:s', $now + $duration);
 
-        // Update using MAC + router_id (IMPORTANT)
+        // Update using user ID (safer option)
         $update = $db->prepare("
             UPDATE billing 
-            SET plan_id = ?, remaining_time = ?, end_at = ?, internet_access = 1 
-            WHERE mac = ? AND router_id = ?
+            SET 
+                plan_id = ?, 
+                remaining_time = ?, 
+                created_at = ?,   --  RESET START DATE
+                end_at = ?, 
+                internet_access = 1 
+            WHERE id = ?
         ");
 
         $update->execute([
             $newPlanId,
             $duration,
+            $createdAt,   // NEW
             $endAt,
-            $user['mac'],
-            $user['router_id']
+            $userId
         ]);
 
         echo "Updated rows: " . $update->rowCount();
