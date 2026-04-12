@@ -20,14 +20,14 @@ $page = trim($request, '/');
 
 // Default page
 if ($page === '') {
-    $page = 'login';
+    $page = 'home';
 }
 
 // Sanitize page name
 $page = basename($page);
 
 // Public pages
-$publicPages = ['login', 'logout'];
+$publicPages = ['home', 'login', 'logout'];
 
 // If not logged in
 if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
@@ -46,7 +46,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
 
     // Restrict admin access
     if ($_SESSION['role'] === 'admin') {
-        $allowedPagesForAdmin = ['billuser', 'users', 'login', 'logout'];
+        $allowedPagesForAdmin = ['home', 'billuser', 'users', 'login', 'logout'];
 
         if (!in_array($page, $allowedPagesForAdmin)) {
             http_response_code(403);
