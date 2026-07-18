@@ -15,7 +15,10 @@
     },
     {
       "src": "/(.*\\.php)",
-      "dest": "/$1"
+      "dest": "/$1",
+      "headers": {
+        "Content-Type": "text/html"
+      }
     },
     {
       "src": "/(.*)",
