@@ -1,4 +1,5 @@
 <?php
+session_start();
 require_once __DIR__ . '/config.php';
 
 header("Content-Type: application/json");
@@ -81,12 +82,26 @@ if (!file_exists(DB_PATH)) respond(['success'=>false,'error'=>'Database not foun
 $db = new PDO("sqlite:" . DB_PATH);
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+$tenantId = $_SESSION['account_id'] ?? null;
+$isAdmin  = ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin');
+
 if ($routerId) {
-    $stmt = $db->prepare("SELECT * FROM routers WHERE id=?");
-    $stmt->execute([$routerId]);
+    if ($isAdmin) {
+        $stmt = $db->prepare("SELECT * FROM routers WHERE id=?");
+        $stmt->execute([$routerId]);
+    } else {
+        $stmt = $db->prepare("SELECT * FROM routers WHERE id=? AND tenant_id=?");
+        $stmt->execute([$routerId, $tenantId]);
+    }
     $routers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $routers = $db->query("SELECT * FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+    if ($isAdmin) {
+        $routers = $db->query("SELECT * FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $stmt = $db->prepare("SELECT * FROM routers WHERE tenant_id=?");
+        $stmt->execute([$tenantId]);
+        $routers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
 if (!$routers) respond(['success'=>false,'error'=>'No routers found'],404);

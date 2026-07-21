@@ -9,8 +9,18 @@ include __DIR__ . '/../components/sidebar.php';
 $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Fetch all routers and plans
-$routers = $db->query("SELECT id, name FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+// Tenant scope
+$tenantId = $_SESSION['account_id'] ?? null;
+$isAdmin  = ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin');
+
+// Fetch routers and plans scoped by tenant
+if ($isAdmin) {
+    $routers = $db->query("SELECT id, name FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $stmt = $db->prepare("SELECT id, name FROM routers WHERE tenant_id = ?");
+    $stmt->execute([$tenantId]);
+    $routers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 $plans = $db->query("SELECT * FROM plans")->fetchAll(PDO::FETCH_ASSOC);
 
 // Function to format remaining time

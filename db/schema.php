@@ -120,13 +120,40 @@ if ($check->fetchColumn() == 0) {
         INSERT INTO admins (username, password, email)
         VALUES (:username, :password, :email)
     ");
-    // Password stored as plaintext for simplicity (consider using password_hash() in production)
     $insert->execute([
         ':username' => 'admin',
-        ':password' => '1111',
+        ':password' => password_hash('1111', PASSWORD_DEFAULT),
         ':email' => 'jnyaragita12@gmail.com'
     ]);
 }
+
+// -------------------------
+// Accounts table (multi-tenant users)
+// -------------------------
+$db->exec("
+CREATE TABLE IF NOT EXISTS accounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+");
+
+// -------------------------
+// Tokens table (API sessions)
+// -------------------------
+$db->exec("
+CREATE TABLE IF NOT EXISTS tokens (
+    token TEXT PRIMARY KEY,
+    account_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(account_id) REFERENCES accounts(id)
+)
+");
+
+// Add tenant_id to routers if missing
+addColumnIfMissing($db, 'routers', 'tenant_id', 'INTEGER DEFAULT NULL');
 
 // -------------------------
 // Add missing columns for devices table if script re-run
@@ -139,5 +166,7 @@ addColumnIfMissing($db, 'billing', 'end_at', 'TEXT');
 addColumnIfMissing($db, 'billing', 'internet_access', 'INTEGER DEFAULT 1');
 
 // -------------------------
-echo "Database schema verified and updated with sync tracking columns.\n";
+if (php_sapi_name() === 'cli') {
+    echo "Database schema verified and updated with sync tracking columns.\n";
+}
 ?>

@@ -52,10 +52,18 @@ if (!in_array('end_at', $colNames)) {
 }
 
 // -----------------------
-// FETCH ROUTER & PLAN
+// FETCH ROUTER & PLAN (tenant-scoped)
 // -----------------------
-$routerStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
-$routerStmt->execute([$routerId]);
+$tenantId = $_SESSION['account_id'] ?? null;
+$isAdmin  = ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin');
+
+if ($isAdmin) {
+    $routerStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
+    $routerStmt->execute([$routerId]);
+} else {
+    $routerStmt = $db->prepare("SELECT * FROM routers WHERE id = ? AND tenant_id = ?");
+    $routerStmt->execute([$routerId, $tenantId]);
+}
 $router = $routerStmt->fetch(PDO::FETCH_ASSOC);
 
 $planStmt = $db->prepare("SELECT * FROM plans WHERE id = ?");

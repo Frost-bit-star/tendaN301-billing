@@ -16,7 +16,7 @@
     <script>
         // Function to fetch expired count from the API and update the badge
         function updateBadge() {
-            fetch('http://127.0.0.1:8000/auth/worker.php?get_expired_count=true')
+            fetch('/auth/worker.php?get_expired_count=true')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {

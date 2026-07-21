@@ -1,12 +1,13 @@
 <?php
 header('Content-Type: application/json');
+session_start();
 
 try {
-    // -----------------------
-    // DATABASE CONNECTION
-    // -----------------------
     $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
     $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+    $tenantId = $_SESSION['account_id'] ?? null;
+    $isAdmin  = ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin');
 
     // -----------------------
     // ACCEPT INPUT FROM JSON POST OR GET
@@ -54,11 +55,13 @@ try {
         UNIQUE(router_id, mac)
     )");
 
-    // -----------------------
-    // FETCH ROUTER & PLAN
-    // -----------------------
-    $routerStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
-    $routerStmt->execute([$router_id]);
+    if ($isAdmin) {
+        $routerStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
+        $routerStmt->execute([$router_id]);
+    } else {
+        $routerStmt = $db->prepare("SELECT * FROM routers WHERE id = ? AND tenant_id = ?");
+        $routerStmt->execute([$router_id, $tenantId]);
+    }
     $router = $routerStmt->fetch(PDO::FETCH_ASSOC);
 
     $planStmt = $db->prepare("SELECT * FROM plans WHERE id = ?");
