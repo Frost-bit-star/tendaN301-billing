@@ -29,7 +29,9 @@ function respond($data, $status = 200) {
 
 function getInput() {
     $input = json_decode(file_get_contents('php://input'), true);
-    return $input ?: [];
+    if (!empty($input)) return $input;
+    if (!empty($_POST)) return $_POST;
+    return [];
 }
 
 function getAccountId() {
