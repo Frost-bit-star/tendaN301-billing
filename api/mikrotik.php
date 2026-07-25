@@ -1,5 +1,4 @@
 <?php
-session_start();
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -8,6 +7,10 @@ header('Access-Control-Allow-Headers: Content-Type');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
+}
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
 require_once __DIR__ . '/../db/schema.php';
@@ -43,6 +46,14 @@ function generateWireGuardKeys() {
         $publicKey = base64_encode(random_bytes(32));
     }
     return ['private' => $privateKey, 'public' => $publicKey];
+}
+
+function getServerHost() {
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (empty($host) || str_starts_with($host, '127.') || str_starts_with($host, 'localhost') || preg_match('/:\d{4,5}$/', $host)) {
+        return 'jasiri.stackverify.site';
+    }
+    return $host;
 }
 
 function getServerPublicKey() {
@@ -85,7 +96,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $wgKeys = generateWireGuardKeys();
     $listenPort = 13231 + ($routerId % 1000);
     $timestamp = date('Ymd_His');
-    $serverHost = $_SERVER['HTTP_HOST'] ?? 'jasiri.stackverify.site';
+    $serverHost = getServerHost();
     $serverPubKey = getServerPublicKey();
 
     if (!$serverPubKey) {
@@ -267,7 +278,7 @@ if ($method === 'POST') {
             'api_user' => $provData['api_user'],
             'api_pass' => $provData['api_pass'],
             'timestamp' => $provData['timestamp'],
-            'fetch_command' => "/tool fetch mode=https url=\"https://" . ($_SERVER['HTTP_HOST'] ?? 'jasiri.stackverify.site') . "/provision/$provisionToken\" dst-path=jasiri_{$provData['timestamp']}.rsc; :delay 2s; /import jasiri_{$provData['timestamp']}.rsc;",
+            'fetch_command' => "/tool fetch mode=https url=\"https://" . getServerHost() . "/provision/$provisionToken\" dst-path=jasiri_{$provData['timestamp']}.rsc; :delay 2s; /import jasiri_{$provData['timestamp']}.rsc;",
         ]);
     }
 
