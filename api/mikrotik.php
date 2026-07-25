@@ -406,6 +406,8 @@ if ($method === 'GET') {
             ':id' => $router['id'],
         ]);
 
+        addWireGuardPeer($provData['mikrotik_pubkey'], $router['wireguard_ip']);
+
         header('Content-Type: text/plain');
         echo $provData['script'];
         exit;
