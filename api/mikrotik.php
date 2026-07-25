@@ -56,6 +56,22 @@ function getServerHost() {
     return $host;
 }
 
+function getServerWgPort() {
+    $output = [];
+    exec("wg show wg0 listen-port 2>/dev/null", $output, $returnCode);
+    if ($returnCode === 0 && !empty($output[0])) {
+        return intval(trim($output[0]));
+    }
+    $confFile = '/etc/wireguard/wg0.conf';
+    if (file_exists($confFile)) {
+        $conf = file_get_contents($confFile);
+        if (preg_match('/ListenPort\s*=\s*(\d+)/', $conf, $m)) {
+            return intval($m[1]);
+        }
+    }
+    return 51820;
+}
+
 function getServerPublicKey() {
     $keyFile = __DIR__ . '/../db/server_wg_pubkey.txt';
     if (file_exists($keyFile)) {
@@ -94,7 +110,7 @@ function removeWireGuardPeer($peerPubKey) {
 
 function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId) {
     $wgKeys = generateWireGuardKeys();
-    $listenPort = 13231 + ($routerId % 1000);
+    $listenPort = getServerWgPort();
     $timestamp = date('Ymd_His');
     $serverHost = getServerHost();
     $serverPubKey = getServerPublicKey();
@@ -129,13 +145,13 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/radius incoming set accept=yes port=3799\n\n";
 
     $script .= ":do { /interface wireguard remove [find name=jasiri-wg] } on-error={}\n";
-    $script .= ":do { /interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=$listenPort } on-error={}\n\n";
+    $script .= ":do { /interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=13241 } on-error={}\n\n";
 
     $script .= ":do { /ip address remove [find interface=jasiri-wg] } on-error={}\n";
     $script .= ":do { /ip address add address=$wireguardIP/24 interface=jasiri-wg } on-error={}\n\n";
 
     $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
-    $script .= ":do { /interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=13231 allowed-address=10.100.0.0/24 persistent-keepalive=25s } on-error={}\n\n";
+    $script .= ":do { /interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s } on-error={}\n\n";
 
     $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
     $script .= "/ip service set ssh address=10.100.0.0/24 disabled=no\n";
@@ -147,7 +163,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/user add name=$apiUser password=\"$apiPass\" group=full comment=\"Jasiri Management API\"\n\n";
 
     $fwRules = [
-        ["Allow WireGuard", "protocol=udp dst-port=$listenPort"],
+        ["Allow WireGuard", "protocol=udp dst-port=13241 src-address=10.100.0.1"],
         ["Allow API SSL", "protocol=tcp dst-port=8729 src-address=10.100.0.0/24"],
         ["Allow REST (www)", "protocol=tcp dst-port=80 src-address=10.100.0.0/24"],
         ["Allow SSH from WireGuard", "protocol=tcp dst-port=22 src-address=10.100.0.0/24"],
@@ -419,8 +435,13 @@ if ($method === 'GET') {
             jsonResponse(['error' => 'router_id required'], 400);
         }
 
-        $stmt = $db->prepare("SELECT * FROM routers WHERE id = :id AND type = 'mikrotik'");
-        $stmt->execute([':id' => $routerId]);
+        if (ctype_digit($routerId)) {
+            $stmt = $db->prepare("SELECT * FROM routers WHERE id = :id AND type = 'mikrotik'");
+            $stmt->execute([':id' => $routerId]);
+        } else {
+            $stmt = $db->prepare("SELECT * FROM routers WHERE (device_id = :id OR provision_token = :id) AND type = 'mikrotik'");
+            $stmt->execute([':id' => $routerId]);
+        }
         $router = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$router) {
