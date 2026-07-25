@@ -33,6 +33,16 @@ addColumnIfMissing($db, 'routers', 'last_qos_hash', 'TEXT');     // last QoS sta
 addColumnIfMissing($db, 'routers', 'last_mode', 'TEXT');         // 'blacklist' or 'whitelist'
 addColumnIfMissing($db, 'routers', 'last_sync', 'INTEGER');      // unix timestamp of last push
 
+// MikroTik support columns
+addColumnIfMissing($db, 'routers', 'type', "TEXT DEFAULT 'tenda'");
+addColumnIfMissing($db, 'routers', 'location', 'TEXT');
+addColumnIfMissing($db, 'routers', 'device_id', 'TEXT');
+addColumnIfMissing($db, 'routers', 'wireguard_ip', 'TEXT');
+addColumnIfMissing($db, 'routers', 'provisioning_status', "TEXT DEFAULT 'offline'");
+addColumnIfMissing($db, 'routers', 'last_provisioned_at', 'TEXT');
+addColumnIfMissing($db, 'routers', 'provision_token', 'TEXT');
+addColumnIfMissing($db, 'routers', 'wg_pubkey', 'TEXT');
+
 // -------------------------
 // Plans table
 // -------------------------
@@ -166,7 +176,30 @@ addColumnIfMissing($db, 'billing', 'end_at', 'TEXT');
 addColumnIfMissing($db, 'billing', 'internet_access', 'INTEGER DEFAULT 1');
 
 // -------------------------
+// Vouchers table
+// -------------------------
+$db->exec("
+CREATE TABLE IF NOT EXISTS vouchers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NOT NULL UNIQUE,
+    plan_id INTEGER DEFAULT NULL,
+    router_id INTEGER DEFAULT NULL,
+    phone TEXT DEFAULT NULL,
+    price REAL DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    customer_name TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    used_at TEXT DEFAULT NULL,
+    expires_at TEXT DEFAULT NULL,
+    FOREIGN KEY(plan_id) REFERENCES plans(id),
+    FOREIGN KEY(router_id) REFERENCES routers(id)
+)
+");
+
+addColumnIfMissing($db, 'vouchers', 'customer_name', 'TEXT DEFAULT NULL');
+
+// -------------------------
 if (php_sapi_name() === 'cli') {
-    echo "Database schema verified and updated with sync tracking columns.\n";
+    echo "Database schema verified and updated with MikroTik + voucher support.\n";
 }
 ?>

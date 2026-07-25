@@ -24,9 +24,30 @@ if (preg_match('#^/api/v1/(auth|routers|router|whitelist|billing|plans|router_co
     exit;
 }
 
+// Non-v1 API endpoints (mikrotik, vouchers, etc.)
+if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump)\.php$#', $requestPath, $m)) {
+    $apiFile = __DIR__ . '/api/' . $m[1] . '.php';
+    if (file_exists($apiFile)) {
+        require $apiFile;
+        exit;
+    }
+    http_response_code(404);
+    echo json_encode(['error' => 'API endpoint not found']);
+    exit;
+}
+
 // Cron worker endpoint
 if ($requestPath === '/api/cron.php') {
     require __DIR__ . '/api/cron.php';
+    exit;
+}
+
+// Provision script endpoint - serves .rsc files to MikroTik routers
+if (preg_match('#^/provision/(.+)$#', $requestPath, $m)) {
+    $token = $m[1];
+    $_GET['action'] = 'provision_script';
+    $_GET['token'] = $token;
+    require __DIR__ . '/api/mikrotik.php';
     exit;
 }
 
@@ -56,7 +77,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     }
 
     if ($_SESSION['role'] === 'admin') {
-        $allowedPagesForAdmin = ['home', 'billuser', 'users', 'login', 'logout', 'register'];
+        $allowedPagesForAdmin = ['home', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'support'];
         if (!in_array($page, $allowedPagesForAdmin)) {
             http_response_code(403);
             require __DIR__ . "/pages/403.php";
