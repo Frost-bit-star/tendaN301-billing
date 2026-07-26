@@ -127,9 +127,8 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /interface bridge remove [find name=jasiri-bridge] } on-error={}\n";
     $script .= "/interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge\n";
     $script .= "# --- Wireless Configuration ---\n";
-    $script .= ":do { /interface wireless security-profiles remove [find name=jasiri-open] } on-error={}\n";
-    $script .= "/interface wireless security-profiles add name=jasiri-open mode=none authentication-types=\"\" unicast-ciphers=\"\" group-ciphers=\"\"\n";
-    $script .= "/interface wireless set [find default-name=wlan1] mode=ap-bridge ssid=\"Jasiri WiFi\" security-profile=jasiri-open disabled=no\n";
+    $script .= "/interface wireless security-profiles set [find default=yes] mode=none\n";
+    $script .= "/interface wireless set [find default-name=wlan1] disabled=no mode=ap-bridge ssid=\"Jasiri WiFi\" security-profile=default\n";
     $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
     $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n\n";
 
@@ -234,6 +233,8 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
     $script .= ":do { /ip dns static remove [find name=jasiri.local] } on-error={}\n";
     $script .= "/ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m\n\n";
+
+    $script .= "/ip dns set allow-remote-requests=yes servers=8.8.8.8,8.8.4.4\n\n";
 
     $script .= "/tool fetch mode={$serverScheme} url=\"{$serverScheme}://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=hotspot/login.html keep-result=yes as-value\n\n";
 
