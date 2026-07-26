@@ -14,6 +14,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once __DIR__ . '/../db/schema.php';
+require_once __DIR__ . '/mikrotik_api.php';
 
 function jsonResponse($data, $code = 200) {
     http_response_code($code);
