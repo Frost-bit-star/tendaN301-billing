@@ -89,6 +89,7 @@ async function loadDevices() {
         const grid = document.getElementById('devicesGrid');
         grid.innerHTML = data.routers.map(r => `
             <div class="mikrotik-card" onclick="viewDevice(${r.id})">
+                <button class="btn btn-sm btn-outline-danger" style="position:absolute;top:10px;right:50px;z-index:2;" onclick="event.stopPropagation();deleteDevice(${r.id},'${escapeHtml(r.name)}')"><i class="fas fa-trash"></i></button>
                 <span class="status-badge ${r.provisioning_status || 'offline'}">${r.provisioning_status || 'offline'}</span>
                 <div class="device-icon ${r.provisioning_status || 'offline'}">
                     <i class="fas fa-router"></i>
@@ -110,6 +111,22 @@ async function loadDevices() {
 
 function viewDevice(id) {
     window.location.href = `/mikrotik_devices?id=${id}`;
+}
+
+async function deleteDevice(id, name) {
+    if (!confirm(`Delete device "${name}"? This cannot be undone.`)) return;
+    try {
+        const res = await fetch('/api/mikrotik.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', router_id: id })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        loadDevices();
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
 }
 
 function escapeHtml(str) {

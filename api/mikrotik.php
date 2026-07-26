@@ -416,6 +416,30 @@ if ($method === 'POST') {
         jsonResponse(['success' => true, 'message' => 'Configuration saved']);
     }
 
+    if ($action === 'delete') {
+        $routerId = $input['router_id'] ?? null;
+        if (!$routerId) {
+            jsonResponse(['error' => 'router_id required'], 400);
+        }
+
+        $stmt = $db->prepare("SELECT * FROM routers WHERE id = :id AND type = 'mikrotik'");
+        $stmt->execute([':id' => $routerId]);
+        $router = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$router) {
+            jsonResponse(['error' => 'Router not found'], 404);
+        }
+
+        if (!empty($router['wg_pubkey'])) {
+            removeWireGuardPeer($router['wg_pubkey']);
+        }
+
+        $stmt = $db->prepare("DELETE FROM routers WHERE id = :id");
+        $stmt->execute([':id' => $routerId]);
+
+        jsonResponse(['success' => true, 'message' => 'Device deleted']);
+    }
+
     jsonResponse(['error' => 'Unknown action'], 400);
 }
 
