@@ -192,22 +192,14 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/ip firewall nat add action=masquerade chain=srcnat comment=\"Jasiri Internet Access\"\n\n";
 
     $serverHost = getServerHost();
-    $script .= "# --- Hotspot / Captive Portal ---\n";
-    $script .= ":do { /ip hotspot profile remove [find name=hs-prof1] } on-error={}\n";
-    $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login-by=http-pap html-directory=flash:/jasiri comment=\"Jasiri hotspot profile\"\n\n";
-
-    $script .= ":do { /ip hotspot remove [find name=hotspot1] } on-error={}\n";
-    $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1 disabled=no local-address=10.10.0.1 comment=\"Jasiri Hotspot\"\n\n";
-
-    $script .= ":do { /ip hotspot walled-garden remove [find dst-host~\"jasiri\"] } on-error={}\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site comment=\"Jasiri server\"\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site comment=\"Jasiri server wildcard\"\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-address=10.10.0.1 comment=\"Gateway\"\n\n";
-
-    $script .= "/tool fetch mode=https url=\"https://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=jasiri/login.html keep-result=yes as-value\n\n";
-
-    $script .= ":do { /ip dns static remove [find name=jasiri.local] } on-error={}\n";
-    $script .= "/ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m comment=\"Jasiri hotspot DNS\"\n\n";
+    $script .= "# --- Hotspot / Captive Portal (configured separately via dashboard) ---\n";
+    $script .= "# /ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login-by=http-pap comment=\"Jasiri hotspot profile\"\n";
+    $script .= "# /ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1 disabled=no local-address=10.10.0.1 comment=\"Jasiri Hotspot\"\n";
+    $script .= "# /ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site comment=\"Jasiri server\"\n";
+    $script .= "# /ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site comment=\"Jasiri server wildcard\"\n";
+    $script .= "# /ip hotspot walled-garden add action=allow dst-address=10.10.0.1 comment=\"Gateway\"\n";
+    $script .= "# /tool fetch mode=https url=\"https://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=jasiri/login.html keep-result=yes as-value\n";
+    $script .= "# /ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m comment=\"Jasiri hotspot DNS\"\n\n";
 
     $script .= "/log info \"Jasiri WiFi provisioning completed successfully\"\n";
     $script .= "/log info \"Device ID: $deviceId\"\n";
