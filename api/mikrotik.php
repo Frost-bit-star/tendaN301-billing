@@ -184,7 +184,15 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /user remove [find name=$apiUser] } on-error={}\n";
     $script .= "/user add name=$apiUser password=\"$apiPass\" group=full comment=\"Jasiri Management API\"\n\n";
 
-    $fwSrc = $hasWG ? 'src-address=10.100.0.0/24' : 'src-address=0.0.0.0/0';
+    $serverSubnet = '192.168.0.0/16';
+    $serverHost = $_SERVER['HTTP_HOST'] ?? '';
+    $serverIP = preg_replace('/:\d+$/', '', $serverHost);
+    if (preg_match('/^(\d+\.\d+\.\d+)\.\d+$/', $serverIP, $m)) {
+        $serverSubnet = $m[1] . '.0/24';
+    }
+
+    $fwSrc = $hasWG ? "src-address=10.100.0.0/24" : "src-address=0.0.0.0/0";
+    $fwSrcExtra = $hasWG ? "src-address=$serverSubnet" : "";
     $fwRules = [
         ["Allow WireGuard", "protocol=udp dst-port=13241 src-address=10.100.0.1"],
         ["Allow API SSL", "protocol=tcp dst-port=8729 $fwSrc"],
@@ -196,6 +204,17 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     foreach ($fwRules as [$comment, $params]) {
         $script .= ":do { /ip firewall filter remove [find chain=input comment=\"$comment\"] } on-error={}\n";
         $script .= "/ip firewall filter add action=accept chain=input comment=\"$comment\" $params\n";
+    }
+    if ($hasWG && !empty($fwSrcExtra)) {
+        $extraComments = [
+            ["Allow API from LAN", "protocol=tcp dst-port=8729 $fwSrcExtra"],
+            ["Allow WWW from LAN", "protocol=tcp dst-port=80 $fwSrcExtra"],
+            ["Allow SSH from LAN", "protocol=tcp dst-port=22 $fwSrcExtra"],
+        ];
+        foreach ($extraComments as [$comment, $params]) {
+            $script .= ":do { /ip firewall filter remove [find chain=input comment=\"$comment\"] } on-error={}\n";
+            $script .= "/ip firewall filter add action=accept chain=input comment=\"$comment\" $params\n";
+        }
     }
     $script .= "\n";
 
@@ -436,7 +455,7 @@ if ($method === 'POST') {
     }
 
     if ($action === 'configure_wireless') {
-        $routerId = $input['router_id'] ?? null;
+        $routerId = intval($input['router_id'] ?? 0);
         $ssid = trim($input['ssid'] ?? '');
         $security = $input['security'] ?? 'open';
 
@@ -452,19 +471,15 @@ if ($method === 'POST') {
             jsonResponse(['error' => 'Router not found'], 404);
         }
 
-        $apiIP = $router['wireguard_ip'];
-        if (empty($apiIP) || $apiIP === '0.0.0.0' || (!empty($router['ip']) && $router['ip'] !== '0.0.0.0')) {
-            $testIP = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $apiIP;
-            $fp = @fsockopen($testIP, 8729, $errno, $errstr, 2);
-            if (is_resource($fp)) { fclose($fp); $apiIP = $testIP; }
-        }
+        $apiIP = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $router['wireguard_ip'];
+        $apiPort = intval($router['port'] ?: 8729);
 
         try {
-            $api = new MikroTikAPI($apiIP, intval($router['port'] ?: 8729), 'jasiri-api', $router['password'] ?? '');
+            $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
             $api->connect();
 
             if ($security === 'open') {
-                $api->setWirelessProfile('jasiri-open', 'none', 'none');
+                try { $api->setWirelessProfile('jasiri-open', 'none', 'none'); } catch (Exception $e) { /* some RouterOS versions reject this */ }
                 $api->setWireless($ssid, 'jasiri-open', 'ap-bridge');
             } else {
                 $api->setWireless($ssid, 'default', 'ap-bridge');
@@ -475,7 +490,7 @@ if ($method === 'POST') {
 
             jsonResponse(['success' => true, 'message' => "Wireless configured: $ssid"]);
         } catch (Exception $e) {
-            jsonResponse(['error' => 'Failed to connect: ' . $e->getMessage()], 500);
+            jsonResponse(['error' => 'API connection failed: ' . $e->getMessage()], 500);
         }
     }
 
