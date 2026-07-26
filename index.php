@@ -25,7 +25,7 @@ if (preg_match('#^/api/v1/(auth|routers|router|whitelist|billing|plans|router_co
 }
 
 // Non-v1 API endpoints (mikrotik, vouchers, etc.)
-if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump)\.php$#', $requestPath, $m)) {
+if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump|hotspot_login)\.php$#', $requestPath, $m)) {
     $apiFile = __DIR__ . '/api/' . $m[1] . '.php';
     if (file_exists($apiFile)) {
         require $apiFile;
@@ -39,6 +39,12 @@ if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill
 // Cron worker endpoint
 if ($requestPath === '/api/cron.php') {
     require __DIR__ . '/api/cron.php';
+    exit;
+}
+
+// Captive portal page - public, no auth needed
+if ($requestPath === '/captive' || $requestPath === '/captive/') {
+    require __DIR__ . '/pages/captive.php';
     exit;
 }
 
@@ -63,7 +69,7 @@ if ($page === '') {
 $page = basename($page);
 
 // Public pages
-$publicPages = ['home', 'login', 'logout', 'register'];
+$publicPages = ['home', 'login', 'logout', 'register', 'captive'];
 
 if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
     header('Location: /login');

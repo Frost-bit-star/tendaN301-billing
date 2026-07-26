@@ -197,6 +197,7 @@ CREATE TABLE IF NOT EXISTS vouchers (
 ");
 
 addColumnIfMissing($db, 'vouchers', 'customer_name', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'vouchers', 'used_mac', 'TEXT DEFAULT NULL');
 
 // -------------------------
 if (php_sapi_name() === 'cli') {
