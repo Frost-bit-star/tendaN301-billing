@@ -141,7 +141,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
     $script .= "# --- Wireless AP (open, no password) ---\n";
     $script .= ":do { /interface wireless security-profiles remove [find name=jasiri-open] } on-error={}\n";
-    $script .= "/interface wireless security-profiles add name=jasiri-open authentication-types=none unicast-cast-encryption=none\n";
+    $script .= ":do { /interface wireless security-profiles add name=jasiri-open unicast-cast-encryption=none } on-error={}\n";
     $script .= "/interface wireless set [find] mode=ap-bridge frequency=auto disabled=no security-profile=jasiri-open\n";
     $script .= "/interface wireless set [find] ssid=JasiriWiFi\n";
     $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
