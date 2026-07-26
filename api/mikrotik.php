@@ -228,7 +228,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
     $script .= "# --- Hotspot / Captive Portal ---\n";
     $script .= ":do { /ip hotspot profile remove [find name=hs-prof1] } on-error={}\n";
-    $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local dns-server=8.8.8.8,8.8.4.4 login-by=http-pap\n\n";
+    $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login=http-pap\n\n";
 
     $script .= ":do { /ip hotspot remove [find name=hotspot1] } on-error={}\n";
     $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1\n\n";
