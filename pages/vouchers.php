@@ -124,6 +124,14 @@ include __DIR__ . '/../components/sidebar.php';
                 <div class="row">
                     <div class="col-md-3">
                         <div class="form-group">
+                            <label>Router *</label>
+                            <select class="form-control" id="genRouter" required>
+                                <option value="">Select router...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
                             <label>Package / Plan *</label>
                             <select class="form-control" id="genPlan" required>
                                 <option value="">Select plan...</option>
@@ -175,6 +183,9 @@ include __DIR__ . '/../components/sidebar.php';
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="fas fa-list"></i> Vouchers</h5>
             <div>
+                <select class="form-control form-control-sm" id="filterRouter" style="width:auto;display:inline-block;" onchange="loadVouchers()">
+                    <option value="">All Routers</option>
+                </select>
                 <select class="form-control form-control-sm" id="filterStatus" style="width:auto;display:inline-block;" onchange="loadVouchers()">
                     <option value="">All Status</option>
                     <option value="active">Active</option>
@@ -188,6 +199,7 @@ include __DIR__ . '/../components/sidebar.php';
                 <thead class="thead-dark">
                     <tr>
                         <th>Voucher Code</th>
+                        <th>Router</th>
                         <th>Package</th>
                         <th>Customer</th>
                         <th>Price</th>
@@ -197,7 +209,7 @@ include __DIR__ . '/../components/sidebar.php';
                     </tr>
                 </thead>
                 <tbody id="voucherTableBody">
-                    <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -242,15 +254,31 @@ include __DIR__ . '/../components/sidebar.php';
 <script>
 let allPlans = [];
 let allVouchers = [];
+let allRouters = [];
 
 async function loadPlans() {
     try {
         const res = await fetch('/api/plans.php');
-        allPlans = await res.json();
+        const data = await res.json();
+        allPlans = data.plans || [];
         const sel = document.getElementById('genPlan');
         sel.innerHTML = '<option value="">Select plan...</option>' +
             allPlans.map(p => `<option value="${p.id}">${p.name} (${p.days}d ${p.hours}h ${p.minutes}m)</option>`).join('');
     } catch (e) { console.error('Failed to load plans:', e); }
+}
+
+async function loadRouters() {
+    try {
+        const res = await fetch('/api/mikrotik.php?action=list');
+        const data = await res.json();
+        allRouters = data.routers || [];
+        const genSel = document.getElementById('genRouter');
+        genSel.innerHTML = '<option value="">Select router...</option>' +
+            allRouters.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+        const filterSel = document.getElementById('filterRouter');
+        filterSel.innerHTML = '<option value="">All Routers</option>' +
+            allRouters.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    } catch (e) { console.error('Failed to load routers:', e); }
 }
 
 async function loadStats() {
@@ -267,8 +295,10 @@ async function loadStats() {
 
 async function loadVouchers() {
     const status = document.getElementById('filterStatus').value;
+    const routerId = document.getElementById('filterRouter').value;
     const params = new URLSearchParams();
     if (status) params.set('status', status);
+    if (routerId) params.set('router_id', routerId);
     params.set('limit', '100');
 
     try {
@@ -277,19 +307,20 @@ async function loadVouchers() {
         allVouchers = data.vouchers || [];
         renderVoucherTable();
     } catch (e) {
-        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="7" class="text-center text-danger">Failed to load vouchers</td></tr>';
+        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load vouchers</td></tr>';
     }
 }
 
 function renderVoucherTable() {
     const tbody = document.getElementById('voucherTableBody');
     if (allVouchers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No vouchers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No vouchers found</td></tr>';
         return;
     }
     tbody.innerHTML = allVouchers.map(v => `
         <tr>
             <td><span class="voucher-code">${escapeHtml(v.code)}</span></td>
+            <td>${escapeHtml(v.router_name || '—')}</td>
             <td>${escapeHtml(v.plan_name || '—')}</td>
             <td>${escapeHtml(v.customer_name || v.phone || '—')}</td>
             <td>TSh ${parseInt(v.price || 0).toLocaleString()}</td>
@@ -393,6 +424,7 @@ document.getElementById('generateForm').addEventListener('submit', async functio
             body: JSON.stringify({
                 action: 'generate',
                 plan_id: document.getElementById('genPlan').value,
+                router_id: document.getElementById('genRouter').value,
                 quantity: document.getElementById('genQuantity').value,
                 price: document.getElementById('genPrice').value,
                 phone: document.getElementById('genPhone').value,
@@ -435,6 +467,7 @@ async function deleteVoucher(id) {
 }
 
 loadPlans();
+loadRouters();
 loadStats();
 </script>
 
