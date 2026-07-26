@@ -130,8 +130,9 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge } on-error={}\n\n";
 
     $script .= "# --- Wireless AP (open, no password) ---\n";
-    $script .= "/interface wireless set [find] mode=ap-bridge wireless-protocol=none ssid=\"Jasiri WiFi\" frequency=auto disabled=no\n";
+    $script .= "/interface wireless set [find] mode=ap-bridge frequency=auto disabled=no\n";
     $script .= "/interface wireless security-profiles set [find name=default] authentication-types=none unicast-cast-encryption=none\n";
+    $script .= "/interface wireless set [find] ssid=JasiriWiFi\n";
     $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
     $script .= ":do { /interface bridge port add bridge=jasiri-bridge interface=wlan1 } on-error={}\n";
     $script .= ":do { /interface bridge port remove [find interface=ether2] } on-error={}\n";
