@@ -16,3 +16,5 @@
 *.tmp
 *.swp
 *.bak
+current.rsc
+current.txt
