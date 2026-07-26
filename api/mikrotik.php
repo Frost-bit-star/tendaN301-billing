@@ -155,7 +155,8 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
         $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
 
         $script .= ":local wgPub [/interface wireguard get jasiri-wg public-key]\n";
-        $script .= "/tool fetch mode={$serverScheme} url=\"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=$wgPub\" keep-result=no\n\n";
+        $script .= ":local url \"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=\$wgPub\"\n";
+        $script .= "/tool fetch mode={$serverScheme} url=\$url keep-result=no\n\n";
     } else {
         $script .= "# WireGuard skipped (server not configured)\n\n";
     }
