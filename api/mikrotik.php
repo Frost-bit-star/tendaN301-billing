@@ -139,13 +139,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /interface bridge remove [find name=jasiri-bridge] } on-error={}\n";
     $script .= "/interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge\n\n";
 
-    $script .= "# --- Wireless AP (open, no password) ---\n";
-    $script .= ":do { /interface wireless security-profiles remove [find name=jasiri-open] } on-error={}\n";
-    $script .= ":do { /interface wireless security-profiles add name=jasiri-open unicast-cast-encryption=none } on-error={}\n";
-    $script .= "/interface wireless set [find] mode=ap-bridge frequency=auto disabled=no security-profile=jasiri-open\n";
-    $script .= "/interface wireless set [find] ssid=JasiriWiFi\n";
-    $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
-    $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n\n";
+    $script .= "# Wireless AP is configured via WinBox or manually after provisioning\n\n";
 
     $script .= ":do { /ip address remove [find interface=jasiri-bridge] } on-error={}\n";
     $script .= "/ip address add address=10.10.0.1/24 comment=\"Added by Jasiri\" interface=jasiri-bridge\n";
