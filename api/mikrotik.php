@@ -127,40 +127,40 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/system identity set name=\"$name\"\n\n";
 
     $script .= ":do { /interface bridge remove [find name=jasiri-bridge] } on-error={}\n";
-    $script .= ":do { /interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge } on-error={}\n\n";
+    $script .= "/interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge\n\n";
 
     $script .= "# --- Wireless AP (open, no password) ---\n";
-    $script .= ":do { /interface wireless set [find] mode=ap-bridge frequency=auto disabled=no } on-error={}\n";
-    $script .= ":do { /interface wireless security-profiles set [find name=default] authentication-types=none } on-error={}\n";
-    $script .= ":do { /interface wireless set [find] ssid=JasiriWiFi } on-error={}\n";
+    $script .= "/interface wireless set [find] mode=ap-bridge frequency=auto disabled=no\n";
+    $script .= "/interface wireless security-profiles set [find name=default] authentication-types=none\n";
+    $script .= "/interface wireless set [find] ssid=JasiriWiFi\n";
     $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
-    $script .= ":do { /interface bridge port add bridge=jasiri-bridge interface=wlan1 } on-error={}\n";
+    $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n";
     $script .= ":do { /interface bridge port remove [find interface=ether2] } on-error={}\n";
-    $script .= ":do { /interface bridge port add bridge=jasiri-bridge interface=ether2 } on-error={}\n\n";
+    $script .= "/interface bridge port add bridge=jasiri-bridge interface=ether2\n\n";
 
     $script .= ":do { /ip address remove [find interface=jasiri-bridge] } on-error={}\n";
-    $script .= ":do { /ip address add address=10.10.0.1/24 comment=\"Added by Jasiri\" interface=jasiri-bridge } on-error={}\n";
+    $script .= "/ip address add address=10.10.0.1/24 comment=\"Added by Jasiri\" interface=jasiri-bridge\n";
     $script .= ":do { /ip pool remove [find name=jasiri-pool] } on-error={}\n";
-    $script .= ":do { /ip pool add name=jasiri-pool ranges=10.10.0.2-10.10.0.254 } on-error={}\n";
+    $script .= "/ip pool add name=jasiri-pool ranges=10.10.0.2-10.10.0.254\n";
     $script .= ":do { /ip dhcp-server remove [find name=jasiri-dhcp] } on-error={}\n";
-    $script .= ":do { /ip dhcp-server add address-pool=jasiri-pool disabled=no interface=jasiri-bridge name=jasiri-dhcp } on-error={}\n";
+    $script .= "/ip dhcp-server add address-pool=jasiri-pool disabled=no interface=jasiri-bridge name=jasiri-dhcp\n";
     $script .= ":do { /ip dhcp-server network remove [find address~\"10.10.0.0\"] } on-error={}\n";
-    $script .= ":do { /ip dhcp-server network add address=10.10.0.0/24 dns-server=8.8.8.8,8.8.4.4 gateway=10.10.0.1 } on-error={}\n\n";
+    $script .= "/ip dhcp-server network add address=10.10.0.0/24 dns-server=8.8.8.8,8.8.4.4 gateway=10.10.0.1\n\n";
 
     $script .= ":do { /radius remove [find service=hotspot] } on-error={}\n";
     $script .= ":do { /radius remove [find service=ppp] } on-error={}\n";
-    $script .= ":do { /radius add address=10.100.0.1 secret=\"jasiri123\" service=hotspot authentication-port=1812 accounting-port=1813 timeout=3s realm=\"$deviceId\" comment=\"Jasiri RADIUS\" } on-error={}\n";
-    $script .= ":do { /radius add address=10.100.0.1 secret=\"jasiri123\" service=ppp authentication-port=1812 accounting-port=1813 timeout=3s realm=\"$deviceId\" comment=\"Jasiri RADIUS PPP\" } on-error={}\n";
+    $script .= "/radius add address=10.100.0.1 secret=\"jasiri123\" service=hotspot authentication-port=1812 accounting-port=1813 timeout=3s realm=\"$deviceId\" comment=\"Jasiri RADIUS\"\n";
+    $script .= "/radius add address=10.100.0.1 secret=\"jasiri123\" service=ppp authentication-port=1812 accounting-port=1813 timeout=3s realm=\"$deviceId\" comment=\"Jasiri RADIUS PPP\"\n";
     $script .= "/radius incoming set accept=yes port=3799\n\n";
 
     $script .= ":do { /interface wireguard remove [find name=jasiri-wg] } on-error={}\n";
-    $script .= ":do { /interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=13241 } on-error={}\n\n";
+    $script .= "/interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=13241\n\n";
 
     $script .= ":do { /ip address remove [find interface=jasiri-wg] } on-error={}\n";
-    $script .= ":do { /ip address add address=$wireguardIP/24 interface=jasiri-wg } on-error={}\n\n";
+    $script .= "/ip address add address=$wireguardIP/24 interface=jasiri-wg\n\n";
 
     $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
-    $script .= ":do { /interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s } on-error={}\n\n";
+    $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
 
     $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
     $script .= "/ip service set ssh address=10.100.0.0/24 disabled=no\n";
