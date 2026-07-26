@@ -25,7 +25,7 @@ if (preg_match('#^/api/v1/(auth|routers|router|whitelist|billing|plans|router_co
 }
 
 // Non-v1 API endpoints (mikrotik, vouchers, etc.)
-if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump|hotspot_login)\.php$#', $requestPath, $m)) {
+if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump|hotspot_login|wireguard_register)\.php$#', $requestPath, $m)) {
     $apiFile = __DIR__ . '/api/' . $m[1] . '.php';
     if (file_exists($apiFile)) {
         require $apiFile;

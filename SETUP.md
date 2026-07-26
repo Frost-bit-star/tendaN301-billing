@@ -307,6 +307,7 @@ For each MikroTik router you connect:
 - [ ] RouterOS 7+ is installed
 - [ ] Run `/system device-mode update mode=advanced fetch=yes` (once per new router)
 - [ ] Run the `/tool fetch` provisioning command from the dashboard
+- [ ] Router creates its own WireGuard key and calls back to register it
 - [ ] Wait for WireGuard handshake (device appears "online" in dashboard)
 - [ ] Configure bridge ports and hotspot services in Step 3
 
@@ -317,7 +318,18 @@ For each MikroTik router you connect:
 ```
 MikroTik Router                        Your Server
     |                                      |
-    |--- WireGuard handshake (UDP 13231) -->|
+    |  1. Runs provisioning script        |
+    |  2. Creates own WG key pair         |
+    |  3. Fetch GET /api/wireguard_       |
+    |     register.php?device=X&pubkey=Y  |
+    |------------------------------------->|
+    |                                      |
+    |  4. Server saves pubkey             |
+    |  5. Server runs:                    |
+    |     wg set wg0 peer <Y>             |
+    |       allowed-ips 10.100.0.x/32     |
+    |                                      |
+    |<-- WireGuard handshake (UDP 13231) ->|
     |                                      |
     |   MikroTik gets 10.100.0.x/24       |
     |   Server acts as 10.100.0.1         |
@@ -327,10 +339,12 @@ MikroTik Router                        Your Server
 ```
 
 - The server runs `wg0` on `10.100.0.1/24`, listening on UDP `13231`
-- Each MikroTik gets a unique IP (`10.100.0.2`, `.3`, etc.)
-- When a device is registered, the server adds it as a WireGuard peer via `wg set`
+- `wg0.conf` contains **only** the `[Interface]` block — no static peers
+- Each MikroTik router **generates its own WireGuard key pair** during provisioning
+- The router keeps its private key; the server never sees it
+- After creating the WireGuard interface, the router calls `/api/wireguard_register.php` with its public key
+- The server saves the public key to the database and adds the peer dynamically via `wg set`
 - MikroTik management (REST API, SSH) is only accessible over the WireGuard tunnel
-- The server provides NAT masquerade so MikroTik clients can reach the internet through the tunnel
 
 ---
 
@@ -410,6 +424,7 @@ tendaN301-billing/
 │
 ├── api/
 │   ├── mikrotik.php             # MikroTik provisioning + WG peers
+│   ├── wireguard_register.php   # Router callback: saves pubkey, adds WG peer
 │   ├── vouchers.php             # Voucher CRUD
 │   ├── control.php              # Tenda router CRUD
 │   ├── billing.php              # Billing operations

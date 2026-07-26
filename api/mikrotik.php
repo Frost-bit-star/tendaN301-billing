@@ -37,18 +37,6 @@ function generateProvisionToken() {
     return bin2hex(random_bytes(16));
 }
 
-function generateWireGuardKeys() {
-    $privateKey = trim(shell_exec('wg genkey 2>/dev/null') ?: '');
-    if (empty($privateKey)) {
-        $privateKey = base64_encode(random_bytes(32));
-    }
-    $publicKey = trim(shell_exec("echo '$privateKey' | wg pubkey 2>/dev/null") ?: '');
-    if (empty($publicKey)) {
-        $publicKey = base64_encode(random_bytes(32));
-    }
-    return ['private' => $privateKey, 'public' => $publicKey];
-}
-
 function getServerHost() {
     $host = $_SERVER['HTTP_HOST'] ?? '';
     if (empty($host) || str_starts_with($host, '127.') || str_starts_with($host, 'localhost')) {
@@ -122,7 +110,6 @@ function removeWireGuardPeer($peerPubKey) {
 }
 
 function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId) {
-    $wgKeys = generateWireGuardKeys();
     $listenPort = getServerWgPort();
     $timestamp = date('Ymd_His');
     $serverHost = getServerHost();
@@ -159,23 +146,33 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
     if ($hasWG) {
         $script .= ":do { /interface wireguard remove [find name=jasiri-wg] } on-error={}\n";
-        $script .= "/interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=13241\n\n";
+        $script .= "/interface wireguard add mtu=1420 name=jasiri-wg listen-port=13241\n\n";
 
         $script .= ":do { /ip address remove [find interface=jasiri-wg] } on-error={}\n";
         $script .= "/ip address add address=$wireguardIP/24 interface=jasiri-wg\n\n";
 
         $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
         $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
+
+        $script .= ":local wgPub [/interface wireguard get jasiri-wg public-key]\n";
+        $script .= "/tool fetch mode={$serverScheme} url=\"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=$wgPub\" keep-result=no\n\n";
     } else {
         $script .= "# WireGuard skipped (server not configured)\n\n";
     }
 
+    $serverSubnet = '192.168.0.0/16';
+    $serverHost = $_SERVER['HTTP_HOST'] ?? '';
+    $serverIP = preg_replace('/:\d+$/', '', $serverHost);
+    if (preg_match('/^(\d+\.\d+\.\d+)\.\d+$/', $serverIP, $m)) {
+        $serverSubnet = $m[1] . '.0/24';
+    }
+
     if ($hasWG) {
-        $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
-        $script .= "/ip service set ssh address=10.100.0.0/24 disabled=no\n";
+        $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8728\n";
+        $script .= "/ip service set ssh address=$serverSubnet,10.100.0.0/24 disabled=no\n";
         $script .= "/ip service set www address=10.100.0.0/24 disabled=no port=8080\n\n";
     } else {
-        $script .= "/ip service set api-ssl address=0.0.0.0/0 disabled=no port=8729\n";
+        $script .= "/ip service set api-ssl address=0.0.0.0/0 disabled=no port=8728\n";
         $script .= "/ip service set ssh address=0.0.0.0/0 disabled=no\n";
         $script .= "/ip service set www address=0.0.0.0/0 disabled=no port=8080\n\n";
     }
@@ -185,18 +182,11 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /user remove [find name=$apiUser] } on-error={}\n";
     $script .= "/user add name=$apiUser password=\"$apiPass\" group=full comment=\"Jasiri Management API\"\n\n";
 
-    $serverSubnet = '192.168.0.0/16';
-    $serverHost = $_SERVER['HTTP_HOST'] ?? '';
-    $serverIP = preg_replace('/:\d+$/', '', $serverHost);
-    if (preg_match('/^(\d+\.\d+\.\d+)\.\d+$/', $serverIP, $m)) {
-        $serverSubnet = $m[1] . '.0/24';
-    }
-
     $fwSrc = $hasWG ? "src-address=10.100.0.0/24" : "src-address=0.0.0.0/0";
     $fwSrcExtra = $hasWG ? "src-address=$serverSubnet" : "";
     $fwRules = [
         ["Allow WireGuard", "protocol=udp dst-port=13241 src-address=10.100.0.1"],
-        ["Allow API SSL", "protocol=tcp dst-port=8729 $fwSrc"],
+        ["Allow API", "protocol=tcp dst-port=8728 $fwSrc"],
         ["Allow REST (www)", "protocol=tcp dst-port=8080 $fwSrc"],
         ["Allow SSH from WireGuard", "protocol=tcp dst-port=22 $fwSrc"],
         ["Allow SNMP from WireGuard", "protocol=udp dst-port=161 $fwSrc"],
@@ -208,7 +198,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     }
     if ($hasWG && !empty($fwSrcExtra)) {
         $extraComments = [
-            ["Allow API from LAN", "protocol=tcp dst-port=8729 $fwSrcExtra"],
+            ["Allow API from LAN", "protocol=tcp dst-port=8728 $fwSrcExtra"],
             ["Allow WWW from LAN", "protocol=tcp dst-port=8080 $fwSrcExtra"],
             ["Allow SSH from LAN", "protocol=tcp dst-port=22 $fwSrcExtra"],
         ];
@@ -258,15 +248,13 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
         'script' => $script,
         'api_user' => $apiUser,
         'api_pass' => $apiPass,
-        'mikrotik_privkey' => $wgKeys['private'],
-        'mikrotik_pubkey' => $wgKeys['public'],
         'listen_port' => $listenPort,
         'timestamp' => $timestamp,
     ];
 }
 
 function isMikroTikOnline($wireguardIP) {
-    $fp = @fsockopen($wireguardIP, 8729, $errno, $errstr, 3);
+    $fp = @fsockopen($wireguardIP, 8728, $errno, $errstr, 3);
     if (is_resource($fp)) {
         fclose($fp);
         return true;
@@ -329,7 +317,7 @@ if ($method === 'POST') {
 
         $stmt = $db->prepare("
             INSERT INTO routers (name, ip, port, password, type, location, device_id, wireguard_ip, provisioning_status, provision_token, tenant_id)
-            VALUES (:name, :ip, 8729, '', 'mikrotik', :location, :device_id, :wireguard_ip, 'pending', :provision_token, :tenant_id)
+            VALUES (:name, :ip, 8728, '12345678', 'mikrotik', :location, :device_id, :wireguard_ip, 'pending', :provision_token, :tenant_id)
         ");
         $stmt->execute([
             ':name' => $name,
@@ -349,14 +337,11 @@ if ($method === 'POST') {
             jsonResponse(['error' => $provData['error']], 500);
         }
 
-        $stmt = $db->prepare("UPDATE routers SET password = :pass, wg_pubkey = :pubkey WHERE id = :id");
+        $stmt = $db->prepare("UPDATE routers SET password = :pass WHERE id = :id");
         $stmt->execute([
             ':pass' => $provData['api_pass'],
-            ':pubkey' => $provData['mikrotik_pubkey'],
             ':id' => $routerId,
         ]);
-
-        addWireGuardPeer($provData['mikrotik_pubkey'], $wireguardIP);
 
         jsonResponse([
             'success' => true,
@@ -365,7 +350,6 @@ if ($method === 'POST') {
             'provision_token' => $provisionToken,
             'wireguard_ip' => $wireguardIP,
             'server_public_key' => $serverPubKey,
-            'mikrotik_public_key' => $provData['mikrotik_pubkey'],
             'api_user' => $provData['api_user'],
             'api_pass' => $provData['api_pass'],
             'timestamp' => $provData['timestamp'],
@@ -388,7 +372,7 @@ if ($method === 'POST') {
         }
 
         $wgIP = $router['wireguard_ip'];
-        $online = @fsockopen($wgIP, 8729, $errno, $errstr, 3);
+        $online = @fsockopen($wgIP, 8728, $errno, $errstr, 3);
         $isOnline = is_resource($online);
         if ($isOnline) fclose($online);
 
@@ -397,7 +381,7 @@ if ($method === 'POST') {
         }
 
         if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
-            $fp2 = @fsockopen($router['ip'], intval($router['port'] ?: 8729), $errno, $errstr, 3);
+            $fp2 = @fsockopen($router['ip'], intval($router['port'] ?: 8728), $errno, $errstr, 3);
             $isOnline = is_resource($fp2);
             if ($isOnline) fclose($fp2);
         }
@@ -473,10 +457,10 @@ if ($method === 'POST') {
         }
 
         $apiIP = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $router['wireguard_ip'];
-        $apiPort = intval($router['port'] ?: 8729);
+        $apiPort = intval($router['port'] ?: 8728);
 
         try {
-            $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+            $api = new MikroTikAPI($apiIP, $apiPort, 'admin', $router['password'] ?? '');
             $api->connect();
 
             if ($security === 'open') {
@@ -516,7 +500,7 @@ if ($method === 'GET') {
 
         foreach ($routers as &$r) {
             $wgIP = $r['wireguard_ip'];
-            $fp = @fsockopen($wgIP, 8729, $errno, $errstr, 3);
+        $fp = @fsockopen($wgIP, 8728, $errno, $errstr, 3);
             $r['online'] = is_resource($fp);
             if ($r['online']) fclose($fp);
 
@@ -567,14 +551,11 @@ if ($method === 'GET') {
             jsonResponse(['error' => $provData['error']], 500);
         }
 
-        $stmt = $db->prepare("UPDATE routers SET provisioning_status = 'provisioning', wg_pubkey = :pubkey, last_provisioned_at = :ts WHERE id = :id");
+        $stmt = $db->prepare("UPDATE routers SET provisioning_status = 'provisioning', last_provisioned_at = :ts WHERE id = :id");
         $stmt->execute([
-            ':pubkey' => $provData['mikrotik_pubkey'],
             ':ts' => date('Y-m-d H:i:s'),
             ':id' => $router['id'],
         ]);
-
-        addWireGuardPeer($provData['mikrotik_pubkey'], $router['wireguard_ip']);
 
         header('Content-Type: text/plain');
         echo $provData['script'];
