@@ -114,6 +114,35 @@ $deviceId = $_GET['id'] ?? null;
     </div>
 </div>
 
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="toggleTerminal()">
+                <h5 class="mb-0"><i class="fas fa-terminal"></i> SSH Terminal</h5>
+                <div>
+                    <button class="btn btn-sm btn-success" id="openTermBtn" onclick="event.stopPropagation();startTerminal()"><i class="fas fa-play"></i> Open Terminal</button>
+                    <button class="btn btn-sm btn-danger" id="closeTermBtn" onclick="event.stopPropagation();stopTerminal()" style="display:none"><i class="fas fa-stop"></i> Close</button>
+                </div>
+            </div>
+            <div class="card-body p-0" id="terminalContainer" style="display:none;height:450px;background:#1a1a2e">
+                <iframe id="terminalFrame" style="width:100%;height:100%;border:none;display:none"></iframe>
+                <div id="terminalLoading" class="d-flex align-items-center justify-content-center h-100 text-white">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                        <p>Connecting to router SSH...</p>
+                    </div>
+                </div>
+                <div id="terminalError" class="d-flex align-items-center justify-content-center h-100 text-danger" style="display:none">
+                    <div class="text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                        <p id="terminalErrorMsg">Connection failed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 let deviceData = null;
 
@@ -182,6 +211,73 @@ async function loadDevice() {
 }
 
 loadDevice();
+
+function toggleTerminal() {
+    const c = document.getElementById('terminalContainer');
+    c.style.display = c.style.display === 'none' ? 'block' : 'none';
+}
+
+async function startTerminal() {
+    const btn = document.getElementById('openTermBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
+    document.getElementById('terminalError').style.display = 'none';
+    document.getElementById('terminalLoading').style.display = 'flex';
+    document.getElementById('terminalFrame').style.display = 'none';
+    document.getElementById('terminalContainer').style.display = 'block';
+
+    try {
+        const res = await fetch('/api/ssh_terminal.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'start', router_id: deviceData.id })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+
+        const frame = document.getElementById('terminalFrame');
+        frame.onload = function() {
+            document.getElementById('terminalLoading').style.display = 'none';
+            this.style.display = 'block';
+        };
+        frame.src = 'http://' + window.location.hostname + ':' + data.port + '/';
+
+        btn.style.display = 'none';
+        document.getElementById('closeTermBtn').style.display = 'inline-block';
+
+        setTimeout(function() {
+            if (document.getElementById('terminalLoading').style.display !== 'none') {
+                document.getElementById('terminalLoading').style.display = 'none';
+                document.getElementById('terminalError').style.display = 'flex';
+                document.getElementById('terminalErrorMsg').textContent = 'Connection timed out. Router may be offline.';
+            }
+        }, 10000);
+    } catch (err) {
+        document.getElementById('terminalLoading').style.display = 'none';
+        document.getElementById('terminalError').style.display = 'flex';
+        document.getElementById('terminalErrorMsg').textContent = err.message;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-play"></i> Open Terminal';
+    }
+}
+
+async function stopTerminal() {
+    try {
+        await fetch('/api/ssh_terminal.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'stop', router_id: deviceData.id })
+        });
+    } catch (e) {}
+    document.getElementById('terminalFrame').style.display = 'none';
+    document.getElementById('terminalFrame').src = '';
+    document.getElementById('terminalLoading').style.display = 'flex';
+    document.getElementById('closeTermBtn').style.display = 'none';
+    document.getElementById('openTermBtn').style.display = 'inline-block';
+}
+
+window.addEventListener('beforeunload', function() { stopTerminal(); });
 </script>
 
 <?php else: ?>
