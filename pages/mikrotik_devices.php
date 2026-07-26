@@ -89,7 +89,7 @@ async function loadDevices() {
         const grid = document.getElementById('devicesGrid');
         grid.innerHTML = data.routers.map(r => `
             <div class="mikrotik-card" onclick="viewDevice(${r.id})">
-                <button class="btn btn-sm btn-outline-danger" style="position:absolute;top:10px;right:50px;z-index:2;" onclick="event.stopPropagation();deleteDevice(${r.id},'${escapeHtml(r.name)}')"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-sm btn-outline-danger" style="position:absolute;top:10px;left:10px;z-index:2;" onclick="event.stopPropagation();deleteDevice(${r.id},'${escapeHtml(r.name)}')"><i class="fas fa-trash"></i></button>
                 <span class="status-badge ${r.provisioning_status || 'offline'}">${r.provisioning_status || 'offline'}</span>
                 <div class="device-icon ${r.provisioning_status || 'offline'}">
                     <i class="fas fa-router"></i>
