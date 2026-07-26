@@ -181,4 +181,38 @@ class MikroTikAPI {
         }
         return null;
     }
+
+    public function getWirelessInfo() {
+        $interfaces = $this->command(['/interface/wireless/print']);
+        $profiles = $this->command(['/interface/wireless/security-profiles/print']);
+        return ['interfaces' => $interfaces, 'profiles' => $profiles];
+    }
+
+    public function setWireless($ssid, $securityProfile = null, $mode = 'ap-bridge') {
+        $result = $this->command(['/interface/wireless/set', '=.id=*0', "=mode=$mode", "=ssid=$ssid", "=disabled=no"]);
+        if ($securityProfile) {
+            $this->command(['/interface/wireless/set', '=.id=*0', "=security-profile=$securityProfile"]);
+        }
+        return $result;
+    }
+
+    public function setWirelessProfile($name, $authTypes = 'none', $enc = 'none') {
+        $existing = $this->command(['/interface/wireless/security-profiles/find', "?name=$name"]);
+        if (!empty($existing)) {
+            $id = $existing[0] ?? '*0';
+            return $this->command(['/interface/wireless/security-profiles/set', "=.id=$id", "=authentication-types=$authTypes", "=unicast-cast-encryption=$enc"]);
+        }
+        return $this->command(['/interface/wireless/security-profiles/add', "=name=$name", "=authentication-types=$authTypes", "=unicast-cast-encryption=$enc"]);
+    }
+
+    public function setBridgePort($interface, $bridge) {
+        $existing = $this->command(['/interface/bridge/port/find', "?interface=$interface"]);
+        if (!empty($existing)) {
+            $id = $existing[0]['.id'] ?? ($existing[0] ?? null);
+            if ($id) {
+                return $this->command(['/interface/bridge/port/set', "=.id=$id", "=bridge=$bridge"]);
+            }
+        }
+        return $this->command(['/interface/bridge/port/add', "=interface=$interface", "=bridge=$bridge"]);
+    }
 }

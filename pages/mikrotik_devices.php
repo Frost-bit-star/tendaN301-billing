@@ -2,6 +2,7 @@
 ob_start();
 include __DIR__ . '/../components/header.php';
 include __DIR__ . '/../components/sidebar.php';
+$deviceId = $_GET['id'] ?? null;
 ?>
 <style>
 .mikrotik-grid {
@@ -50,6 +51,141 @@ include __DIR__ . '/../components/sidebar.php';
 <section class="content">
 <div class="container-fluid">
 
+<?php if ($deviceId): ?>
+<!-- DEVICE DETAIL VIEW -->
+<div class="d-flex justify-content-between align-items-center mt-4 mb-4">
+    <div>
+        <a href="/mikrotik_devices" class="text-muted"><i class="fas fa-arrow-left"></i> Back to devices</a>
+        <h2 class="mb-0 mt-1"><i class="fas fa-router text-orange"></i> <span id="deviceName">Loading...</span></h2>
+    </div>
+    <div id="deviceStatusBadge"></div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-wifi"></i> Wireless Configuration</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Configure the WiFi network name and security for this device.</p>
+                <form id="wirelessForm">
+                    <input type="hidden" id="routerId" value="<?= htmlspecialchars($deviceId) ?>">
+                    <div class="form-group">
+                        <label for="ssid">Network Name (SSID)</label>
+                        <input type="text" class="form-control" id="ssid" placeholder="e.g. JasiriWiFi" maxlength="32" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="security">Security</label>
+                        <select class="form-control" id="security">
+                            <option value="open">Open (No Password)</option>
+                            <option value="wpa2">WPA2 (Password Protected)</option>
+                        </select>
+                    </div>
+                    <div id="passwordField" class="form-group" style="display:none;">
+                        <label for="wifiPassword">WiFi Password</label>
+                        <input type="text" class="form-control" id="wifiPassword" placeholder="Min 8 characters" maxlength="64">
+                    </div>
+                    <div id="wirelessMsg"></div>
+                    <button type="submit" class="btn btn-primary" id="applyWirelessBtn">
+                        <i class="fas fa-check"></i> Apply Configuration
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Device Info</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td class="text-muted">Device ID</td><td id="infoDeviceId">—</td></tr>
+                    <tr><td class="text-muted">Location</td><td id="infoLocation">—</td></tr>
+                    <tr><td class="text-muted">IP Address</td><td id="infoIP">—</td></tr>
+                    <tr><td class="text-muted">WireGuard IP</td><td id="infoWG">—</td></tr>
+                    <tr><td class="text-muted">API Password</td><td id="infoApiPass">—</td></tr>
+                    <tr><td class="text-muted">Status</td><td id="infoStatus">—</td></tr>
+                    <tr><td class="text-muted">Last Provisioned</td><td id="infoLastProv">—</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let deviceData = null;
+
+document.getElementById('security').addEventListener('change', function() {
+    document.getElementById('passwordField').style.display = this.value === 'wpa2' ? 'block' : 'none';
+});
+
+document.getElementById('wirelessForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (!deviceData) return;
+
+    const btn = document.getElementById('applyWirelessBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Applying...';
+    document.getElementById('wirelessMsg').innerHTML = '';
+
+    try {
+        const res = await fetch('/api/mikrotik.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'configure_wireless',
+                router_id: deviceData.id,
+                ssid: document.getElementById('ssid').value.trim(),
+                security: document.getElementById('security').value
+            })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-success py-2"><i class="fas fa-check"></i> ' + data.message + '</div>';
+    } catch (err) {
+        document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-danger py-2">' + err.message + '</div>';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-check"></i> Apply Configuration';
+    }
+});
+
+async function loadDevice() {
+    try {
+        const res = await fetch('/api/mikrotik.php?action=list');
+        const data = await res.json();
+        deviceData = (data.routers || []).find(r => r.id == <?= json_encode($deviceId) ?>);
+        if (!deviceData) {
+            document.querySelector('.container-fluid').innerHTML = '<div class="alert alert-danger mt-4">Device not found. <a href="/mikrotik_devices">Go back</a></div>';
+            return;
+        }
+
+        document.getElementById('deviceName').textContent = deviceData.name;
+        document.getElementById('routerId').value = deviceData.id;
+        document.getElementById('ssid').value = 'JasiriWiFi';
+
+        const status = deviceData.provisioning_status || 'offline';
+        document.getElementById('deviceStatusBadge').innerHTML = '<span class="badge badge-' + (status === 'online' ? 'success' : status === 'provisioning' ? 'warning' : 'danger') + '" style="font-size:0.9rem;padding:8px 16px;">' + status.toUpperCase() + '</span>';
+
+        document.getElementById('infoDeviceId').textContent = (deviceData.device_id || '').substring(0, 16) + '...';
+        document.getElementById('infoLocation').textContent = deviceData.location || '—';
+        document.getElementById('infoIP').textContent = deviceData.ip || '—';
+        document.getElementById('infoWG').textContent = deviceData.wireguard_ip || '—';
+        document.getElementById('infoApiPass').textContent = deviceData.password ? '••••••••' : '—';
+        document.getElementById('infoStatus').textContent = status;
+        document.getElementById('infoLastProv').textContent = deviceData.last_provisioned_at || '—';
+    } catch (err) {
+        document.getElementById('deviceName').textContent = 'Error loading device';
+    }
+}
+
+loadDevice();
+</script>
+
+<?php else: ?>
+<!-- DEVICE LIST VIEW -->
 <div class="d-flex justify-content-between align-items-center mt-4 mb-4">
     <h2 class="mb-0"><i class="fas fa-server text-orange"></i> MikroTik Devices</h2>
     <a href="connect_mikrotik" class="btn btn-primary"><i class="fas fa-plus"></i> Add Device</a>
@@ -67,10 +203,6 @@ include __DIR__ . '/../components/sidebar.php';
 <div id="loading" class="text-center py-5">
     <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
     <p class="text-muted mt-2">Loading devices...</p>
-</div>
-
-</div>
-</section>
 </div>
 
 <script>
@@ -97,7 +229,7 @@ async function loadDevices() {
                 <h5 class="mb-1">${escapeHtml(r.name)}</h5>
                 <p class="text-muted small mb-2">${escapeHtml(r.location || 'No location set')}</p>
                 <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted"><i class="fas fa-network-wired"></i> ${r.wireguard_ip || '—'}</small>
+                    <small class="text-muted"><i class="fas fa-network-wired"></i> ${r.ip || r.wireguard_ip || '—'}</small>
                     <small class="text-muted"><i class="fas fa-fingerprint"></i> ${(r.device_id || '').substring(0, 8)}...</small>
                 </div>
                 ${r.last_provisioned_at ? `<div class="mt-2"><small class="text-success"><i class="fas fa-check-circle"></i> Provisioned ${r.last_provisioned_at}</small></div>` : ''}
@@ -137,6 +269,11 @@ function escapeHtml(str) {
 loadDevices();
 setInterval(loadDevices, 30000);
 </script>
+<?php endif; ?>
+
+</div>
+</section>
+</div>
 
 <?php
 include __DIR__ . '/../components/footer.php';

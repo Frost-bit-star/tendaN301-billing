@@ -435,6 +435,50 @@ if ($method === 'POST') {
         jsonResponse(['success' => true, 'message' => 'Device deleted']);
     }
 
+    if ($action === 'configure_wireless') {
+        $routerId = $input['router_id'] ?? null;
+        $ssid = trim($input['ssid'] ?? '');
+        $security = $input['security'] ?? 'open';
+
+        if (!$routerId || empty($ssid)) {
+            jsonResponse(['error' => 'router_id and ssid required'], 400);
+        }
+
+        $stmt = $db->prepare("SELECT * FROM routers WHERE id = :id AND type = 'mikrotik'");
+        $stmt->execute([':id' => $routerId]);
+        $router = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$router) {
+            jsonResponse(['error' => 'Router not found'], 404);
+        }
+
+        $apiIP = $router['wireguard_ip'];
+        if (empty($apiIP) || $apiIP === '0.0.0.0' || (!empty($router['ip']) && $router['ip'] !== '0.0.0.0')) {
+            $testIP = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $apiIP;
+            $fp = @fsockopen($testIP, 8729, $errno, $errstr, 2);
+            if (is_resource($fp)) { fclose($fp); $apiIP = $testIP; }
+        }
+
+        try {
+            $api = new MikroTikAPI($apiIP, intval($router['port'] ?: 8729), 'jasiri-api', $router['password'] ?? '');
+            $api->connect();
+
+            if ($security === 'open') {
+                $api->setWirelessProfile('jasiri-open', 'none', 'none');
+                $api->setWireless($ssid, 'jasiri-open', 'ap-bridge');
+            } else {
+                $api->setWireless($ssid, 'default', 'ap-bridge');
+            }
+
+            $api->setBridgePort('wlan1', 'jasiri-bridge');
+            $api->close();
+
+            jsonResponse(['success' => true, 'message' => "Wireless configured: $ssid"]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => 'Failed to connect: ' . $e->getMessage()], 500);
+        }
+    }
+
     jsonResponse(['error' => 'Unknown action'], 400);
 }
 
