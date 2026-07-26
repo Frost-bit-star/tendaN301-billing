@@ -138,9 +138,11 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/system identity set name=\"$name\"\n\n";
 
     $script .= ":do { /interface bridge remove [find name=jasiri-bridge] } on-error={}\n";
-    $script .= "/interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge\n\n";
-
-    $script .= "# Wireless AP is configured via WinBox or manually after provisioning\n\n";
+    $script .= "/interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge\n";
+    $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
+    $script .= ":do { /interface bridge port remove [find interface=ether1] } on-error={}\n";
+    $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n";
+    $script .= "/interface bridge port add bridge=jasiri-bridge interface=ether1\n\n";
 
     $script .= ":do { /ip address remove [find interface=jasiri-bridge] } on-error={}\n";
     $script .= "/ip address add address=10.10.0.1/24 comment=\"Added by Jasiri\" interface=jasiri-bridge\n";
@@ -149,7 +151,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /ip dhcp-server remove [find name=jasiri-dhcp] } on-error={}\n";
     $script .= "/ip dhcp-server add address-pool=jasiri-pool disabled=no interface=jasiri-bridge name=jasiri-dhcp\n";
     $script .= ":do { /ip dhcp-server network remove [find address~\"10.10.0.0\"] } on-error={}\n";
-    $script .= "/ip dhcp-server network add address=10.10.0.0/24 dns-server=8.8.8.8,8.8.4.4 gateway=10.10.0.1\n\n";
+    $script .= "/ip dhcp-server network add address=10.10.0.0/24 dns-server=10.10.0.1,8.8.8.8,8.8.4.4 gateway=10.10.0.1\n\n";
 
     $script .= ":do { /radius remove [find service=hotspot] } on-error={}\n";
     $script .= ":do { /radius remove [find service=ppp] } on-error={}\n";
