@@ -200,13 +200,13 @@ class MikroTikAPI {
         return true;
     }
 
-    public function setWirelessProfile($name, $authTypes = 'none', $enc = 'none') {
+    public function setWirelessProfile($name, $authTypes = '', $enc = 'none') {
         $existing = $this->command(['/interface/wireless/security-profiles/find', "?name=$name"]);
         if (!empty($existing)) {
             $id = is_array($existing[0]) ? ($existing[0]['.id'] ?? '*0') : $existing[0];
-            return $this->command(['/interface/wireless/security-profiles/set', "=.id=$id", "=authentication-types=$authTypes", "=unicast-cast-encryption=$enc"]);
+            return $this->command(['/interface/wireless/security-profiles/set', "=.id=$id", "=mode=none", "=authentication-types=$authTypes", "=unicast-cast-encryption=$enc"]);
         }
-        return $this->command(['/interface/wireless/security-profiles/add', "=name=$name", "=authentication-types=$authTypes", "=unicast-cast-encryption=$enc"]);
+        return $this->command(['/interface/wireless/security-profiles/add', "=name=$name", "=mode=none", "=authentication-types=$authTypes", "=unicast-cast-encryption=$enc"]);
     }
 
     public function setBridgePort($interface, $bridge) {
