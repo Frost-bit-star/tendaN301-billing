@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
     if (empty($voucherCode)) {
         $error = 'Please enter a voucher code';
     } else {
-        $stmt = $db->prepare("SELECT v.*, p.name as plan_name, p.duration, p.speed FROM vouchers v LEFT JOIN plans p ON v.plan_id = p.id WHERE v.code = :code");
+        $stmt = $db->prepare("SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes FROM vouchers v LEFT JOIN plans p ON v.plan_id = p.id WHERE v.code = :code");
         $stmt->execute([':code' => $voucherCode]);
         $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -43,7 +43,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         } elseif ($voucher['expires_at'] && strtotime($voucher['expires_at']) < time()) {
             $error = 'Voucher has expired';
         } else {
-            $duration = $voucher['duration'] ?? 3600;
+            $duration = ($voucher['days'] ?? 0) * 86400 + ($voucher['hours'] ?? 0) * 3600 + ($voucher['minutes'] ?? 0) * 60;
+            if ($duration <= 0) $duration = 3600;
             $hours = floor($duration / 3600);
             $mins = floor(($duration % 3600) / 60);
             $uptime = "${hours}h${mins}m0s";
