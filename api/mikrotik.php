@@ -173,11 +173,11 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     if ($hasWG) {
         $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
         $script .= "/ip service set ssh address=10.100.0.0/24 disabled=no\n";
-        $script .= "/ip service set www address=10.100.0.0/24 disabled=no port=80\n\n";
+        $script .= "/ip service set www address=10.100.0.0/24 disabled=no port=8080\n\n";
     } else {
         $script .= "/ip service set api-ssl address=0.0.0.0/0 disabled=no port=8729\n";
         $script .= "/ip service set ssh address=0.0.0.0/0 disabled=no\n";
-        $script .= "/ip service set www address=0.0.0.0/0 disabled=no port=80\n\n";
+        $script .= "/ip service set www address=0.0.0.0/0 disabled=no port=8080\n\n";
     }
 
     $apiUser = 'jasiri-api';
@@ -197,7 +197,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $fwRules = [
         ["Allow WireGuard", "protocol=udp dst-port=13241 src-address=10.100.0.1"],
         ["Allow API SSL", "protocol=tcp dst-port=8729 $fwSrc"],
-        ["Allow REST (www)", "protocol=tcp dst-port=80 $fwSrc"],
+        ["Allow REST (www)", "protocol=tcp dst-port=8080 $fwSrc"],
         ["Allow SSH from WireGuard", "protocol=tcp dst-port=22 $fwSrc"],
         ["Allow SNMP from WireGuard", "protocol=udp dst-port=161 $fwSrc"],
         ["Allow RADIUS CoA from server", "dst-port=3799 protocol=udp src-address=10.100.0.0/24"],
@@ -209,7 +209,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     if ($hasWG && !empty($fwSrcExtra)) {
         $extraComments = [
             ["Allow API from LAN", "protocol=tcp dst-port=8729 $fwSrcExtra"],
-            ["Allow WWW from LAN", "protocol=tcp dst-port=80 $fwSrcExtra"],
+            ["Allow WWW from LAN", "protocol=tcp dst-port=8080 $fwSrcExtra"],
             ["Allow SSH from LAN", "protocol=tcp dst-port=22 $fwSrcExtra"],
         ];
         foreach ($extraComments as [$comment, $params]) {
@@ -228,7 +228,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
     $script .= "# --- Hotspot / Captive Portal ---\n";
     $script .= ":do { /ip hotspot profile remove [find name=hs-prof1] } on-error={}\n";
-    $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login-by=http-pap\n\n";
+    $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local dns-server=8.8.8.8,8.8.4.4 login-by=http-pap\n\n";
 
     $script .= ":do { /ip hotspot remove [find name=hotspot1] } on-error={}\n";
     $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1\n\n";
