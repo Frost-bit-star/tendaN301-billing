@@ -26,7 +26,7 @@ if (!$router) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
-    $voucherCode = trim($_POST['voucher_code'] ?? '');
+    $voucherCode = preg_replace('/\s+/', '', trim($_POST['voucher_code'] ?? ''));
     $mac = trim($_POST['mac'] ?? $clientMAC);
 
     if (empty($voucherCode)) {
