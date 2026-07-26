@@ -219,8 +219,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
     $script .= ":do { /ip hotspot walled-garden remove [find dst-host~\"jasiri\"] } on-error={}\n";
     $script .= "/ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-address=10.10.0.1\n\n";
+    $script .= "/ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site\n\n";
 
     $script .= ":do { /ip dns static remove [find name=jasiri.local] } on-error={}\n";
     $script .= "/ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m\n\n";
