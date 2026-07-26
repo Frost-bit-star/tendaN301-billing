@@ -6,7 +6,7 @@ class MikroTikAPI {
     private $user;
     private $pass;
 
-    public function __construct($host, $port = 8729, $user = 'jasiri-api', $pass = '') {
+    public function __construct($host, $port = 8728, $user = 'admin', $pass = '') {
         $this->host = $host;
         $this->port = $port;
         $this->user = $user;
@@ -14,18 +14,18 @@ class MikroTikAPI {
     }
 
     public function connect() {
-        $ctx = stream_context_create([
-            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true],
-        ]);
-        $this->sock = @stream_socket_client("tls://{$this->host}:{$this->port}", $errno, $errstr, 5, STREAM_CLIENT_CONNECT, $ctx);
+        $this->sock = @stream_socket_client("tcp://{$this->host}:{$this->port}", $errno, $errstr, 5);
         if (!$this->sock) {
-            $this->sock = @stream_socket_client("tcp://{$this->host}:{$this->port}", $errno, $errstr, 5);
+            $ctx = stream_context_create([
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true],
+            ]);
+            $this->sock = @stream_socket_client("tls://{$this->host}:{$this->port}", $errno, $errstr, 5, STREAM_CLIENT_CONNECT, $ctx);
         }
         if (!$this->sock) {
             throw new Exception("Cannot connect to {$this->host}:{$this->port} - $errstr ($errno)");
         }
-        stream_set_timeout($this->sock, 5);
-        $greeting = $this->readWord();
+        stream_set_timeout($this->sock, 10);
+        $this->readWord();
         $this->login();
         return true;
     }
@@ -47,7 +47,61 @@ class MikroTikAPI {
 
     public function command($words) {
         $this->sendSentence($words);
-        return $this->readSentence();
+        $all = [];
+        $current = [];
+        while (true) {
+            $word = $this->readWord();
+            if ($word === false) break;
+            if ($word === '') {
+                if (!empty($current)) { $all[] = $current; $current = []; }
+                continue;
+            }
+            if ($word === '!done') break;
+            if ($word === '!trap' || $word === '!re') {
+                if (!empty($current)) { $all[] = $current; $current = []; }
+                continue;
+            }
+            $this->parseWord($word, $current);
+        }
+        if (!empty($current)) $all[] = $current;
+        return $all;
+    }
+
+    public function commandRaw($words) {
+        $this->sendSentence($words);
+        $all = [];
+        $current = [];
+        $done = false;
+        while (!$done) {
+            $word = $this->readWord();
+            if ($word === false) break;
+            if ($word === '') {
+                if (!empty($current)) { $all[] = $current; $current = []; }
+                continue;
+            }
+            if ($word[0] === '!') {
+                if ($word === '!done') $done = true;
+                if ($word === '!trap' && !empty($current)) { $current['!trap'] = true; }
+                if (!empty($current)) { $all[] = $current; $current = []; }
+                if ($done) break;
+                continue;
+            }
+            $this->parseWord($word, $current);
+        }
+        return $all;
+    }
+
+    private function parseWord($word, &$current) {
+        if ($word[0] === '=' && isset($word[1]) && $word[1] === '!') {
+            $current['!error'] = substr($word, 2);
+        } elseif ($word[0] === '=') {
+            $eqPos = strpos($word, '=', 1);
+            $key = substr($word, 1, $eqPos - 1);
+            $val = substr($word, $eqPos + 1);
+            $current[$key] = $val;
+        } elseif ($word[0] === '.') {
+            $current['_sentence'] = $word;
+        }
     }
 
     private function sendSentence($words) {
@@ -55,36 +109,6 @@ class MikroTikAPI {
             $this->writeWord($word);
         }
         $this->writeWord('');
-    }
-
-    private function readSentence() {
-        $results = [];
-        $current = [];
-        while (true) {
-            $word = $this->readWord();
-            if ($word === false) break;
-            if ($word === '') {
-                if (!empty($current)) {
-                    $results[] = $current;
-                    $current = [];
-                }
-                break;
-            }
-            if ($word[0] === '=' && isset($word[1]) && $word[1] === '!') {
-                $key = substr($word, 2);
-                $current['!error'] = $key;
-            } elseif ($word[0] === '=') {
-                $eqPos = strpos($word, '=');
-                $key = substr($word, 1, $eqPos - 1);
-                $val = substr($word, $eqPos + 1);
-                $current[$key] = $val;
-            } elseif ($word[0] === '.') {
-                $current['_sentence'] = $word;
-            } else {
-                $current[] = $word;
-            }
-        }
-        return $results;
     }
 
     private function writeWord($word) {
@@ -97,7 +121,17 @@ class MikroTikAPI {
         $len = $this->readLength();
         if ($len === false) return false;
         if ($len === 0) return '';
-        return fread($this->sock, $len);
+        return $this->readExact($len);
+    }
+
+    private function readExact($len) {
+        $buf = '';
+        while (strlen($buf) < $len) {
+            $chunk = fread($this->sock, $len - strlen($buf));
+            if ($chunk === false || $chunk === '') return false;
+            $buf .= $chunk;
+        }
+        return $buf;
     }
 
     private function writeLength($length) {
