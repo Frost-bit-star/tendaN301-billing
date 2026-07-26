@@ -13,7 +13,9 @@ function callBillingApi($routerId, $paidMac = null, $planId = null) {
     if ($paidMac) $params['paid_mac'] = $paidMac;
     if ($planId)  $params['plan_id'] = $planId;
 
-    $url = "http://127.0.0.1:8000/auth/billing.php?" . http_build_query($params);
+    $host = $_SERVER['HTTP_HOST'] ?? '127.0.0.1:8000';
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $url = "$scheme://$host/auth/billing.php?" . http_build_query($params);
 
     $ch = curl_init();
     curl_setopt_array($ch, [

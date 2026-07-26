@@ -10,6 +10,15 @@ $command = $argv0[0] ?? 'help';
 $host = '0.0.0.0';
 $port = 8000;
 
+foreach ($argv0 as $i => $arg) {
+    if ($arg === '--port' && isset($argv0[$i + 1])) {
+        $port = intval($argv0[$i + 1]);
+    }
+    if (preg_match('/^--port=(\d+)$/', $arg, $m)) {
+        $port = intval($m[1]);
+    }
+}
+
 define('ROOT', __DIR__);
 define('LOGS', ROOT . '/logs');
 if (!is_dir(LOGS)) mkdir(LOGS, 0777, true);
@@ -248,12 +257,12 @@ switch ($command) {
     case '-h':
         title("Help");
         echo "php stack install\n";
-        echo "php stack dev\n";
-        echo "php stack start\n";
+        echo "php stack dev [--port=4000]\n";
+        echo "php stack start [--port=4000]\n";
         echo "php stack run:worker\n";
         echo "php stack stop:worker\n";
         echo "php stack cron\n";
-        echo "php stack build\n"; // Updated help
+        echo "php stack build\n";
         break;
 
     default:

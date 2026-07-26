@@ -50,10 +50,18 @@ function generateWireGuardKeys() {
 
 function getServerHost() {
     $host = $_SERVER['HTTP_HOST'] ?? '';
-    if (empty($host) || str_starts_with($host, '127.') || str_starts_with($host, 'localhost') || preg_match('/:\d{4,5}$/', $host)) {
+    if (empty($host) || str_starts_with($host, '127.') || str_starts_with($host, 'localhost')) {
         return 'jasiri.stackverify.site';
     }
     return $host;
+}
+
+function getServerScheme() {
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (empty($host) || str_starts_with($host, '127.') || str_starts_with($host, 'localhost') || preg_match('/^192\.168\./', $host) || preg_match('/^10\./', $host)) {
+        return 'http';
+    }
+    return 'https';
 }
 
 function getServerWgPort() {
@@ -96,6 +104,10 @@ function assignWireGuardIP($db) {
 }
 
 function addWireGuardPeer($peerPubKey, $allowedIP) {
+    exec("wg show wg0 2>/dev/null", $wgOutput, $wgCheck);
+    if ($wgCheck !== 0) {
+        return false;
+    }
     $escaped = escapeshellarg($peerPubKey);
     $ipEsc = escapeshellarg("$allowedIP/32");
     exec("echo 'jackal' | sudo -S wg set wg0 peer $escaped allowed-ips $ipEsc 2>&1", $output, $returnCode);
@@ -113,11 +125,9 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $listenPort = getServerWgPort();
     $timestamp = date('Ymd_His');
     $serverHost = getServerHost();
+    $serverScheme = getServerScheme();
     $serverPubKey = getServerPublicKey();
-
-    if (!$serverPubKey) {
-        return ['error' => 'Server WireGuard public key not found. Run wireguard-setup.sh first.'];
-    }
+    $hasWG = !empty($serverPubKey) && !empty($wireguardIP) && $wireguardIP !== '0.0.0.0';
 
     $script = "# Jasiri WiFi Auto-Provisioning Script\n";
     $script .= "# Device: $name - $deviceId\n";
@@ -150,30 +160,41 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/radius add address=10.100.0.1 secret=\"jasiri123\" service=ppp authentication-port=1812 accounting-port=1813 timeout=3s realm=\"$deviceId\" comment=\"Jasiri RADIUS PPP\"\n";
     $script .= "/radius incoming set accept=yes port=3799\n\n";
 
-    $script .= ":do { /interface wireguard remove [find name=jasiri-wg] } on-error={}\n";
-    $script .= "/interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=13241\n\n";
+    if ($hasWG) {
+        $script .= ":do { /interface wireguard remove [find name=jasiri-wg] } on-error={}\n";
+        $script .= "/interface wireguard add mtu=1420 name=jasiri-wg private-key=\"{$wgKeys['private']}\" listen-port=13241\n\n";
 
-    $script .= ":do { /ip address remove [find interface=jasiri-wg] } on-error={}\n";
-    $script .= "/ip address add address=$wireguardIP/24 interface=jasiri-wg\n\n";
+        $script .= ":do { /ip address remove [find interface=jasiri-wg] } on-error={}\n";
+        $script .= "/ip address add address=$wireguardIP/24 interface=jasiri-wg\n\n";
 
-    $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
-    $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
+        $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
+        $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
+    } else {
+        $script .= "# WireGuard skipped (server not configured)\n\n";
+    }
 
-    $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
-    $script .= "/ip service set ssh address=10.100.0.0/24 disabled=no\n";
-    $script .= "/ip service set www address=10.100.0.0/24 disabled=no port=80\n\n";
+    if ($hasWG) {
+        $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
+        $script .= "/ip service set ssh address=10.100.0.0/24 disabled=no\n";
+        $script .= "/ip service set www address=10.100.0.0/24 disabled=no port=80\n\n";
+    } else {
+        $script .= "/ip service set api-ssl address=0.0.0.0/0 disabled=no port=8729\n";
+        $script .= "/ip service set ssh address=0.0.0.0/0 disabled=no\n";
+        $script .= "/ip service set www address=0.0.0.0/0 disabled=no port=80\n\n";
+    }
 
     $apiUser = 'jasiri-api';
     $apiPass = 'api_' . bin2hex(random_bytes(4));
     $script .= ":do { /user remove [find name=$apiUser] } on-error={}\n";
     $script .= "/user add name=$apiUser password=\"$apiPass\" group=full comment=\"Jasiri Management API\"\n\n";
 
+    $fwSrc = $hasWG ? 'src-address=10.100.0.0/24' : 'src-address=0.0.0.0/0';
     $fwRules = [
         ["Allow WireGuard", "protocol=udp dst-port=13241 src-address=10.100.0.1"],
-        ["Allow API SSL", "protocol=tcp dst-port=8729 src-address=10.100.0.0/24"],
-        ["Allow REST (www)", "protocol=tcp dst-port=80 src-address=10.100.0.0/24"],
-        ["Allow SSH from WireGuard", "protocol=tcp dst-port=22 src-address=10.100.0.0/24"],
-        ["Allow SNMP from WireGuard", "protocol=udp dst-port=161 src-address=10.100.0.0/24"],
+        ["Allow API SSL", "protocol=tcp dst-port=8729 $fwSrc"],
+        ["Allow REST (www)", "protocol=tcp dst-port=80 $fwSrc"],
+        ["Allow SSH from WireGuard", "protocol=tcp dst-port=22 $fwSrc"],
+        ["Allow SNMP from WireGuard", "protocol=udp dst-port=161 $fwSrc"],
         ["Allow RADIUS CoA from server", "dst-port=3799 protocol=udp src-address=10.100.0.0/24"],
     ];
     foreach ($fwRules as [$comment, $params]) {
@@ -189,14 +210,13 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /ip firewall nat remove [find comment=\"Jasiri Internet Access\"] } on-error={}\n";
     $script .= "/ip firewall nat add action=masquerade chain=srcnat comment=\"Jasiri Internet Access\"\n\n";
 
-    $serverHost = getServerHost();
     $script .= "# --- Hotspot / Captive Portal (configured separately via dashboard) ---\n";
     $script .= "# /ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login-by=http-pap comment=\"Jasiri hotspot profile\"\n";
     $script .= "# /ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1 disabled=no local-address=10.10.0.1 comment=\"Jasiri Hotspot\"\n";
     $script .= "# /ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site comment=\"Jasiri server\"\n";
     $script .= "# /ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site comment=\"Jasiri server wildcard\"\n";
     $script .= "# /ip hotspot walled-garden add action=allow dst-address=10.10.0.1 comment=\"Gateway\"\n";
-    $script .= "# /tool fetch mode=https url=\"https://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=jasiri/login.html keep-result=yes as-value\n";
+    $script .= "# /tool fetch mode={$serverScheme} url=\"{$serverScheme}://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=jasiri/login.html keep-result=yes as-value\n";
     $script .= "# /ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m comment=\"Jasiri hotspot DNS\"\n\n";
 
     $script .= "/log info \"Jasiri WiFi provisioning completed successfully\"\n";
@@ -260,35 +280,40 @@ if ($method === 'POST') {
     if ($action === 'register') {
         $name = trim($input['name'] ?? '');
         $location = trim($input['location'] ?? '');
+        $lanIP = trim($input['lan_ip'] ?? '');
 
         if (empty($name)) {
             jsonResponse(['error' => 'Device name is required'], 400);
         }
 
         $serverPubKey = getServerPublicKey();
-        if (!$serverPubKey) {
-            jsonResponse(['error' => 'Server WireGuard not configured. Run wireguard-setup.sh first.'], 500);
-        }
 
         $deviceId = generateDeviceId();
         $provisionToken = generateProvisionToken();
-        $wireguardIP = assignWireGuardIP($db);
 
-        if (!$wireguardIP) {
-            jsonResponse(['error' => 'No available WireGuard IPs (10.100.0.2-254 exhausted)'], 500);
+        $serverPubKeyNeeded = !empty($serverPubKey);
+        if ($serverPubKeyNeeded) {
+            $wireguardIP = assignWireGuardIP($db);
+            if (!$wireguardIP) {
+                jsonResponse(['error' => 'No available WireGuard IPs (10.100.0.2-254 exhausted)'], 500);
+            }
+        } else {
+            $wireguardIP = null;
         }
 
         $tenantId = $_SESSION['account_id'] ?? null;
+        $storedIP = !empty($lanIP) ? $lanIP : '0.0.0.0';
 
         $stmt = $db->prepare("
             INSERT INTO routers (name, ip, port, password, type, location, device_id, wireguard_ip, provisioning_status, provision_token, tenant_id)
-            VALUES (:name, '0.0.0.0', 8729, '', 'mikrotik', :location, :device_id, :wireguard_ip, 'pending', :provision_token, :tenant_id)
+            VALUES (:name, :ip, 8729, '', 'mikrotik', :location, :device_id, :wireguard_ip, 'pending', :provision_token, :tenant_id)
         ");
         $stmt->execute([
             ':name' => $name,
+            ':ip' => $storedIP,
             ':location' => $location,
             ':device_id' => $deviceId,
-            ':wireguard_ip' => $wireguardIP,
+            ':wireguard_ip' => $wireguardIP ?? '0.0.0.0',
             ':provision_token' => $provisionToken,
             ':tenant_id' => $tenantId,
         ]);
@@ -321,7 +346,7 @@ if ($method === 'POST') {
             'api_user' => $provData['api_user'],
             'api_pass' => $provData['api_pass'],
             'timestamp' => $provData['timestamp'],
-            'fetch_command' => "/tool fetch mode=https url=\"https://" . getServerHost() . "/provision/$provisionToken\" dst-path=jasiri_{$provData['timestamp']}.rsc; :delay 2s; /import jasiri_{$provData['timestamp']}.rsc;",
+            'fetch_command' => "/tool fetch mode={$serverScheme} url=\"{$serverScheme}://" . getServerHost() . "/provision/$provisionToken\" dst-path=jasiri_{$provData['timestamp']}.rsc; :delay 2s; /import jasiri_{$provData['timestamp']}.rsc;",
         ]);
     }
 
@@ -346,6 +371,18 @@ if ($method === 'POST') {
 
         if (!$isOnline && !empty($router['wg_pubkey'])) {
             $isOnline = checkWgHandshake($router['wg_pubkey']);
+        }
+
+        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
+            $fp2 = @fsockopen($router['ip'], intval($router['port'] ?: 8729), $errno, $errstr, 3);
+            $isOnline = is_resource($fp2);
+            if ($isOnline) fclose($fp2);
+        }
+
+        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
+            $fp3 = @fsockopen($router['ip'], 80, $errno, $errstr, 3);
+            $isOnline = is_resource($fp3);
+            if ($isOnline) fclose($fp3);
         }
 
         $newStatus = $isOnline ? 'online' : 'offline';
@@ -398,6 +435,18 @@ if ($method === 'GET') {
 
             if (!$r['online'] && !empty($r['wg_pubkey'])) {
                 $r['online'] = checkWgHandshake($r['wg_pubkey']);
+            }
+
+            if (!$r['online'] && !empty($r['ip']) && $r['ip'] !== '0.0.0.0') {
+                $fp2 = @fsockopen($r['ip'], intval($r['port'] ?: 8729), $errno, $errstr, 3);
+                $r['online'] = is_resource($fp2);
+                if ($r['online']) fclose($fp2);
+            }
+
+            if (!$r['online'] && !empty($r['ip']) && $r['ip'] !== '0.0.0.0') {
+                $fp3 = @fsockopen($r['ip'], 80, $errno, $errstr, 3);
+                $r['online'] = is_resource($fp3);
+                if ($r['online']) fclose($fp3);
             }
 
             $newStatus = $r['online'] ? 'online' : $r['provisioning_status'];
@@ -471,6 +520,18 @@ if ($method === 'GET') {
 
         if (!$isOnline && !empty($router['wg_pubkey'])) {
             $isOnline = checkWgHandshake($router['wg_pubkey']);
+        }
+
+        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
+            $fp2 = @fsockopen($router['ip'], intval($router['port'] ?: 8729), $errno, $errstr, 3);
+            $isOnline = is_resource($fp2);
+            if ($isOnline) fclose($fp2);
+        }
+
+        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
+            $fp3 = @fsockopen($router['ip'], 80, $errno, $errstr, 3);
+            $isOnline = is_resource($fp3);
+            if ($isOnline) fclose($fp3);
         }
 
         $newStatus = $isOnline ? 'online' : $router['provisioning_status'];

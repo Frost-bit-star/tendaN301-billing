@@ -108,6 +108,11 @@ include __DIR__ . '/../components/sidebar.php';
                     <input type="text" class="form-control" id="deviceLocation" placeholder="e.g. Sirari, Geita">
                     <small class="text-muted">Physical location of the device</small>
                 </div>
+                <div class="form-group">
+                    <label for="deviceLanIP">Router LAN IP <small class="text-muted">(for local testing without WireGuard)</small></label>
+                    <input type="text" class="form-control" id="deviceLanIP" placeholder="e.g. 192.168.88.130">
+                    <small class="text-muted">If set, dashboard checks connectivity via this IP instead of WireGuard</small>
+                </div>
                 <div class="wizard-nav text-right">
                     <button type="submit" class="btn btn-primary" id="registerBtn">
                         Register Device <i class="fas fa-arrow-right"></i>
@@ -126,6 +131,10 @@ include __DIR__ . '/../components/sidebar.php';
         </div>
         <div class="card-body">
             <p class="text-muted">Connect to your MikroTik via Winbox or SSH, then run both terminal commands below in order.</p>
+
+            <div id="localModeNotice" class="alert alert-info" style="display:none;">
+                <i class="fas fa-info-circle"></i> <strong>Local Mode:</strong> Your server is running on a local network. WireGuard VPN will be skipped. The MikroTik connects directly to this server.
+            </div>
 
             <div class="mb-4">
                 <h6><span class="badge badge-primary">1</span> Enable advanced device mode and fetch (RouterOS 7+)</h6>
@@ -307,6 +316,7 @@ document.getElementById('deviceForm').addEventListener('submit', async function(
     e.preventDefault();
     const name = document.getElementById('deviceName').value.trim();
     const location = document.getElementById('deviceLocation').value.trim();
+    const lanIP = document.getElementById('deviceLanIP').value.trim();
 
     if (!name) return alert('Device name is required');
 
@@ -318,7 +328,7 @@ document.getElementById('deviceForm').addEventListener('submit', async function(
         const res = await fetch('/api/mikrotik.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'register', name, location })
+            body: JSON.stringify({ action: 'register', name, location, lan_ip: lanIP })
         });
         const data = await res.json();
 
@@ -327,8 +337,14 @@ document.getElementById('deviceForm').addEventListener('submit', async function(
         registeredRouter = data;
 
         const serverHost = window.location.host || 'jasiri.stackverify.site';
-        const fetchCmd = `/tool fetch mode=https url="https://${serverHost}/provision/${data.provision_token}" dst-path=jasiri_${data.timestamp}.rsc; :delay 2s; /import jasiri_${data.timestamp}.rsc;`;
+        const scheme = window.location.protocol === 'https:' ? 'https' : 'http';
+        const fetchMode = scheme === 'https' ? 'https' : 'http';
+        const fetchCmd = `/tool fetch mode=${fetchMode} url="${scheme}://${serverHost}/provision/${data.provision_token}" dst-path=jasiri_${data.timestamp}.rsc; :delay 2s; /import jasiri_${data.timestamp}.rsc;`;
         document.getElementById('cmd2').textContent = fetchCmd;
+
+        if (scheme === 'http' && window.location.hostname !== 'localhost') {
+            document.getElementById('localModeNotice').style.display = 'block';
+        }
 
         goToStep(2);
         startStatusPolling(data.router_id);
@@ -357,16 +373,16 @@ function startStatusPolling(routerId) {
 
             if (data.status === 'online') {
                 statusStrong.textContent = 'MikroTik Connected!';
-                document.querySelector('#statusDisplay p').textContent = 'Secure connection established via WireGuard VPN tunnel.';
+                document.querySelector('#statusDisplay p').textContent = data.wireguard_ip && data.wireguard_ip !== '0.0.0.0' ? 'Secure connection established via WireGuard VPN tunnel.' : 'Device is reachable on the local network.';
                 details.style.display = 'block';
-                document.getElementById('wgIPDisplay').textContent = data.wireguard_ip;
+                document.getElementById('wgIPDisplay').textContent = data.wireguard_ip || 'N/A (local mode)';
                 document.getElementById('statusText').textContent = 'Online';
                 document.getElementById('statusText').className = 'text-success';
                 document.getElementById('toStep3Btn').disabled = false;
                 clearInterval(statusPollInterval);
             } else if (data.status === 'provisioning') {
                 statusStrong.textContent = 'Provisioning in progress...';
-                document.querySelector('#statusDisplay p').textContent = 'Device is being configured. Please wait.';
+                document.querySelector('#statusDisplay p').textContent = 'Script has been served to the device. Waiting for it to come online.';
                 details.style.display = 'none';
             } else {
                 statusStrong.textContent = 'Waiting for MikroTik';
