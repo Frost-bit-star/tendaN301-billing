@@ -128,8 +128,8 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/interface bridge add comment=\"Jasiri WiFi Bridge\" name=jasiri-bridge\n";
     $script .= "# --- Wireless Configuration ---\n";
     $script .= ":do { /interface wireless security-profiles remove [find name=jasiri-open] } on-error={}\n";
-    $script .= "/interface wireless security-profiles add name=jasiri-open mode=none\n";
-    $script .= "/interface wireless set wlan1 master-interface=none mode=ap-bridge ssid=\"Jasiri WiFi\" security-profile=jasiri-open disabled=no\n";
+    $script .= "/interface wireless security-profiles add name=jasiri-open mode=none authentication-types=\"\" unicast-ciphers=\"\" group-ciphers=\"\"\n";
+    $script .= "/interface wireless set [find default-name=wlan1] mode=ap-bridge ssid=\"Jasiri WiFi\" security-profile=jasiri-open disabled=no\n";
     $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
     $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n\n";
 
@@ -158,9 +158,9 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
         $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
         $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
 
-        $script .= ":local wgPub [/interface wireguard get jasiri-wg public-key]\n";
+        $script .= ":local wgPub [/interface wireguard get [find name=jasiri-wg] public-key]\n";
         $script .= ":local url \"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=\$wgPub\"\n";
-        $script .= "/tool fetch mode={$serverScheme} url=\$url keep-result=no\n\n";
+        $script .= "/tool fetch mode=https url=\$url keep-result=no\n\n";
     } else {
         $script .= "# WireGuard skipped (server not configured)\n\n";
     }
@@ -173,11 +173,11 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     }
 
     if ($hasWG) {
-        $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8728\n";
+        $script .= "/ip service set api-ssl address=10.100.0.0/24 disabled=no port=8729\n";
         $script .= "/ip service set ssh address=$serverSubnet,10.100.0.0/24 disabled=no\n";
         $script .= "/ip service set www address=10.100.0.0/24 disabled=no port=8080\n\n";
     } else {
-        $script .= "/ip service set api-ssl address=0.0.0.0/0 disabled=no port=8728\n";
+        $script .= "/ip service set api-ssl address=0.0.0.0/0 disabled=no port=8729\n";
         $script .= "/ip service set ssh address=0.0.0.0/0 disabled=no\n";
         $script .= "/ip service set www address=0.0.0.0/0 disabled=no port=8080\n\n";
     }
