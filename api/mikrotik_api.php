@@ -189,13 +189,9 @@ class MikroTikAPI {
     }
 
     public function setWireless($ssid, $securityProfile = null, $mode = 'ap-bridge') {
-        $find = $this->command(['/interface/wireless/find', '']);
-        if (!empty($find)) {
-            $id = is_array($find[0]) ? ($find[0]['.id'] ?? '*0') : $find[0];
-            $this->command(['/interface/wireless/set', "=.id=$id", "=mode=$mode", "=ssid=$ssid", "=disabled=no"]);
-            if ($securityProfile) {
-                $this->command(['/interface/wireless/set', "=.id=$id", "=security-profile=$securityProfile"]);
-            }
+        $this->command(['/interface/wireless/set', '=wlan1', "=ssid=$ssid", "=mode=$mode", "=disabled=no"]);
+        if ($securityProfile) {
+            $this->command(['/interface/wireless/set', '=wlan1', "=security-profile=$securityProfile"]);
         }
         return true;
     }
