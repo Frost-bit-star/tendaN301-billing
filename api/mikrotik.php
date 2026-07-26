@@ -66,7 +66,11 @@ function getServerWgPort() {
             return intval($m[1]);
         }
     }
-    return 51820;
+    return 13231;
+}
+
+function getWireGuardEndpoint() {
+    return '156.232.88.212';
 }
 
 function getServerPublicKey() {
@@ -115,6 +119,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $serverHost = getServerHost();
     $serverScheme = getServerScheme();
     $serverPubKey = getServerPublicKey();
+    $wgEndpoint = getWireGuardEndpoint();
     $hasWG = !empty($serverPubKey) && !empty($wireguardIP) && $wireguardIP !== '0.0.0.0';
 
     $script = "# Jasiri WiFi Auto-Provisioning Script\n";
@@ -155,7 +160,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
         $script .= "/ip address add address=$wireguardIP/24 interface=jasiri-wg\n\n";
 
         $script .= ":do { /interface wireguard peers remove [find interface=jasiri-wg] } on-error={}\n";
-        $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$serverHost endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
+        $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$wgEndpoint endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
 
         $script .= ":local wgPub [/interface wireguard get [find name=jasiri-wg] public-key]\n";
         $script .= ":local url \"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=\$wgPub\"\n";
@@ -272,7 +277,7 @@ function isMikroTikOnline($wireguardIP) {
 
 function checkWgHandshake($peerPubKey) {
     $output = [];
-    exec("wg show wg0 latest-handshakes 2>/dev/null", $output);
+    exec("wg show wg0 latest-handshakes | grep " . escapeshellarg($peerPubKey), $output);
     foreach ($output as $line) {
         if (strpos($line, $peerPubKey) !== false) {
             $parts = explode("\t", $line);
