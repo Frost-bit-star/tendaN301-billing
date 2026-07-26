@@ -1,5 +1,8 @@
 <?php
 $deviceId = $_GET['device'] ?? '';
+$host = $_SERVER['HTTP_HOST'] ?? 'jasiri.stackverify.site';
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$captiveUrl = "$scheme://$host/captive?router=" . urlencode($deviceId);
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-cache');
 ?>
@@ -41,7 +44,7 @@ input:focus{border-color:#667eea}
         <button type="submit" class="btn btn-connect">Connect</button>
     </form>
     <div class="voucher-link">
-        <p>Don't have a voucher? <a href="https://jasiri.stackverify.site/captive?router=<?= htmlspecialchars($deviceId) ?>">Get one here</a></p>
+        <p>Don't have a voucher? <a href="<?= $captiveUrl ?>">Get one here</a></p>
     </div>
 </div>
 <script>
