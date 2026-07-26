@@ -133,9 +133,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/interface wireless set [find] mode=ap-bridge frequency=auto disabled=no\n";
     $script .= "/interface wireless set [find] ssid=JasiriWiFi\n";
     $script .= ":do { /interface bridge port remove [find interface=wlan1] } on-error={}\n";
-    $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n";
-    $script .= ":do { /interface bridge port remove [find interface=ether2] } on-error={}\n";
-    $script .= "/interface bridge port add bridge=jasiri-bridge interface=ether2\n\n";
+    $script .= "/interface bridge port add bridge=jasiri-bridge interface=wlan1\n\n";
 
     $script .= ":do { /ip address remove [find interface=jasiri-bridge] } on-error={}\n";
     $script .= "/ip address add address=10.10.0.1/24 comment=\"Added by Jasiri\" interface=jasiri-bridge\n";
