@@ -41,15 +41,26 @@ include __DIR__ . '/../components/sidebar.php';
     .print-area, .print-area * { visibility: visible; }
     .print-area {
         display: block !important; position: absolute; left: 0; top: 0;
-        width: 100%; background: #fff; padding: 1rem;
+        width: 100%; background: #fff; padding: 0.5rem;
     }
     .print-voucher {
-        border: 2px dashed #333; padding: 1rem; margin: 0.5rem;
-        width: 48%; display: inline-block; vertical-align: top; page-break-inside: avoid;
+        border: 2px dashed #333; padding: 0.8rem; margin: 0.3rem;
+        width: 46%; display: inline-block; vertical-align: top;
+        page-break-inside: avoid; text-align: center;
+        border-radius: 8px;
     }
-    .print-voucher h4 { margin: 0 0 0.5rem; font-size: 1rem; }
-    .print-voucher .code { font-size: 1.5rem; font-weight: 700; letter-spacing: 3px; text-align: center; margin: 0.5rem 0; }
-    .print-voucher .detail { font-size: 0.75rem; color: #555; }
+    .print-voucher h4 {
+        margin: 0 0 0.3rem; font-size: 0.9rem; color: #007bff;
+        text-transform: uppercase; letter-spacing: 1px;
+    }
+    .print-voucher .code {
+        font-size: 1.6rem; font-weight: 700; letter-spacing: 4px;
+        text-align: center; margin: 0.4rem 0; color: #1a1a2e;
+        font-family: 'Courier New', monospace;
+    }
+    .print-voucher .detail {
+        font-size: 0.75rem; color: #555; margin: 2px 0;
+    }
 }
 
 .generate-form .form-group label { font-weight: 600; font-size: 0.85rem; }
@@ -232,9 +243,15 @@ include __DIR__ . '/../components/sidebar.php';
                         <option value="">All</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label>Select vouchers to print</label>
-                    <div id="printCheckboxes" style="max-height:200px;overflow-y:auto;border:1px solid #dee2e6;padding:0.5rem;border-radius:4px;">
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="mb-0"><strong>Select vouchers to print</strong> <span id="printCount" class="badge badge-primary" style="display:none;">0</span></label>
+                        <label class="custom-control custom-checkbox mb-0" style="cursor:pointer;">
+                            <input type="checkbox" class="custom-control-input" id="selectAllPrint" onchange="toggleSelectAll()">
+                            <span class="custom-control-label" style="font-size:0.85rem;font-weight:600;">Select All</span>
+                        </label>
+                    </div>
+                    <div id="printCheckboxes" style="max-height:250px;overflow-y:auto;border:1px solid #dee2e6;padding:0.5rem;border-radius:4px;">
                         Loading...
                     </div>
                 </div>
@@ -333,6 +350,8 @@ function renderVoucherTable() {
     `).join('');
 }
 
+let printVouchers = [];
+
 async function loadPrintVouchers() {
     const filter = document.getElementById('printFilter').value;
     const params = new URLSearchParams();
@@ -342,26 +361,48 @@ async function loadPrintVouchers() {
     try {
         const res = await fetch('/api/vouchers.php?' + params);
         const data = await res.json();
-        const vouchers = data.vouchers || [];
+        printVouchers = data.vouchers || [];
 
-        document.getElementById('printCheckboxes').innerHTML = vouchers.map(v => `
-            <div class="custom-control custom-checkbox">
+        document.getElementById('printCheckboxes').innerHTML = printVouchers.map(v => `
+            <div class="custom-control custom-checkbox mb-1">
                 <input type="checkbox" class="custom-control-input print-cb" id="pv_${v.id}" data-id="${v.id}" onchange="updatePrintPreview()">
                 <label class="custom-control-label" for="pv_${v.id}">
                     <span class="voucher-code" style="font-size:0.85rem;">${v.code}</span>
-                    <small class="text-muted"> - ${escapeHtml(v.plan_name || '')}</small>
+                    <small class="text-muted"> - ${escapeHtml(v.plan_name || '')} - TSh ${parseInt(v.price || 0).toLocaleString()}</small>
                 </label>
             </div>
         `).join('') || '<p class="text-muted">No vouchers found</p>';
+
+        document.getElementById('printPreview').innerHTML = '<p class="text-muted">Select vouchers above to preview</p>';
+        document.getElementById('printArea').innerHTML = '';
     } catch (e) {
         document.getElementById('printCheckboxes').innerHTML = '<p class="text-danger">Failed to load</p>';
     }
 }
 
+function toggleSelectAll() {
+    const checked = document.getElementById('selectAllPrint').checked;
+    document.querySelectorAll('.print-cb').forEach(cb => cb.checked = checked);
+    updatePrintPreview();
+}
+
 function updatePrintPreview() {
     const checked = document.querySelectorAll('.print-cb:checked');
     const ids = Array.from(checked).map(cb => cb.dataset.id);
-    const selected = allVouchers.length > 0 ? allVouchers.filter(v => ids.includes(String(v.id))) : [];
+    const selected = printVouchers.filter(v => ids.includes(String(v.id)));
+
+    // Update count badge
+    const countBadge = document.getElementById('printCount');
+    if (selected.length > 0) {
+        countBadge.textContent = selected.length;
+        countBadge.style.display = 'inline';
+    } else {
+        countBadge.style.display = 'none';
+    }
+
+    // Sync select-all checkbox
+    const allCbs = document.querySelectorAll('.print-cb');
+    document.getElementById('selectAllPrint').checked = allCbs.length > 0 && checked.length === allCbs.length;
 
     const printArea = document.getElementById('printArea');
     const preview = document.getElementById('printPreview');
@@ -372,28 +413,29 @@ function updatePrintPreview() {
         return;
     }
 
-    const html = selected.map(v => `
+    // Screen preview
+    preview.innerHTML = '<div class="row">' + selected.map(v => `
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div style="border:2px dashed #333;padding:1rem;text-align:center;border-radius:8px;background:#fff;">
+                <strong style="color:#007bff;">JASIRI WIFI</strong><br>
+                <div class="voucher-code my-2" style="font-size:1.4rem;letter-spacing:3px;">${v.code}</div>
+                <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
+                <small>TSh ${parseInt(v.price || 0).toLocaleString()}</small><br>
+                <small class="text-muted">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</small>
+            </div>
+        </div>
+    `).join('') + '</div>';
+
+    // Print layout (hidden, shown only on print)
+    printArea.innerHTML = selected.map(v => `
         <div class="print-voucher">
             <h4>Jasiri WiFi</h4>
             <div class="code">${v.code}</div>
             <div class="detail"><strong>Package:</strong> ${escapeHtml(v.plan_name || '—')}</div>
             <div class="detail"><strong>Price:</strong> TSh ${parseInt(v.price || 0).toLocaleString()}</div>
-            <div class="detail"><strong>Expires:</strong> ${v.expires_at ? new Date(v.expires_at).toLocaleDateString() : '—'}</div>
+            <div class="detail"><strong>Expires:</strong> ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
         </div>
     `).join('');
-
-    preview.innerHTML = '<div class="row">' + selected.map(v => `
-        <div class="col-md-3 mb-3">
-            <div style="border:2px dashed #333;padding:1rem;text-align:center;border-radius:8px;">
-                <strong>Jasiri WiFi</strong><br>
-                <div class="voucher-code my-2" style="font-size:1.3rem;">${v.code}</div>
-                <small>${escapeHtml(v.plan_name || '')} | TSh ${parseInt(v.price || 0).toLocaleString()}</small><br>
-                <small class="text-muted">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString() : '—'}</small>
-            </div>
-        </div>
-    `).join('') + '</div>';
-
-    printArea.innerHTML = html;
 }
 
 function escapeHtml(str) {
