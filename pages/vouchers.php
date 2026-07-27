@@ -236,7 +236,13 @@ include __DIR__ . '/../components/sidebar.php';
         </div>
         <div class="card-body">
             <div class="row mb-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label>Filter by router</label>
+                    <select class="form-control form-control-sm" id="printRouter" onchange="loadPrintVouchers()">
+                        <option value="">All Routers</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label>Filter by status</label>
                     <select class="form-control form-control-sm" id="printFilter" onchange="loadPrintVouchers()">
                         <option value="active">Active Only</option>
@@ -294,6 +300,9 @@ async function loadRouters() {
             allRouters.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
         const filterSel = document.getElementById('filterRouter');
         filterSel.innerHTML = '<option value="">All Routers</option>' +
+            allRouters.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+        const printRouterSel = document.getElementById('printRouter');
+        printRouterSel.innerHTML = '<option value="">All Routers</option>' +
             allRouters.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
     } catch (e) { console.error('Failed to load routers:', e); }
 }
@@ -354,8 +363,10 @@ let printVouchers = [];
 
 async function loadPrintVouchers() {
     const filter = document.getElementById('printFilter').value;
+    const routerId = document.getElementById('printRouter').value;
     const params = new URLSearchParams();
     if (filter) params.set('status', filter);
+    if (routerId) params.set('router_id', routerId);
     params.set('limit', '200');
 
     try {

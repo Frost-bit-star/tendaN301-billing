@@ -461,10 +461,10 @@ if ($method === 'POST') {
         }
 
         $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
-        $apiPort = intval($router['port'] ?: 8728);
+        $apiPort = intval($router['port'] ?: 8729);
 
         try {
-            $api = new MikroTikAPI($apiIP, $apiPort, 'admin', $router['password'] ?? '');
+            $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
             $api->connect();
 
             if ($security === 'open') {
