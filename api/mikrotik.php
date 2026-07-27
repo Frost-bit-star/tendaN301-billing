@@ -188,7 +188,19 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     }
 
     $apiUser = 'jasiri-api';
-    $apiPass = 'api_' . bin2hex(random_bytes(4));
+
+    // Reuse the existing password if the router already exists
+    $stmt = $db->prepare("SELECT password FROM routers WHERE id = ?");
+    $stmt->execute([$routerId]);
+    $apiPass = $stmt->fetchColumn();
+
+    if (empty($apiPass)) {
+        $apiPass = 'api_' . bin2hex(random_bytes(4));
+
+        $stmt = $db->prepare("UPDATE routers SET password = ? WHERE id = ?");
+        $stmt->execute([$apiPass, $routerId]);
+    }
+
     $script .= ":do { /user remove [find name=$apiUser] } on-error={}\n";
     $script .= "/user add name=$apiUser password=\"$apiPass\" group=full comment=\"Jasiri Management API\"\n\n";
 
@@ -231,7 +243,8 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login=http-pap\n\n";
 
     $script .= ":do { /ip hotspot remove [find name=hotspot1] } on-error={}\n";
-    $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1\n\n";
+    $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1\n";
+    $script .= "/ip hotspot enable [find name=\"hotspot1\"]\n\n";
 
     $script .= ":do { /ip hotspot walled-garden remove [find dst-host~\"jasiri\"] } on-error={}\n";
     $script .= "/ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site\n";
@@ -351,12 +364,6 @@ if ($method === 'POST') {
         if (isset($provData['error'])) {
             jsonResponse(['error' => $provData['error']], 500);
         }
-
-        $stmt = $db->prepare("UPDATE routers SET password = :pass WHERE id = :id");
-        $stmt->execute([
-            ':pass' => $provData['api_pass'],
-            ':id' => $routerId,
-        ]);
 
         jsonResponse([
             'success' => true,
