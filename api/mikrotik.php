@@ -581,6 +581,89 @@ if ($method === 'GET') {
             'wg_output' => implode("\n", $output),
         ]);
     }
+
+    if ($action === 'bandwidth') {
+        $routerId = $_GET['router_id'] ?? null;
+        if (!$routerId) jsonResponse(['error' => 'router_id required'], 400);
+
+        $stmt = $db->prepare("SELECT * FROM routers WHERE id = :id AND type = 'mikrotik'");
+        $stmt->execute([':id' => $routerId]);
+        $router = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$router) jsonResponse(['error' => 'Router not found'], 404);
+
+        $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
+        $apiPort = intval($router['port'] ?: 8729);
+
+        try {
+            $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+            $api->connect();
+
+            $active = $api->getHotspotActiveUsers();
+            $api->close();
+
+            jsonResponse(['success' => true, 'active_users' => $active]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => 'API connection failed: ' . $e->getMessage()], 500);
+        }
+    }
 }
 
-jsonResponse(['error' => 'Invalid request'], 400);
+    if ($action === 'dashboard_stats') {
+        $tenantId = $_SESSION['account_id'] ?? null;
+        $role = $_SESSION['role'] ?? null;
+
+        if ($role === 'superadmin') {
+            $routers = $db->query("SELECT * FROM routers WHERE type = 'mikrotik' ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+        } else {
+            $stmt = $db->prepare("SELECT * FROM routers WHERE type = 'mikrotik' AND tenant_id = :tid ORDER BY id DESC");
+            $stmt->execute([':tid' => $tenantId]);
+            $routers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+
+        $onlineDevices = 0;
+        $totalDevices = count($routers);
+        $deviceStats = [];
+
+        foreach ($routers as $r) {
+            $isOn = isRouterOnlineWg($r);
+            if ($isOn) $onlineDevices++;
+            $deviceStats[] = [
+                'id' => $r['id'],
+                'name' => $r['name'],
+                'online' => $isOn,
+                'location' => $r['location'] ?? '',
+                'wireguard_ip' => $r['wireguard_ip'] ?? '',
+            ];
+        }
+
+        $totalRevenue = $db->query("SELECT COALESCE(SUM(price), 0) FROM vouchers WHERE status = 'used'")->fetchColumn();
+        $monthRevenue = $db->query("SELECT COALESCE(SUM(price), 0) FROM vouchers WHERE status = 'used' AND used_at >= date('now', 'start of month')")->fetchColumn();
+        $todayRevenue = $db->query("SELECT COALESCE(SUM(price), 0) FROM vouchers WHERE status = 'used' AND date(used_at) = date('now')")->fetchColumn();
+
+        $totalVouchers = $db->query("SELECT COUNT(*) FROM vouchers")->fetchColumn();
+        $monthVouchers = $db->query("SELECT COUNT(*) FROM vouchers WHERE status = 'used' AND used_at >= date('now', 'start of month')")->fetchColumn();
+        $activeVouchers = $db->query("SELECT COUNT(*) FROM vouchers WHERE status = 'active'")->fetchColumn();
+
+        $revenueByMonth = $db->query("
+            SELECT strftime('%Y-%m', used_at) as month, SUM(price) as revenue, COUNT(*) as count
+            FROM vouchers WHERE status = 'used'
+            GROUP BY strftime('%Y-%m', used_at)
+            ORDER BY month DESC LIMIT 6
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        jsonResponse([
+            'total_devices' => $totalDevices,
+            'online_devices' => $onlineDevices,
+            'offline_devices' => $totalDevices - $onlineDevices,
+            'devices' => $deviceStats,
+            'total_revenue' => floatval($totalRevenue),
+            'month_revenue' => floatval($monthRevenue),
+            'today_revenue' => floatval($todayRevenue),
+            'total_vouchers' => $totalVouchers,
+            'month_vouchers' => $monthVouchers,
+            'active_vouchers' => $activeVouchers,
+            'revenue_by_month' => $revenueByMonth,
+        ]);
+    }
+
+    jsonResponse(['error' => 'Invalid request'], 400);

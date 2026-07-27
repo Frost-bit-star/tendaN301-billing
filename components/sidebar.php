@@ -143,7 +143,7 @@
 <?php
 $current_page = basename($_SERVER['REQUEST_URI'] ?? 'dashboard');
 $tenda_pages = ['view', 'add_router', 'users', 'billuser', 'billing', 'plans', 'mikrotik'];
-$mikrotik_pages = ['connect_mikrotik', 'mikrotik_devices', 'vouchers'];
+$mikrotik_pages = ['connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue'];
 ?>
 
 <aside class="main-sidebar sidebar-glass elevation-4">
@@ -154,7 +154,7 @@ $mikrotik_pages = ['connect_mikrotik', 'mikrotik_devices', 'vouchers'];
     <div class="sidebar">
         <div class="sidebar-top-buttons">
             <a href="dashboard" class="top-btn <?= $current_page === 'dashboard' ? 'active' : '' ?>">Home</a>
-            <a href="view" class="top-btn <?= $current_page === 'view' ? 'active' : '' ?>">Routers</a>
+            <a href="mikrotik_devices" class="top-btn <?= $current_page === 'mikrotik_devices' ? 'active' : '' ?>">Devices</a>
             <a href="users" class="top-btn <?= $current_page === 'users' ? 'active' : '' ?>">Users</a>
         </div>
 
@@ -163,16 +163,54 @@ $mikrotik_pages = ['connect_mikrotik', 'mikrotik_devices', 'vouchers'];
 
                 <li class="nav-item">
                     <a href="dashboard" class="nav-link <?= $current_page === 'dashboard' ? 'active' : '' ?>">
-                        <i class="nav-icon fas fa-tachometer-alt"></i>
+                        <i class="nav-icon fas fa-tachometer-alt" style="color:#007bff"></i>
                         <p>Dashboard</p>
                     </a>
                 </li>
 
-                <!-- TENDA SECTION -->
-                <li class="sidebar-section-label">Tenda</li>
+                <!-- MIKROTIK SECTION -->
+                <li class="sidebar-section-label">MikroTik</li>
+                <li class="nav-item <?= in_array($current_page, $mikrotik_pages) ? 'menu-open' : '' ?>">
+                    <a href="#" class="nav-link <?= in_array($current_page, $mikrotik_pages) ? 'active' : '' ?>">
+                        <i class="nav-icon fas fa-router" style="color:#ff6b35"></i>
+                        <p>
+                            MikroTik
+                            <i class="right fas fa-angle-left"></i>
+                        </p>
+                    </a>
+                    <ul class="nav nav-treeview">
+                        <li class="nav-item">
+                            <a href="connect_mikrotik" class="nav-link <?= $current_page === 'connect_mikrotik' ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-plug"></i>
+                                <p>Connect Device</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="mikrotik_devices" class="nav-link <?= $current_page === 'mikrotik_devices' ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-server"></i>
+                                <p>View Devices</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="vouchers" class="nav-link <?= $current_page === 'vouchers' ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-ticket-alt"></i>
+                                <p>Vouchers</p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="revenue" class="nav-link <?= $current_page === 'revenue' ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-chart-line"></i>
+                                <p>Revenue</p>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+
+                <!-- TENDA SECTION (Add-on) -->
+                <li class="sidebar-section-label">Tenda (Add-on)</li>
                 <li class="nav-item <?= in_array($current_page, $tenda_pages) ? 'menu-open' : '' ?>">
                     <a href="#" class="nav-link <?= in_array($current_page, $tenda_pages) ? 'active' : '' ?>">
-                        <i class="nav-icon fas fa-wifi" style="color:#007bff"></i>
+                        <i class="nav-icon fas fa-wifi" style="color:#20c997"></i>
                         <p>
                             Tenda Routers
                             <i class="right fas fa-angle-left"></i>
@@ -219,38 +257,6 @@ $mikrotik_pages = ['connect_mikrotik', 'mikrotik_devices', 'vouchers'];
                             <a href="mikrotik" class="nav-link <?= $current_page === 'mikrotik' ? 'active' : '' ?>">
                                 <i class="nav-icon fas fa-ethernet"></i>
                                 <p>Wired Devices</p>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
-                <!-- MIKROTIK SECTION -->
-                <li class="sidebar-section-label">MikroTik</li>
-                <li class="nav-item <?= in_array($current_page, $mikrotik_pages) ? 'menu-open' : '' ?>">
-                    <a href="#" class="nav-link <?= in_array($current_page, $mikrotik_pages) ? 'active' : '' ?>">
-                        <i class="nav-icon fas fa-router" style="color:#ff6b35"></i>
-                        <p>
-                            MikroTik
-                            <i class="right fas fa-angle-left"></i>
-                        </p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item">
-                            <a href="connect_mikrotik" class="nav-link <?= $current_page === 'connect_mikrotik' ? 'active' : '' ?>">
-                                <i class="nav-icon fas fa-plug"></i>
-                                <p>Connect Device</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="mikrotik_devices" class="nav-link <?= $current_page === 'mikrotik_devices' ? 'active' : '' ?>">
-                                <i class="nav-icon fas fa-server"></i>
-                                <p>View Devices</p>
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="vouchers" class="nav-link <?= $current_page === 'vouchers' ? 'active' : '' ?>">
-                                <i class="nav-icon fas fa-ticket-alt"></i>
-                                <p>Vouchers</p>
                             </a>
                         </li>
                     </ul>

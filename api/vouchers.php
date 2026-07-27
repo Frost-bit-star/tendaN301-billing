@@ -210,6 +210,65 @@ if ($method === 'GET') {
         jsonResponse(['stats' => $stats]);
     }
 
+    if ($action === 'revenue') {
+        $period = $_GET['period'] ?? 'all';
+        $routerId = $_GET['router_id'] ?? null;
+
+        $where = ["v.status = 'used'"];
+        $params = [];
+
+        if ($routerId) {
+            $where[] = 'v.router_id = :router_id';
+            $params[':router_id'] = $routerId;
+        }
+
+        if ($period === 'today') {
+            $where[] = "date(v.used_at) = date('now')";
+        } elseif ($period === 'week') {
+            $where[] = "v.used_at >= date('now', '-7 days')";
+        } elseif ($period === 'month') {
+            $where[] = "v.used_at >= date('now', '-30 days')";
+        }
+
+        $whereClause = 'WHERE ' . implode(' AND ', $where);
+
+        $totalStmt = $db->prepare("SELECT COALESCE(SUM(v.price), 0) as total, COUNT(*) as count FROM vouchers v $whereClause");
+        foreach ($params as $k => $v) $totalStmt->bindValue($k, $v);
+        $totalStmt->execute();
+        $total = $totalStmt->fetch(PDO::FETCH_ASSOC);
+
+        $byRouterStmt = $db->prepare("
+            SELECT r.name as router_name, COALESCE(SUM(v.price), 0) as revenue, COUNT(*) as count
+            FROM vouchers v
+            LEFT JOIN routers r ON v.router_id = r.id
+            $whereClause
+            GROUP BY v.router_id
+            ORDER BY revenue DESC
+        ");
+        foreach ($params as $k => $v) $byRouterStmt->bindValue($k, $v);
+        $byRouterStmt->execute();
+        $byRouter = $byRouterStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $byDayStmt = $db->prepare("
+            SELECT date(v.used_at) as day, COALESCE(SUM(v.price), 0) as revenue, COUNT(*) as count
+            FROM vouchers v
+            $whereClause
+            GROUP BY date(v.used_at)
+            ORDER BY day DESC
+            LIMIT 30
+        ");
+        foreach ($params as $k => $v) $byDayStmt->bindValue($k, $v);
+        $byDayStmt->execute();
+        $byDay = $byDayStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        jsonResponse([
+            'total' => floatval($total['total']),
+            'count' => intval($total['count']),
+            'by_router' => $byRouter,
+            'by_day' => $byDay,
+        ]);
+    }
+
     jsonResponse(['error' => 'Invalid action'], 400);
 }
 
@@ -219,6 +278,34 @@ if ($method === 'DELETE') {
 
     if (!$id) {
         jsonResponse(['error' => 'Voucher ID required'], 400);
+    }
+
+    $stmt = $db->prepare("SELECT * FROM vouchers WHERE id = :id");
+    $stmt->execute([':id' => $id]);
+    $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$voucher) {
+        jsonResponse(['error' => 'Voucher not found'], 404);
+    }
+
+    if ($voucher['status'] === 'used' && !empty($voucher['router_id'])) {
+        require_once __DIR__ . '/mikrotik_api.php';
+        $rStmt = $db->prepare("SELECT * FROM routers WHERE id = :id");
+        $rStmt->execute([':id' => $voucher['router_id']]);
+        $router = $rStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($router) {
+            $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
+            $apiPort = intval($router['port'] ?: 8729);
+            try {
+                $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+                $api->connect();
+                $api->removeHotspotUserByUsername($voucher['code']);
+                $api->close();
+            } catch (Exception $e) {
+                // MikroTik unreachable - still delete from DB
+            }
+        }
     }
 
     $stmt = $db->prepare("DELETE FROM vouchers WHERE id = :id");

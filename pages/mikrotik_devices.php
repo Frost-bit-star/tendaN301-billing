@@ -117,6 +117,34 @@ $deviceId = $_GET['id'] ?? null;
 <div class="row mt-4">
     <div class="col-12">
         <div class="card shadow">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-chart-area"></i> Bandwidth Usage</h5>
+                <button class="btn btn-sm btn-light" onclick="loadBandwidth()"><i class="fas fa-sync"></i> Refresh</button>
+            </div>
+            <div class="card-body">
+                <div id="bandwidthLoading" class="text-center py-3">
+                    <i class="fas fa-spinner fa-spin"></i> Loading...
+                </div>
+                <div id="bandwidthContent" style="display:none;">
+                    <table class="table table-sm table-hover">
+                        <thead><tr><th>User</th><th>IP</th><th>Bytes In</th><th>Bytes Out</th><th>Uptime</th></tr></thead>
+                        <tbody id="bandwidthTable"></tbody>
+                    </table>
+                </div>
+                <div id="bandwidthEmpty" class="text-center text-muted py-3" style="display:none;">
+                    <i class="fas fa-wifi"></i> No active users
+                </div>
+                <div id="bandwidthError" class="text-center text-danger py-3" style="display:none;">
+                    <i class="fas fa-exclamation-triangle"></i> <span id="bandwidthErrorMsg">Failed to load</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow">
             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="toggleTerminal()">
                 <h5 class="mb-0"><i class="fas fa-terminal"></i> SSH Terminal</h5>
                 <div>
@@ -211,6 +239,58 @@ async function loadDevice() {
 }
 
 loadDevice();
+
+function fmtBytes(b) {
+    b = parseInt(b || 0);
+    if (b >= 1073741824) return (b / 1073741824).toFixed(1) + ' GB';
+    if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
+    if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+    return b + ' B';
+}
+
+async function loadBandwidth() {
+    if (!deviceData) return;
+    document.getElementById('bandwidthLoading').style.display = 'block';
+    document.getElementById('bandwidthContent').style.display = 'none';
+    document.getElementById('bandwidthEmpty').style.display = 'none';
+    document.getElementById('bandwidthError').style.display = 'none';
+
+    try {
+        const res = await fetch(`/api/mikrotik.php?action=bandwidth&router_id=${deviceData.id}`);
+        const data = await res.json();
+        document.getElementById('bandwidthLoading').style.display = 'none';
+
+        if (!res.ok || data.error) {
+            document.getElementById('bandwidthError').style.display = 'block';
+            document.getElementById('bandwidthErrorMsg').textContent = data.error || 'API connection failed';
+            return;
+        }
+
+        const users = data.active_users || [];
+        if (users.length === 0) {
+            document.getElementById('bandwidthEmpty').style.display = 'block';
+            return;
+        }
+
+        document.getElementById('bandwidthContent').style.display = 'block';
+        document.getElementById('bandwidthTable').innerHTML = users.map(u => `
+            <tr>
+                <td>${escapeHtml(u['user'] || u['name'] || '—')}</td>
+                <td>${escapeHtml(u['address'] || '—')}</td>
+                <td>${fmtBytes(u['bytes-in'] || 0)}</td>
+                <td>${fmtBytes(u['bytes-out'] || 0)}</td>
+                <td>${escapeHtml(u['uptime'] || '—')}</td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        document.getElementById('bandwidthLoading').style.display = 'none';
+        document.getElementById('bandwidthError').style.display = 'block';
+        document.getElementById('bandwidthErrorMsg').textContent = e.message;
+    }
+}
+
+loadBandwidth();
+setInterval(loadBandwidth, 30000);
 
 function toggleTerminal() {
     const c = document.getElementById('terminalContainer');

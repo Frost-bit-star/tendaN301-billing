@@ -327,7 +327,7 @@ function renderVoucherTable() {
             <td><span class="status-pill ${v.status}">${v.status}</span></td>
             <td>${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
             <td>
-                ${v.status === 'active' ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteVoucher(${v.id})"><i class="fas fa-trash"></i></button>` : ''}
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteVoucher(${v.id}, '${v.status}')"><i class="fas fa-trash"></i></button>
             </td>
         </tr>
     `).join('');
@@ -451,8 +451,11 @@ document.getElementById('generateForm').addEventListener('submit', async functio
     }
 });
 
-async function deleteVoucher(id) {
-    if (!confirm('Delete this voucher?')) return;
+async function deleteVoucher(id, status) {
+    const msg = status === 'used'
+        ? 'Delete this used voucher? This will also remove the hotspot user from the router.'
+        : 'Delete this voucher?';
+    if (!confirm(msg)) return;
     try {
         await fetch('/api/vouchers.php', {
             method: 'DELETE',

@@ -247,4 +247,16 @@ class MikroTikAPI {
         }
         return $this->command(['/interface/bridge/port/add', "=interface=$interface", "=bridge=$bridge"]);
     }
+
+    public function getHotspotActiveUsers() {
+        return $this->command(['/ip/hotspot/active/print']);
+    }
+
+    public function getHotspotUserStats() {
+        return $this->command(['/ip/hotspot/user/stats/print']);
+    }
+
+    public function getInterfaceTraffic() {
+        return $this->command(['/interface/monitor-traffic', '=once=', '=interface=jasiri-wg']);
+    }
 }
