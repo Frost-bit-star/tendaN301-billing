@@ -4,8 +4,8 @@ require_once __DIR__ . '/../db/schema.php';
 
 header('Content-Type: application/json');
 
-$device = $_GET['device'] ?? $_POST['device'] ?? '';
-$pubkey = $_GET['pubkey'] ?? $_POST['pubkey'] ?? '';
+$device = $_GET['device'] ?? '';
+$pubkey = $_GET['pubkey'] ?? '';
 
 $logDir = __DIR__ . '/../logs';
 if (!is_dir($logDir)) mkdir($logDir, 0755, true);
