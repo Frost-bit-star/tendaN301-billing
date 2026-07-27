@@ -163,8 +163,9 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
         $script .= "/interface wireguard peers add interface=jasiri-wg public-key=\"$serverPubKey\" endpoint-address=$wgEndpoint endpoint-port=$listenPort allowed-address=10.100.0.0/24 persistent-keepalive=25s\n\n";
 
         $script .= ":local wgPub [/interface wireguard get [find name=jasiri-wg] public-key]\n";
-        $script .= ":local url \"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=\$wgPub\"\n";
-        $script .= ":local r [/tool fetch mode=https url=\$url keep-result=no as-value]\n";
+        $script .= ":local url \"{$serverScheme}://{$serverHost}/api/wireguard_register.php\"\n";
+        $script .= ":local postData (\"device={$deviceId}&pubkey=\" . \$wgPub)\n";
+        $script .= ":local r [/tool fetch mode={$serverScheme} url=\$url http-method=post http-data=\$postData http-header-field=\"Content-Type: application/x-www-form-urlencoded\" keep-result=no as-value]\n";
         $script .= ":log info (\"WG REGISTER: \" . (\$r->\"status\"))\n\n";
     } else {
         $script .= "# WireGuard skipped (server not configured)\n\n";

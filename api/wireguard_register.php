@@ -4,8 +4,8 @@ require_once __DIR__ . '/../db/schema.php';
 
 header('Content-Type: application/json');
 
-$device = $_GET['device'] ?? '';
-$pubkey = $_GET['pubkey'] ?? '';
+$device = $_GET['device'] ?? $_POST['device'] ?? '';
+$pubkey = $_GET['pubkey'] ?? $_POST['pubkey'] ?? '';
 
 $logDir = __DIR__ . '/../logs';
 if (!is_dir($logDir)) mkdir($logDir, 0755, true);
@@ -71,6 +71,12 @@ if ($router && !empty($router['wireguard_ip'])) {
     exec($cmd, $output, $returnCode);
     wg_log("Return code: $returnCode");
     if ($output) wg_log("Output: " . implode("\n", $output));
+
+    // Persist the peer so it survives a server reboot
+    $saveCmd = "echo 'jackal' | sudo -S wg showconf wg0 > /tmp/wg0_new.conf 2>&1 && echo 'jackal' | sudo -S cp /tmp/wg0_new.conf /etc/wireguard/wg0.conf 2>&1";
+    exec($saveCmd, $saveOutput, $saveReturn);
+    wg_log("Persist config return code: $saveReturn");
+    if ($saveOutput) wg_log("Persist output: " . implode("\n", $saveOutput));
 
     $wgShow = [];
     exec("wg show wg0 2>&1", $wgShow);
