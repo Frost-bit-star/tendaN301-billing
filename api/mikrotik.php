@@ -452,7 +452,7 @@ if ($method === 'POST') {
             jsonResponse(['error' => 'Router not found'], 404);
         }
 
-        $apiIP = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $router['wireguard_ip'];
+        $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
         $apiPort = intval($router['port'] ?: 8728);
 
         try {

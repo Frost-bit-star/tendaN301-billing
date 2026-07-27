@@ -47,7 +47,7 @@ $basePort = 7681 + intval($routerId);
 if ($action === 'start') {
     exec("echo 'jackal' | sudo -S kill $(pgrep -f 'ttyd.*$basePort') 2>/dev/null");
 
-    $host = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $router['wireguard_ip'];
+    $host = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
     $pass = !empty($router['password']) ? $router['password'] : '1111';
 
     if (empty($host)) {

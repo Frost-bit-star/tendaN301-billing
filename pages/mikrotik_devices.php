@@ -325,7 +325,7 @@ async function loadDevices() {
                 <h5 class="mb-1">${escapeHtml(r.name)}</h5>
                 <p class="text-muted small mb-2">${escapeHtml(r.location || 'No location set')}</p>
                 <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted"><i class="fas fa-network-wired"></i> ${r.ip || r.wireguard_ip || '—'}</small>
+                    <small class="text-muted"><i class="fas fa-network-wired"></i> ${r.wireguard_ip || r.ip || '—'}</small>
                     <small class="text-muted"><i class="fas fa-fingerprint"></i> ${(r.device_id || '').substring(0, 8)}...</small>
                 </div>
                 ${r.last_provisioned_at ? `<div class="mt-2"><small class="text-success"><i class="fas fa-check-circle"></i> Provisioned ${r.last_provisioned_at}</small></div>` : ''}

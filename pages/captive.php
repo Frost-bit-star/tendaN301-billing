@@ -58,15 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             ]);
 
             try {
-                $apiIP = $router['wireguard_ip'];
-                if (empty($apiIP) || $apiIP === '0.0.0.0' || !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
-                    $testIP = !empty($router['ip']) && $router['ip'] !== '0.0.0.0' ? $router['ip'] : $apiIP;
-                    $fp = @fsockopen($testIP, 8729, $errno, $errstr, 2);
-                    if (is_resource($fp)) {
-                        fclose($fp);
-                        $apiIP = $testIP;
-                    }
-                }
+                $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
                 $apiPort = intval($router['port'] ?: 8729);
                 $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
                 $api->connect();
