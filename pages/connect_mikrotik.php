@@ -369,7 +369,7 @@ function startStatusPolling(routerId) {
             const statusStrong = document.querySelector('#statusDisplay strong');
             const details = document.getElementById('statusDetails');
 
-            indicator.className = 'status-indicator ' + data.status;
+            indicator.className = 'status-indicator ' + (data.status === 'registered' ? 'provisioning' : data.status);
 
             if (data.status === 'online') {
                 statusStrong.textContent = 'MikroTik Connected!';
@@ -380,6 +380,13 @@ function startStatusPolling(routerId) {
                 document.getElementById('statusText').className = 'text-success';
                 document.getElementById('toStep3Btn').disabled = false;
                 clearInterval(statusPollInterval);
+            } else if (data.status === 'registered') {
+                statusStrong.textContent = 'Device Registered!';
+                document.querySelector('#statusDisplay p').textContent = 'WireGuard peer added. Waiting for API connection on port 8729...';
+                details.style.display = 'block';
+                document.getElementById('wgIPDisplay').textContent = data.wireguard_ip || '—';
+                document.getElementById('statusText').textContent = 'Registered';
+                document.getElementById('statusText').className = 'text-info';
             } else if (data.status === 'provisioning') {
                 statusStrong.textContent = 'Provisioning in progress...';
                 document.querySelector('#statusDisplay p').textContent = 'Script has been served to the device. Waiting for it to come online.';
