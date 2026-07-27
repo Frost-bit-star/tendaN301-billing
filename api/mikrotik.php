@@ -164,7 +164,8 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 
         $script .= ":local wgPub [/interface wireguard get [find name=jasiri-wg] public-key]\n";
         $script .= ":local url \"{$serverScheme}://{$serverHost}/api/wireguard_register.php?device={$deviceId}&pubkey=\$wgPub\"\n";
-        $script .= "/tool fetch mode=https url=\$url keep-result=no\n\n";
+        $script .= ":local r [/tool fetch mode=https url=\$url keep-result=no as-value]\n";
+        $script .= ":log info (\"WG REGISTER: \" . (\$r->\"status\"))\n\n";
     } else {
         $script .= "# WireGuard skipped (server not configured)\n\n";
     }
@@ -264,15 +265,18 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     ];
 }
 
-function isMikroTikOnline($wireguardIP) {
-    $fp = @fsockopen($wireguardIP, 8728, $errno, $errstr, 3);
-    if (is_resource($fp)) {
-        fclose($fp);
-        return true;
-    }
-    $output = [];
-    exec("wg show wg0 latest-handshakes 2>/dev/null", $output);
-    return false;
+function isRouterOnlineWg($router) {
+    if (empty($router['wg_pubkey'])) return false;
+
+    if (!checkWgHandshake($router['wg_pubkey'])) return false;
+
+    $wgIP = $router['wireguard_ip'] ?? '';
+    if (empty($wgIP)) return false;
+
+    $fp = @fsockopen($wgIP, 8729, $errno, $errstr, 3);
+    if (!$fp) return false;
+    fclose($fp);
+    return true;
 }
 
 function checkWgHandshake($peerPubKey) {
@@ -382,26 +386,7 @@ if ($method === 'POST') {
             jsonResponse(['error' => 'Router not found'], 404);
         }
 
-        $wgIP = $router['wireguard_ip'];
-        $online = @fsockopen($wgIP, 8728, $errno, $errstr, 3);
-        $isOnline = is_resource($online);
-        if ($isOnline) fclose($online);
-
-        if (!$isOnline && !empty($router['wg_pubkey'])) {
-            $isOnline = checkWgHandshake($router['wg_pubkey']);
-        }
-
-        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
-            $fp2 = @fsockopen($router['ip'], intval($router['port'] ?: 8728), $errno, $errstr, 3);
-            $isOnline = is_resource($fp2);
-            if ($isOnline) fclose($fp2);
-        }
-
-        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
-            $fp3 = @fsockopen($router['ip'], 80, $errno, $errstr, 3);
-            $isOnline = is_resource($fp3);
-            if ($isOnline) fclose($fp3);
-        }
+        $isOnline = isRouterOnlineWg($router);
 
         $newStatus = $isOnline ? 'online' : 'offline';
         $stmt = $db->prepare("UPDATE routers SET provisioning_status = :status WHERE id = :id");
@@ -410,7 +395,7 @@ if ($method === 'POST') {
         jsonResponse([
             'router_id' => (int)$routerId,
             'status' => $newStatus,
-            'wireguard_ip' => $wgIP,
+            'wireguard_ip' => $router['wireguard_ip'],
         ]);
     }
 
@@ -510,26 +495,7 @@ if ($method === 'GET') {
         $routers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($routers as &$r) {
-            $wgIP = $r['wireguard_ip'];
-        $fp = @fsockopen($wgIP, 8728, $errno, $errstr, 3);
-            $r['online'] = is_resource($fp);
-            if ($r['online']) fclose($fp);
-
-            if (!$r['online'] && !empty($r['wg_pubkey'])) {
-                $r['online'] = checkWgHandshake($r['wg_pubkey']);
-            }
-
-            if (!$r['online'] && !empty($r['ip']) && $r['ip'] !== '0.0.0.0') {
-                $fp2 = @fsockopen($r['ip'], intval($r['port'] ?: 8729), $errno, $errstr, 3);
-                $r['online'] = is_resource($fp2);
-                if ($r['online']) fclose($fp2);
-            }
-
-            if (!$r['online'] && !empty($r['ip']) && $r['ip'] !== '0.0.0.0') {
-                $fp3 = @fsockopen($r['ip'], 80, $errno, $errstr, 3);
-                $r['online'] = is_resource($fp3);
-                if ($r['online']) fclose($fp3);
-            }
+            $r['online'] = isRouterOnlineWg($r);
 
             $newStatus = $r['online'] ? 'online' : $r['provisioning_status'];
             if ($newStatus !== $r['provisioning_status']) {
@@ -592,26 +558,7 @@ if ($method === 'GET') {
             jsonResponse(['error' => 'Router not found'], 404);
         }
 
-        $wgIP = $router['wireguard_ip'];
-        $fp = @fsockopen($wgIP, 8729, $errno, $errstr, 3);
-        $isOnline = is_resource($fp);
-        if ($isOnline) fclose($fp);
-
-        if (!$isOnline && !empty($router['wg_pubkey'])) {
-            $isOnline = checkWgHandshake($router['wg_pubkey']);
-        }
-
-        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
-            $fp2 = @fsockopen($router['ip'], intval($router['port'] ?: 8729), $errno, $errstr, 3);
-            $isOnline = is_resource($fp2);
-            if ($isOnline) fclose($fp2);
-        }
-
-        if (!$isOnline && !empty($router['ip']) && $router['ip'] !== '0.0.0.0') {
-            $fp3 = @fsockopen($router['ip'], 80, $errno, $errstr, 3);
-            $isOnline = is_resource($fp3);
-            if ($isOnline) fclose($fp3);
-        }
+        $isOnline = isRouterOnlineWg($router);
 
         $newStatus = $isOnline ? 'online' : $router['provisioning_status'];
         if ($newStatus !== $router['provisioning_status']) {
@@ -622,7 +569,7 @@ if ($method === 'GET') {
         jsonResponse([
             'router_id' => (int)$routerId,
             'status' => $newStatus,
-            'wireguard_ip' => $wgIP,
+            'wireguard_ip' => $router['wireguard_ip'],
         ]);
     }
 
