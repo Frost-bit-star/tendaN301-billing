@@ -7,7 +7,7 @@ require_once __DIR__ . '/../api/mikrotik_api.php';
 
 $routerDeviceId = $_GET['router'] ?? '';
 $clientMAC = $_GET['mac'] ?? $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
-$redirURL = $_GET['url'] ?? 'http://example.com';
+$redirURL = $_GET['url'] ?? 'https://jasiri.stackverify.site/success';
 $error = '';
 $success = '';
 $autoLogin = false;
@@ -95,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         .card { 
             background: rgba(255, 255, 255, 0.85); 
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.9);
             border-radius: 24px; 
             padding: 36px 28px; 
@@ -213,6 +212,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         }
         .support-info span { font-weight: 600; color: #111; }
         .footer { text-align: center; margin-top: 14px; font-size: 11px; color: #888; letter-spacing: 0.3px; }
+
+        /* Connecting Loader */
+        .connecting-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(255,255,255,0.96);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        .earth-loader {
+            --watercolor: #3344c1;
+            --landcolor: #7cc133;
+            width: 7.5em;
+            height: 7.5em;
+            background-color: var(--watercolor);
+            position: relative;
+            overflow: hidden;
+            border-radius: 50%;
+            box-shadow:
+                inset 0em 0.5em rgba(255,255,255,0.25),
+                inset 0em -0.5em rgba(0,0,0,0.25);
+            border: solid 0.15em white;
+        }
+
+        .connecting-overlay p {
+            margin-top:20px;
+            color:#3344c1;
+            font-size:18px;
+            font-weight:600;
+        }
+
+        .earth-loader svg:nth-child(1) {
+            position:absolute;
+            bottom:-2em;
+            width:7em;
+            animation:round1 5s infinite linear .75s;
+        }
+
+        .earth-loader svg:nth-child(2) {
+            position:absolute;
+            top:-3em;
+            width:7em;
+            animation:round1 5s infinite linear;
+        }
+
+        .earth-loader svg:nth-child(3) {
+            position:absolute;
+            top:-2.5em;
+            width:7em;
+            animation:round2 5s infinite linear;
+        }
+
+        .earth-loader svg:nth-child(4) {
+            position:absolute;
+            bottom:-2.2em;
+            width:7em;
+            animation:round2 5s infinite linear .75s;
+        }
+
+        @keyframes round1 {
+            0% { left:-2em; transform:rotate(0deg); }
+            50% { left:-6em; transform:rotate(25deg); }
+            100% { left:7em; transform:rotate(-25deg); }
+        }
+
+        @keyframes round2 {
+            0% { left:5em; transform:rotate(0deg); }
+            50% { left:-7em; transform:rotate(25deg); }
+            100% { left:8em; transform:rotate(-25deg); }
+        }
     </style>
 </head>
 <body>
@@ -275,5 +348,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
 
         <div class="footer">Imeywezeshwa na Jasiri WiFi</div>
     </div>
+
+    <div class="connecting-overlay" id="connectingOverlay">
+        <div class="earth-loader">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="90" fill="#7CC133"/>
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="90" fill="#7CC133"/>
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="90" fill="#7CC133"/>
+            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+                <circle cx="100" cy="100" r="90" fill="#7CC133"/>
+            </svg>
+        </div>
+        <p>Inaunganisha Jasiri WiFi...</p>
+    </div>
+
+    <script>
+        const loginForm = document.querySelector("form[method='POST']");
+        const connectBtn = loginForm.querySelector(".btn");
+
+        loginForm.addEventListener("submit", function(){
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = "Inaunganisha...";
+            document.getElementById("connectingOverlay").style.display = "flex";
+        });
+    </script>
 </body>
 </html>
