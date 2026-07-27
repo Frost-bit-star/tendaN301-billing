@@ -75,45 +75,179 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sw">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jasiri WiFi - Connect</title>
+    <title>Jasiri WiFi - Unganisha</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .card { background: white; border-radius: 20px; padding: 40px; max-width: 420px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            background: linear-gradient(135deg, #f0f7ff 0%, #d6ecff 100%); 
+            color: #111111;
+            min-height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 20px 0;
+        }
+        .card { 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            border-radius: 24px; 
+            padding: 36px 28px; 
+            max-width: 400px; 
+            width: 90%; 
+            box-shadow: 0 20px 40px rgba(0, 102, 204, 0.08), 0 1px 3px rgba(0, 0, 0, 0.03); 
+        }
         .logo { text-align: center; margin-bottom: 24px; }
-        .logo h1 { font-size: 28px; color: #333; }
-        .logo p { color: #888; font-size: 14px; margin-top: 4px; }
-        .wifi-icon { font-size: 48px; margin-bottom: 12px; }
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 6px; font-weight: 500; }
-        .form-group input { width: 100%; padding: 14px 16px; border: 2px solid #e0e0e0; border-radius: 12px; font-size: 18px; text-align: center; letter-spacing: 4px; font-weight: 600; outline: none; transition: border-color 0.3s; }
-        .form-group input:focus { border-color: #667eea; }
-        .btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
-        .btn:hover { transform: translateY(-2px); }
+        .logo-icon-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(214, 236, 255, 0.8);
+            border-radius: 50%;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 16px rgba(0, 122, 255, 0.06);
+        }
+        .logo svg { width: 26px; height: 26px; fill: #0066cc; }
+        .logo h1 { font-size: 24px; color: #111; font-weight: 700; letter-spacing: -0.5px; }
+        .logo p { color: #666; font-size: 13px; margin-top: 4px; font-weight: 400; }
+        
+        .suggestions {
+            margin-bottom: 22px;
+        }
+        .suggestions-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+        .chips-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .chip {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(214, 236, 255, 0.8);
+            border-radius: 12px;
+            padding: 12px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .chip:hover {
+            border-color: #0066cc;
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 102, 204, 0.08);
+        }
+        .chip .time {
+            display: block;
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 3px;
+            font-weight: 500;
+        }
+        .chip .price {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            color: #0066cc;
+        }
+
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 11px; color: #555; margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; }
+        .form-group input { 
+            width: 100%; 
+            padding: 15px 16px; 
+            border: 1.5px solid rgba(200, 225, 250, 0.8); 
+            border-radius: 14px; 
+            font-size: 18px; 
+            text-align: center; 
+            letter-spacing: 4px; 
+            font-weight: 600; 
+            outline: none; 
+            background: rgba(255, 255, 255, 0.9);
+            color: #111;
+            transition: all 0.25s ease; 
+        }
+        .form-group input:focus { border-color: #0066cc; background: #ffffff; box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1); }
+        .btn { 
+            width: 100%; 
+            padding: 15px; 
+            background: #0066cc; 
+            color: white; 
+            border: none; 
+            border-radius: 14px; 
+            font-size: 15px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); 
+            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.2);
+        }
+        .btn:hover { background: #0052a3; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 102, 204, 0.3); }
         .btn:active { transform: translateY(0); }
-        .alert { padding: 12px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 16px; }
-        .alert-error { background: #fff3cd; color: #856404; border: 1px solid #ffc107; }
-        .alert-success { background: #d4edda; color: #155724; border: 1px solid #28a745; }
-        .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #aaa; }
+        
+        .alert { padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; text-align: center; }
+        .alert-error { background: rgba(255, 245, 245, 0.9); color: #c53030; border: 1px solid rgba(254, 215, 215, 0.8); }
+        .alert-success { background: rgba(240, 255, 244, 0.9); color: #22543d; border: 1px solid rgba(198, 246, 213, 0.8); }
+        
+        .support-info {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            padding-top: 16px;
+        }
+        .support-info span { font-weight: 600; color: #111; }
+        .footer { text-align: center; margin-top: 14px; font-size: 11px; color: #888; letter-spacing: 0.3px; }
     </style>
 </head>
 <body>
     <div class="card">
         <div class="logo">
-            <div class="wifi-icon">📶</div>
+            <div class="logo-icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61l1.42-1.42C5.64 15.05 5 13.6 5 12c0-3.87 3.13-7 7-7s7 3.13 7 7c0 1.6-.64 3.05-1.39 4.19l1.42 1.42C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 4c-2.76 0-5 2.24-5 5 0 1.18.42 2.26 1.12 3.11l1.42-1.42C9.17 13.34 9 12.69 9 12c0-1.66 1.34-3 3-3s3 1.34 3 3c0 .69-.17 1.34-.54 1.69l1.42 1.42C18.58 14.26 19 13.18 19 12c0-2.76-2.24-5-5-5zm0 4c-.55 0-1 .45-1 1 0 .28.11.53.29.71l1.42 1.42c.18.18.43.29.71.29.55 0 1-.45 1-1 0-.55-.45-1-1-1zm0 4a3.001 3.001 0 0 1-2.83-2H14.83A3.001 3.001 0 0 1 12 15z"/></svg>
+            </div>
             <h1>Jasiri WiFi</h1>
-            <p>Enter your voucher code to get online</p>
+            <p>Weka namba ya vocha yako kuingia mtandaoni</p>
         </div>
 
-        <?php if ($error): ?>
+        <div class="suggestions">
+            <div class="suggestions-title">Nunua Vocher</div>
+            <div class="chips-grid">
+                <div class="chip">
+                    <span class="time">Masaa 12</span>
+                    <span class="price">500 TSH</span>
+                </div>
+                <div class="chip">
+                    <span class="time">Masaa 24</span>
+                    <span class="price">1000 TSH</span>
+                </div>
+                <div class="chip">
+                    <span class="time">Siku 7</span>
+                    <span class="price">5000 TSH</span>
+                </div>
+            </div>
+        </div>
+
+        <?php if (!empty($error)): ?>
             <div class="alert alert-error"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
 
-        <?php if ($success): ?>
+        <?php if (!empty($success)): ?>
             <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
             <?php if (!empty($autoLogin)): ?>
             <form id="autoLogin" action="http://10.10.0.1/login" method="post">
@@ -127,15 +261,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
 
         <form method="POST" action="?router=<?= urlencode($routerDeviceId) ?>&mac=<?= urlencode($clientMAC) ?>">
             <div class="form-group">
-                <label>Voucher Code</label>
+                <label>Namba ya Vocha</label>
                 <input type="text" name="voucher_code" placeholder="0000 0000" maxlength="11" required autofocus
                     oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()">
             </div>
             <input type="hidden" name="mac" value="<?= htmlspecialchars($clientMAC) ?>">
-            <button type="submit" class="btn">Connect</button>
+            <button type="submit" class="btn">Unganisha</button>
         </form>
 
-        <div class="footer">Powered by Jasiri WiFi</div>
+        <div class="support-info">
+            Una tatizo? Wasiliana na huduma kwa wateja: <span>0758244994</span>
+        </div>
+
+        <div class="footer">Imeywezeshwa na Jasiri WiFi</div>
     </div>
 </body>
 </html>
