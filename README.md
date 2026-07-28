@@ -1,12 +1,10 @@
-# Jasiri WiFi - Tenda Voucher Billing System
-
-![tenda internals](./tenda-inside.jpg)
+# Jasiri WiFi - MikroTik Voucher Billing System
 
 ![PHP](https://img.shields.io/badge/PHP-7.4+-blue) ![SQLite](https://img.shields.io/badge/SQLite-supported-orange) ![License](https://img.shields.io/badge/License-MIT-green) ![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)
 
 > **This branch (`master`) is stable and ready for production deployment.**
 
-A voucher-based billing system for managing WiFi access through Tenda N301 and MikroTik routers. Customers purchase prepaid vouchers, redeem them on a captive portal, and get timed internet access. Administrators generate, track, and manage vouchers through a web dashboard with full revenue reporting.
+A voucher-based billing system for managing WiFi access through MikroTik routers. Customers purchase prepaid vouchers, redeem them on a captive portal, and get timed internet access. Administrators generate, track, and manage vouchers through a web dashboard with full revenue reporting.
 
 ---
 
@@ -53,7 +51,7 @@ A voucher-based billing system for managing WiFi access through Tenda N301 and M
 - **Captive Portal**: Customers enter voucher code on a branded login page; auto-login after redemption
 - **Revenue Tracking**: Dashboard with total revenue, vouchers used, revenue by router, and daily breakdowns
 - **Printable Vouchers**: Select and print voucher cards with code, plan, price, and expiry
-- **Multi-Router Support**: Manage multiple Tenda N301 and MikroTik routers from one dashboard
+- **Multi-Router Support**: Manage multiple MikroTik routers from one dashboard
 - **Plan Management**: Define plans with duration in days/hours/minutes
 - **Automatic Expiration**: Vouchers expire after their validity period
 - **Voucher Management**: Filter, search, and delete vouchers; deleted used vouchers also remove hotspot users from the router
@@ -95,8 +93,8 @@ A voucher-based billing system for managing WiFi access through Tenda N301 and M
           └──────────────┬──────────────┘
                          │
               ┌──────────▼──────────┐
-              │   MikroTik / Tenda   │
-              │   Router (Hotspot)   │
+               │   MikroTik Router      │
+               │   (Hotspot)            │
               └─────────────────────┘
 ```
 
@@ -105,7 +103,7 @@ A voucher-based billing system for managing WiFi access through Tenda N301 and M
 ## Requirements
 
 - PHP 7.4+ with `pdo_sqlite` and `curl` extensions
-- Tenda N301 router **or** MikroTik router with hotspot
+- MikroTik router with hotspot enabled
 - Web server (Apache/Nginx or PHP built-in server)
 
 ---
@@ -278,7 +276,7 @@ CREATE TABLE routers (
     ip TEXT NOT NULL,
     port INTEGER DEFAULT 80,
     password TEXT NOT NULL,
-    type TEXT DEFAULT 'tenda',          -- 'tenda' or 'mikrotik'
+    type TEXT DEFAULT 'mikrotik',       -- router type
     device_id TEXT,
     wireguard_ip TEXT,
     tenant_id INTEGER
@@ -335,7 +333,7 @@ CREATE TABLE routers (
 │   ├── users.php                # Device/user list
 │   └── connect_mikrotik.php     # MikroTik setup wizard
 ├── auth/
-│   ├── login.php                # Tenda device fetching
+│   ├── login.php                # Device fetching
 │   ├── billing.php              # Billing logic
 │   └── sync.php                 # Background sync worker
 ├── components/
