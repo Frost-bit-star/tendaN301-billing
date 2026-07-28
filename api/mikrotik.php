@@ -282,15 +282,26 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
 function isRouterOnlineWg($router) {
     if (empty($router['wg_pubkey'])) return false;
 
-    if (!checkWgHandshake($router['wg_pubkey'])) return false;
-
     $wgIP = $router['wireguard_ip'] ?? '';
     if (empty($wgIP)) return false;
 
+    // First check if WireGuard peer exists at all
+    if (!peerExists($router['wg_pubkey'])) return false;
+
+    // Try connecting to API port — if TCP succeeds, device is online
     $fp = @fsockopen($wgIP, 8729, $errno, $errstr, 3);
-    if (!$fp) return false;
-    fclose($fp);
-    return true;
+    if ($fp) {
+        fclose($fp);
+        return true;
+    }
+    return false;
+}
+
+function peerExists($peerPubKey) {
+    $output = [];
+    exec("wg show wg0 peers | grep -c " . escapeshellarg($peerPubKey), $output, $returnCode);
+    $count = intval(trim(implode('', $output)));
+    return $count > 0;
 }
 
 function checkWgHandshake($peerPubKey) {
