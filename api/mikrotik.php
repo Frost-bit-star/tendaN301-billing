@@ -75,13 +75,15 @@ function getWireGuardEndpoint() {
 
 function getServerPublicKey() {
     $keyFile = __DIR__ . '/../db/server_wg_pubkey.txt';
+    $actual = trim(shell_exec('wg show wg0 public-key 2>/dev/null') ?: '');
+    if (!empty($actual)) {
+        if (!file_exists($keyFile) || trim(file_get_contents($keyFile)) !== $actual) {
+            file_put_contents($keyFile, $actual);
+        }
+        return $actual;
+    }
     if (file_exists($keyFile)) {
         return trim(file_get_contents($keyFile));
-    }
-    $fallback = trim(shell_exec('wg show wg0 public-key 2>/dev/null') ?: '');
-    if (!empty($fallback)) {
-        file_put_contents($keyFile, $fallback);
-        return $fallback;
     }
     return null;
 }
