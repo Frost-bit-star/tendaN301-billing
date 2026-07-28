@@ -1,0 +1,5 @@
+stackwg
+peers.json
+server_private.key
+server_wg_pubkey.txt
+wg_status.json
