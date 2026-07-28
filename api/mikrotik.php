@@ -625,7 +625,6 @@ if ($method === 'GET') {
             jsonResponse(['error' => 'API connection failed: ' . $e->getMessage()], 500);
         }
     }
-}
 
     if ($action === 'dashboard_stats') {
         $tenantId = $_SESSION['account_id'] ?? null;
@@ -686,3 +685,4 @@ if ($method === 'GET') {
     }
 
     jsonResponse(['error' => 'Invalid request'], 400);
+}

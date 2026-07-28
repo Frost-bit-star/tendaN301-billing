@@ -4,8 +4,27 @@ require_once __DIR__ . '/../db/schema.php';
 
 header('Content-Type: application/json');
 
-$device = $_GET['device'] ?? $_POST['device'] ?? '';
-$pubkey = $_GET['pubkey'] ?? $_POST['pubkey'] ?? '';
+$device = '';
+$pubkey = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $rawBody = file_get_contents('php://input');
+    if (!empty($rawBody)) {
+        $parts = explode('&', $rawBody);
+        foreach ($parts as $part) {
+            $eqPos = strpos($part, '=');
+            if ($eqPos !== false) {
+                $key = substr($part, 0, $eqPos);
+                $value = substr($part, $eqPos + 1);
+                if ($key === 'device') $device = $value;
+                if ($key === 'pubkey') $pubkey = $value;
+            }
+        }
+    }
+}
+
+if (empty($device)) $device = $_GET['device'] ?? '';
+if (empty($pubkey)) $pubkey = $_GET['pubkey'] ?? '';
 
 $logDir = __DIR__ . '/../logs';
 if (!is_dir($logDir)) mkdir($logDir, 0755, true);
