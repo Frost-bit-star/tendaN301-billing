@@ -1,6 +1,6 @@
 <?php
 
-define('SMS_API_KEY', 'sv_live_your_key_here');
+define('SMS_API_KEY', 'sv_live_ba4352a71620f7d426da24beb7b0e6466bdeeae5f616999b');
 define('SMS_API_URL', 'https://gateway.stackverify.site/api/sms/send');
 
 function sendSms($number, $message) {
@@ -66,7 +66,7 @@ function sendExpiryReminders($db) {
         $remaining = $endAt - $now;
 
         if ($remaining > 0 && $remaining <= 300) {
-            $message = "Mudo wako linakaribia kikomo. Baki na muda mchache wa kutumia internet.";
+            $message = "Mudo wako unakaribia kikomo. interneti itakata hivi karibuni nunua vocher ongeza mda wako wa kuendelea.";
             $result = sendSms($v['phone'], $message);
 
             if ($result['success']) {
