@@ -122,6 +122,11 @@ include __DIR__ . '/../components/sidebar.php';
             <i class="fas fa-print"></i> Print Vouchers
         </a>
     </li>
+    <li class="nav-item">
+        <a class="nav-link" data-tab="track" onclick="showTab('track')">
+            <i class="fas fa-search"></i> Track Voucher
+        </a>
+    </li>
 </ul>
 
 <!-- Generate Tab -->
@@ -159,12 +164,6 @@ include __DIR__ . '/../components/sidebar.php';
                         <div class="form-group">
                             <label>Price (TSh)</label>
                             <input type="number" class="form-control" id="genPrice" value="500" min="0">
-                        </div>
-                    </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>Phone</label>
-                            <input type="text" class="form-control" id="genPhone" placeholder="2557...">
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -213,6 +212,7 @@ include __DIR__ . '/../components/sidebar.php';
                         <th>Router</th>
                         <th>Package</th>
                         <th>Customer</th>
+                        <th>Phone</th>
                         <th>Price</th>
                         <th>Status</th>
                         <th>Expires</th>
@@ -220,7 +220,7 @@ include __DIR__ . '/../components/sidebar.php';
                     </tr>
                 </thead>
                 <tbody id="voucherTableBody">
-                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -263,6 +263,40 @@ include __DIR__ . '/../components/sidebar.php';
                 </div>
             </div>
             <div id="printPreview"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Track Voucher Tab -->
+<div class="tab-content" id="tab-track" style="display:none;">
+    <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-search"></i> Track Voucher Usage</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="trackCode">Enter Voucher Code</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="trackCode" placeholder="00000000" maxlength="11"
+                                oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()">
+                            <div class="input-group-append">
+                                <button class="btn btn-primary" onclick="trackVoucher()"><i class="fas fa-search"></i> Track</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="trackResult" style="display:none;"></div>
+            <div id="trackLoading" class="text-center py-4" style="display:none;">
+                <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
+                <p class="text-muted mt-2">Checking router...</p>
+            </div>
+            <div id="trackEmpty" class="text-center py-4 text-muted">
+                <i class="fas fa-search fa-3x mb-3" style="opacity:0.3;"></i>
+                <p>Enter a voucher code above to track its usage and device status.</p>
+            </div>
         </div>
     </div>
 </div>
@@ -333,14 +367,14 @@ async function loadVouchers() {
         allVouchers = data.vouchers || [];
         renderVoucherTable();
     } catch (e) {
-        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load vouchers</td></tr>';
+        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Failed to load vouchers</td></tr>';
     }
 }
 
 function renderVoucherTable() {
     const tbody = document.getElementById('voucherTableBody');
     if (allVouchers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No vouchers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No vouchers found</td></tr>';
         return;
     }
     tbody.innerHTML = allVouchers.map(v => `
@@ -348,7 +382,8 @@ function renderVoucherTable() {
             <td><span class="voucher-code">${escapeHtml(v.code)}</span></td>
             <td>${escapeHtml(v.router_name || '—')}</td>
             <td>${escapeHtml(v.plan_name || '—')}</td>
-            <td>${escapeHtml(v.customer_name || v.phone || '—')}</td>
+            <td>${escapeHtml(v.customer_name || '—')}</td>
+            <td>${v.phone ? escapeHtml(v.phone) : '—'}</td>
             <td>TSh ${parseInt(v.price || 0).toLocaleString()}</td>
             <td><span class="status-pill ${v.status}">${v.status}</span></td>
             <td>${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
@@ -462,6 +497,7 @@ function showTab(tab) {
 
     if (tab === 'online') loadVouchers();
     if (tab === 'print') loadPrintVouchers();
+    if (tab === 'track') { document.getElementById('trackCode').focus(); }
 }
 
 document.getElementById('generateForm').addEventListener('submit', async function(e) {
@@ -480,7 +516,6 @@ document.getElementById('generateForm').addEventListener('submit', async functio
                 router_id: document.getElementById('genRouter').value,
                 quantity: document.getElementById('genQuantity').value,
                 price: document.getElementById('genPrice').value,
-                phone: document.getElementById('genPhone').value,
                 customer_name: document.getElementById('genCustomer').value
             })
         });
@@ -519,6 +554,91 @@ async function deleteVoucher(id, status) {
         loadStats();
     } catch (e) {
         alert('Delete failed');
+    }
+}
+
+function formatUptime(s) {
+    if (!s) return '—';
+    return s;
+}
+
+function formatBytes(b) {
+    b = parseInt(b || 0);
+    if (b >= 1073741824) return (b / 1073741824).toFixed(1) + ' GB';
+    if (b >= 1048576) return (b / 1048576).toFixed(1) + ' MB';
+    if (b >= 1024) return (b / 1024).toFixed(1) + ' KB';
+    return b + ' B';
+}
+
+async function trackVoucher() {
+    const code = document.getElementById('trackCode').value.replace(/\s+/g, '');
+    if (!code) { alert('Please enter a voucher code'); return; }
+
+    document.getElementById('trackEmpty').style.display = 'none';
+    document.getElementById('trackResult').style.display = 'none';
+    document.getElementById('trackLoading').style.display = 'block';
+
+    try {
+        const res = await fetch('/api/vouchers.php?action=track&code=' + encodeURIComponent(code));
+        const data = await res.json();
+
+        document.getElementById('trackLoading').style.display = 'none';
+
+        if (!res.ok) {
+            document.getElementById('trackResult').style.display = 'block';
+            document.getElementById('trackResult').innerHTML = '<div class="alert alert-danger">' + escapeHtml(data.error || 'Voucher not found') + '</div>';
+            return;
+        }
+
+        const v = data.voucher;
+        const online = data.is_online;
+        const device = data.device;
+        const onlineBadge = online ? '<span class="badge badge-success"><i class="fas fa-circle"></i> Online</span>' : '<span class="badge badge-secondary"><i class="fas fa-circle"></i> Offline</span>';
+
+        document.getElementById('trackResult').style.display = 'block';
+        document.getElementById('trackResult').innerHTML = `
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Voucher: <span class="voucher-code">${escapeHtml(v.code)}</span></h5>
+                    <span class="status-pill ${v.status}">${v.status.toUpperCase()}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr><td class="text-muted">Plan</td><td><strong>${escapeHtml(v.plan_name || '—')}</strong></td></tr>
+                                <tr><td class="text-muted">Router</td><td>${escapeHtml(v.router_name || '—')}</td></tr>
+                                <tr><td class="text-muted">Customer Phone</td><td><strong>${escapeHtml(v.phone || '—')}</strong></td></tr>
+                                <tr><td class="text-muted">Customer Name</td><td>${escapeHtml(v.customer_name || '—')}</td></tr>
+                                <tr><td class="text-muted">Price</td><td>TSh ${parseInt(v.price || 0).toLocaleString()}</td></tr>
+                                <tr><td class="text-muted">Used At</td><td>${v.used_at ? new Date(v.used_at).toLocaleString('en-GB') : '—'}</td></tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Device Connection Status</h6>
+                            <div class="p-3 mb-3 rounded ${online ? 'bg-white' : 'bg-light'}" style="border:2px solid ${online ? '#28a745' : '#dee2e6'};background:${online ? '#f0fff4' : ''} !important;">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Status:</span> ${onlineBadge}
+                                </div>
+                                ${device ? `
+                                <table class="table table-sm mb-0">
+                                    <tr><td class="text-muted">MAC Address</td><td><code>${escapeHtml(device.mac || '—')}</code></td></tr>
+                                    <tr><td class="text-muted">IP Address</td><td>${escapeHtml(device.address || '—')}</td></tr>
+                                    <tr><td class="text-muted">Uptime</td><td>${formatUptime(device.uptime)}</td></tr>
+                                    <tr><td class="text-muted">Traffic In</td><td>${formatBytes(device.bytes_in)}</td></tr>
+                                    <tr><td class="text-muted">Traffic Out</td><td>${formatBytes(device.bytes_out)}</td></tr>
+                                </table>
+                                ` : '<p class="text-muted mb-0 small">No active session found on router</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    } catch (e) {
+        document.getElementById('trackLoading').style.display = 'none';
+        document.getElementById('trackResult').style.display = 'block';
+        document.getElementById('trackResult').innerHTML = '<div class="alert alert-danger">Failed to track voucher: ' + e.message + '</div>';
     }
 }
 

@@ -203,6 +203,12 @@ $mikrotik_pages = ['connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue'
                                 <p>Revenue</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="marketing" class="nav-link <?= $current_page === 'marketing' ? 'active' : '' ?>">
+                                <i class="nav-icon fas fa-bullhorn"></i>
+                                <p>Marketing</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 

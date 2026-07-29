@@ -210,6 +210,77 @@ if ($method === 'GET') {
         jsonResponse(['stats' => $stats]);
     }
 
+    if ($action === 'track') {
+        $code = trim($_GET['code'] ?? '');
+
+        if (empty($code)) {
+            jsonResponse(['error' => 'Voucher code is required'], 400);
+        }
+
+        $stmt = $db->prepare("
+            SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes,
+                   r.name as router_name, r.ip, r.port, r.password, r.wireguard_ip
+            FROM vouchers v
+            LEFT JOIN plans p ON v.plan_id = p.id
+            LEFT JOIN routers r ON v.router_id = r.id
+            WHERE v.code = :code
+        ");
+        $stmt->execute([':code' => $code]);
+        $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$voucher) {
+            jsonResponse(['error' => 'Voucher not found'], 404);
+        }
+
+        $isOnline = false;
+        $deviceInfo = null;
+
+        if ($voucher['status'] === 'used' && !empty($voucher['router_id'])) {
+            $apiIP = !empty($voucher['wireguard_ip']) ? $voucher['wireguard_ip'] : $voucher['ip'];
+            $apiPort = intval($voucher['port'] ?: 8729);
+
+            try {
+                require_once __DIR__ . '/mikrotik_api.php';
+                $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $voucher['password'] ?? '');
+                $api->connect();
+                $active = $api->getHotspotActiveUsers();
+                foreach ($active as $session) {
+                    if (($session['user'] ?? '') === $voucher['code']) {
+                        $isOnline = true;
+                        $deviceInfo = [
+                            'mac' => $session['mac-address'] ?? $session['mac'] ?? $voucher['used_mac'],
+                            'address' => $session['address'] ?? '',
+                            'uptime' => $session['uptime'] ?? '',
+                            'bytes_in' => $session['bytes-in'] ?? '0',
+                            'bytes_out' => $session['bytes-out'] ?? '0',
+                        ];
+                        break;
+                    }
+                }
+                $api->close();
+            } catch (Exception $e) {
+                // Router unreachable - device info not available
+            }
+        }
+
+        jsonResponse([
+            'voucher' => [
+                'code' => $voucher['code'],
+                'plan_name' => $voucher['plan_name'],
+                'phone' => $voucher['phone'],
+                'customer_name' => $voucher['customer_name'],
+                'status' => $voucher['status'],
+                'used_at' => $voucher['used_at'],
+                'used_mac' => $voucher['used_mac'],
+                'price' => $voucher['price'],
+                'router_name' => $voucher['router_name'],
+                'router_id' => $voucher['router_id'],
+            ],
+            'is_online' => $isOnline,
+            'device' => $deviceInfo,
+        ]);
+    }
+
     if ($action === 'revenue') {
         $period = $_GET['period'] ?? 'all';
         $routerId = $_GET['router_id'] ?? null;

@@ -228,6 +228,17 @@ try {
 
     $results['routers'] = $routerResults;
 
+    // ==========================
+    // STEP 3: Send SMS expiry reminders for MikroTik vouchers
+    // ==========================
+    try {
+        require_once __DIR__ . '/../services/sms.php';
+        $reminderResult = sendExpiryReminders($db);
+        $results['sms_reminders'] = $reminderResult;
+    } catch (Exception $e) {
+        $results['sms_reminders'] = ['sent' => 0, 'error' => $e->getMessage()];
+    }
+
     // Save status
     $status = [
         'running'     => false,

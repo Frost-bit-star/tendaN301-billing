@@ -25,7 +25,7 @@ if (preg_match('#^/api/v1/(auth|routers|router|whitelist|billing|plans|router_co
 }
 
 // Non-v1 API endpoints (mikrotik, vouchers, etc.)
-if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump|hotspot_login|wireguard_register)\.php$#', $requestPath, $m)) {
+if (preg_match('#^/api/(mikrotik|vouchers|control|billing|plans|qos|routers|bill|dump|hotspot_login|wireguard_register|marketing)\.php$#', $requestPath, $m)) {
     $apiFile = __DIR__ . '/api/' . $m[1] . '.php';
     if (file_exists($apiFile)) {
         require $apiFile;
@@ -78,7 +78,7 @@ if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
 
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     if ($_SESSION['role'] === 'admin') {
-        $allowedPagesForAdmin = ['home', 'dashboard', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue', 'support', 'reports', 'plans', 'billing', 'mikrotik', 'add_router', 'view'];
+        $allowedPagesForAdmin = ['home', 'dashboard', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue', 'support', 'reports', 'plans', 'billing', 'mikrotik', 'add_router', 'view', 'marketing'];
         if (!in_array($page, $allowedPagesForAdmin)) {
             http_response_code(403);
             require __DIR__ . "/pages/403.php";
