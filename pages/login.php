@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_SESSION['account_id'] = $account['id'];
         $_SESSION['account_email'] = $account['email'];
 
-        header('Location: /billuser');
+        header('Location: /dashboard');
         exit;
     } else {
         $errorMessage = 'Invalid email or password.';

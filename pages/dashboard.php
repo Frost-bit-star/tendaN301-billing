@@ -58,9 +58,12 @@ $adminName = $_SESSION['username'] ?? 'Admin';
 <div class="container-fluid py-4">
 
     <!-- Welcome -->
-    <div class="mb-4">
-        <h4 class="mb-1" style="font-weight:800; color:#1a1a2e;">Welcome back, <?= htmlspecialchars($adminName) ?>! 👋</h4>
-        <p class="text-muted mb-0" style="font-size:0.9rem;">Here's what's happening with your WISP business.</p>
+    <div class="mb-4 d-flex justify-content-between align-items-end flex-wrap">
+        <div>
+            <h4 class="mb-1" style="font-weight:800; color:#1a1a2e;">Welcome back, <?= htmlspecialchars($adminName) ?>! 👋</h4>
+            <p class="text-muted mb-0" style="font-size:0.9rem;">Here's what's happening with your WISP business.</p>
+        </div>
+        <small class="text-muted" id="lastUpdated" style="font-size:0.8rem;">Last updated: —</small>
     </div>
 
     <!-- Stats Row -->
@@ -190,6 +193,9 @@ async function loadDashboard() {
 
         renderDevices(d.devices);
         renderChart(d.revenue_by_month);
+
+        const el = document.getElementById('lastUpdated');
+        if (el) el.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
     } catch (e) {
         console.error('Dashboard load error:', e);
     }
@@ -282,7 +288,11 @@ function escHtml(s) {
 }
 
 loadDashboard();
-setInterval(loadDashboard, 60000);
+setInterval(loadDashboard, 30000);
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) loadDashboard();
+});
+window.addEventListener('focus', loadDashboard);
 </script>
 
 <?php include __DIR__ . '/../components/footer.php'; ?>
