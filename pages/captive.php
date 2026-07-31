@@ -67,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             $voucherCode = $voucher['code'];
         } else {
             $phone = preg_replace('/[^0-9]/', '', $phone);
+            $voucherCode = $voucher['code'];
             $duration = ($voucher['days'] ?? 0) * 86400 + ($voucher['hours'] ?? 0) * 3600 + ($voucher['minutes'] ?? 0) * 60;
             if ($duration <= 0) $duration = 3600;
             $hours = floor($duration / 3600);
