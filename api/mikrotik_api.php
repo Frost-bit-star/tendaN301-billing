@@ -257,6 +257,31 @@ class MikroTikAPI {
         return true;
     }
 
+    public function setWirelessSsid($ssid, $mode = 'ap-bridge') {
+        $interfaces = $this->command(['/interface/wireless/print']);
+        $target = null;
+        foreach ($interfaces as $iface) {
+            $name = $iface['name'] ?? '';
+            $defaultName = $iface['default-name'] ?? '';
+            if (strtolower($name) === 'wlan1' || strtolower($defaultName) === 'wlan1') {
+                $target = $iface;
+                break;
+            }
+        }
+        if (!$target) $target = $interfaces[0] ?? null;
+        if (!$target || empty($target['.id'])) {
+            throw new Exception('No wireless interface found on router');
+        }
+        $id = $target['.id'];
+        $result = $this->commandRaw(['/interface/wireless/set', "=.id=$id", "=ssid=$ssid", "=mode=$mode", "=disabled=no"]);
+        foreach ($result as $item) {
+            if (!empty($item['!trap']) || isset($item['!error'])) {
+                throw new Exception('Router rejected SSID change: ' . ($item['!error'] ?? 'unknown error'));
+            }
+        }
+        return true;
+    }
+
     public function setWirelessProfile($name, $authTypes = '', $enc = 'none') {
         $existing = $this->command(['/interface/wireless/security-profiles/find', "?name=$name"]);
         if (!empty($existing)) {

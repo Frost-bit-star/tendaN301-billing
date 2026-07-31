@@ -98,9 +98,7 @@ if ($method === 'POST') {
 
         try {
             $api = connectToRouter($router);
-            try { $api->setWirelessProfile('jasiri-open', 'none', 'none'); } catch (Exception $e) { }
-            $api->setWireless($ssid, 'jasiri-open', 'ap-bridge');
-            $api->setBridgePort('wlan1', 'jasiri-bridge');
+            $api->setWirelessSsid($ssid, 'ap-bridge');
             $api->close();
 
             $stmt = $db->prepare("UPDATE routers SET ssid = :ssid WHERE id = :id");
