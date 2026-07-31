@@ -173,7 +173,8 @@ if ($method === 'GET') {
         $total = $countStmt->fetchColumn();
 
         $stmt = $db->prepare("
-            SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes, r.name as router_name
+            SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes, r.name as router_name,
+                   COALESCE(NULLIF(r.ssid, ''), 'Jasiri WiFi') as router_ssid
             FROM vouchers v
             LEFT JOIN plans p ON v.plan_id = p.id
             LEFT JOIN routers r ON v.router_id = r.id

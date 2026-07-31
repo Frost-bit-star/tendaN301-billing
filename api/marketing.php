@@ -25,20 +25,31 @@ if ($method === 'GET') {
     $action = $_GET['action'] ?? 'customers';
 
     if ($action === 'customers') {
-        $stmt = $db->query("
-            SELECT DISTINCT v.phone, v.customer_name, v.code, v.used_at, v.plan_id,
+        $voucherCustomers = $db->query("
+            SELECT v.phone, v.customer_name, v.code, v.used_at, v.plan_id,
                    p.name as plan_name
             FROM vouchers v
             LEFT JOIN plans p ON v.plan_id = p.id
             WHERE v.status = 'used'
               AND v.phone IS NOT NULL AND v.phone != ''
             ORDER BY v.used_at DESC
-        ");
-        $customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $billingCustomers = $db->query("
+            SELECT b.phone_number as phone, b.name as customer_name, NULL as code,
+                   b.created_at as used_at, b.plan_id,
+                   p.name as plan_name
+            FROM billing b
+            LEFT JOIN plans p ON b.plan_id = p.id
+            WHERE b.phone_number IS NOT NULL AND b.phone_number != ''
+            ORDER BY b.created_at DESC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $all = array_merge($voucherCustomers, $billingCustomers);
 
         $unique = [];
         $seen = [];
-        foreach ($customers as $c) {
+        foreach ($all as $c) {
             $phone = $c['phone'];
             if (!isset($seen[$phone])) {
                 $seen[$phone] = true;

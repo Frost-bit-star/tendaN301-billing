@@ -43,6 +43,9 @@ addColumnIfMissing($db, 'routers', 'last_provisioned_at', 'TEXT');
 addColumnIfMissing($db, 'routers', 'provision_token', 'TEXT');
 addColumnIfMissing($db, 'routers', 'wg_pubkey', 'TEXT');
 
+// Saved wireless SSID for this router (used on printed vouchers)
+addColumnIfMissing($db, 'routers', 'ssid', 'TEXT');
+
 // -------------------------
 // Plans table
 // -------------------------
@@ -174,6 +177,10 @@ addColumnIfMissing($db, 'billing', 'end_at', 'TEXT');
 // -------------------------
 // Ensure `internet_access` column exists in `billing` table
 addColumnIfMissing($db, 'billing', 'internet_access', 'INTEGER DEFAULT 1');
+
+// Columns used by billing APIs, add_user, and billuser
+addColumnIfMissing($db, 'billing', 'name', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'billing', 'phone_number', 'TEXT DEFAULT NULL');
 
 // -------------------------
 // Vouchers table

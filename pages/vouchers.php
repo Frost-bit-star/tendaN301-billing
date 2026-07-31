@@ -463,7 +463,7 @@ function updatePrintPreview() {
     preview.innerHTML = '<div class="row">' + selected.map(v => `
         <div class="col-md-3 col-sm-6 mb-3">
             <div style="border:2px dashed #333;padding:1rem;text-align:center;border-radius:8px;background:#fff;">
-                <strong style="color:#007bff;">JASIRI WIFI</strong><br>
+                <strong style="color:#007bff;">${escapeHtml((v.router_ssid || 'Jasiri WiFi').toUpperCase())}</strong><br>
                 <div class="voucher-code my-2" style="font-size:1.4rem;letter-spacing:3px;">${v.code}</div>
                 <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
                 <small>TSh ${parseInt(v.price || 0).toLocaleString()}</small><br>
@@ -475,7 +475,7 @@ function updatePrintPreview() {
     // Print layout (hidden, shown only on print)
     printArea.innerHTML = selected.map(v => `
         <div class="print-voucher">
-            <h4>Jasiri WiFi</h4>
+            <h4>${escapeHtml(v.router_ssid || 'Jasiri WiFi')}</h4>
             <div class="code">${v.code}</div>
             <div class="detail"><strong>Package:</strong> ${escapeHtml(v.plan_name || '—')}</div>
             <div class="detail"><strong>Price:</strong> TSh ${parseInt(v.price || 0).toLocaleString()}</div>

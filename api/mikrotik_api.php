@@ -222,6 +222,33 @@ class MikroTikAPI {
         return ['interfaces' => $interfaces, 'profiles' => $profiles];
     }
 
+    public function getWirelessSsid() {
+        $interfaces = $this->command(['/interface/wireless/print']);
+        foreach ($interfaces as $iface) {
+            $name = $iface['name'] ?? '';
+            $defaultName = $iface['default-name'] ?? '';
+            if (strtolower($name) === 'wlan1' || strtolower($defaultName) === 'wlan1') {
+                return $iface['ssid'] ?? '';
+            }
+        }
+        foreach ($interfaces as $iface) {
+            if (!empty($iface['ssid'])) return $iface['ssid'];
+        }
+        return '';
+    }
+
+    public function getWirelessSecurityProfile() {
+        $interfaces = $this->command(['/interface/wireless/print']);
+        foreach ($interfaces as $iface) {
+            $name = $iface['name'] ?? '';
+            $defaultName = $iface['default-name'] ?? '';
+            if (strtolower($name) === 'wlan1' || strtolower($defaultName) === 'wlan1') {
+                return $iface['security-profile'] ?? '';
+            }
+        }
+        return '';
+    }
+
     public function setWireless($ssid, $securityProfile = null, $mode = 'ap-bridge') {
         $this->command(['/interface/wireless/set', '=wlan1', "=ssid=$ssid", "=mode=$mode", "=disabled=no"]);
         if ($securityProfile) {

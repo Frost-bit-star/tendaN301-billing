@@ -68,23 +68,12 @@ $deviceId = $_GET['id'] ?? null;
                 <h5 class="mb-0"><i class="fas fa-wifi"></i> Wireless Configuration</h5>
             </div>
             <div class="card-body">
-                <p class="text-muted small">Configure the WiFi network name and security for this device.</p>
+                <p class="text-muted small">Configure the WiFi network name (SSID) for this device.</p>
                 <form id="wirelessForm">
                     <input type="hidden" id="routerId" value="<?= htmlspecialchars($deviceId) ?>">
                     <div class="form-group">
                         <label for="ssid">Network Name (SSID)</label>
                         <input type="text" class="form-control" id="ssid" placeholder="e.g. JasiriWiFi" maxlength="32" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="security">Security</label>
-                        <select class="form-control" id="security">
-                            <option value="open">Open (No Password)</option>
-                            <option value="wpa2">WPA2 (Password Protected)</option>
-                        </select>
-                    </div>
-                    <div id="passwordField" class="form-group" style="display:none;">
-                        <label for="wifiPassword">WiFi Password</label>
-                        <input type="text" class="form-control" id="wifiPassword" placeholder="Min 8 characters" maxlength="64">
                     </div>
                     <div id="wirelessMsg"></div>
                     <button type="submit" class="btn btn-primary" id="applyWirelessBtn">
@@ -174,10 +163,6 @@ $deviceId = $_GET['id'] ?? null;
 <script>
 let deviceData = null;
 
-document.getElementById('security').addEventListener('change', function() {
-    document.getElementById('passwordField').style.display = this.value === 'wpa2' ? 'block' : 'none';
-});
-
 document.getElementById('wirelessForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     if (!deviceData) return;
@@ -188,18 +173,18 @@ document.getElementById('wirelessForm').addEventListener('submit', async functio
     document.getElementById('wirelessMsg').innerHTML = '';
 
     try {
-        const res = await fetch('/api/mikrotik.php', {
+        const res = await fetch('/api/wireless.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                action: 'configure_wireless',
+                action: 'configure',
                 router_id: deviceData.id,
-                ssid: document.getElementById('ssid').value.trim(),
-                security: document.getElementById('security').value
+                ssid: document.getElementById('ssid').value.trim()
             })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
+        document.getElementById('ssid').value = data.ssid || document.getElementById('ssid').value.trim();
         document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-success py-2"><i class="fas fa-check"></i> ' + data.message + '</div>';
     } catch (err) {
         document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-danger py-2">' + err.message + '</div>';
@@ -208,6 +193,18 @@ document.getElementById('wirelessForm').addEventListener('submit', async functio
         btn.innerHTML = '<i class="fas fa-check"></i> Apply Configuration';
     }
 });
+
+async function loadWirelessSsid() {
+    if (!deviceData) return;
+    try {
+        const res = await fetch(`/api/wireless.php?action=get&router_id=${deviceData.id}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        document.getElementById('ssid').value = data.ssid || deviceData.ssid || 'JasiriWiFi';
+    } catch (e) {
+        document.getElementById('ssid').value = deviceData.ssid || 'JasiriWiFi';
+    }
+}
 
 async function loadDevice() {
     try {
@@ -221,7 +218,8 @@ async function loadDevice() {
 
         document.getElementById('deviceName').textContent = deviceData.name;
         document.getElementById('routerId').value = deviceData.id;
-        document.getElementById('ssid').value = 'JasiriWiFi';
+        document.getElementById('ssid').value = deviceData.ssid || 'JasiriWiFi';
+        loadWirelessSsid();
 
         const status = deviceData.provisioning_status || 'offline';
         document.getElementById('deviceStatusBadge').innerHTML = '<span class="badge badge-' + (status === 'online' ? 'success' : status === 'provisioning' ? 'warning' : 'danger') + '" style="font-size:0.9rem;padding:8px 16px;">' + status.toUpperCase() + '</span>';
