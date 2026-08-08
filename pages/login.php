@@ -55,7 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt->execute([$email]);
     $account = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($account && password_verify($password, $account['password'])) {
+    if (!$account) {
+        $errorMessage = 'Invalid email or password.';
+    } elseif ((int)($account['status'] ?? 1) !== 1) {
+        $errorMessage = 'This account has been disabled by the super admin.';
+    } elseif (password_verify($password, $account['password'])) {
         $_SESSION['logged_in'] = true;
         $_SESSION['username']  = $account['name'];
         $_SESSION['role']      = 'user';

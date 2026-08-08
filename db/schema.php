@@ -175,13 +175,19 @@ addColumnIfMissing($db, 'routers', 'tenant_id', 'INTEGER DEFAULT NULL');
 addColumnIfMissing($db, 'accounts', 'currency', "TEXT DEFAULT 'TZS'");
 addColumnIfMissing($db, 'admins', 'currency', "TEXT DEFAULT 'TZS'");
 
-// Admin management (superadmin delegates to general admins)
+// Multi-tenant admin management: the super admin controls ALL tenant accounts.
+// Each account is a "general admin" running their own WISP instance.
+addColumnIfMissing($db, 'accounts', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited
+addColumnIfMissing($db, 'accounts', 'status', 'INTEGER DEFAULT 1');             // 1 = active, 0 = disabled
+addColumnIfMissing($db, 'accounts', 'created_by', 'INTEGER DEFAULT NULL');      // superadmin id who created them
+
+// Platform staff admins (superadmin vs general staff) and their limits
 addColumnIfMissing($db, 'admins', 'role', "TEXT DEFAULT 'admin'");           // 'superadmin' or 'admin'
 addColumnIfMissing($db, 'admins', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited
 addColumnIfMissing($db, 'admins', 'status', 'INTEGER DEFAULT 1');             // 1 = active, 0 = disabled
 addColumnIfMissing($db, 'admins', 'created_by', 'INTEGER DEFAULT NULL');      // superadmin id who created them
 
-// Attribute voucher creation to an admin (used for per-admin usage limits)
+// Attribute voucher creation to a tenant account (used for per-tenant usage limits)
 addColumnIfMissing($db, 'vouchers', 'created_by', 'INTEGER DEFAULT NULL');
 
 // Bootstrap: guarantee at least one superadmin exists (promote the original seed admin)

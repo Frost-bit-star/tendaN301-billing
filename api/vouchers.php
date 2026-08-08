@@ -47,18 +47,26 @@ if ($method === 'POST') {
         $quantity = max(1, min(100, intval($input['quantity'] ?? 1)));
         $expiresAt = $input['expires_at'] ?? null;
 
-        // General admins are capped by their voucher_limit (superadmins & tenants unlimited)
-        $adminId = $_SESSION['admin_id'] ?? null;
-        if ($_SESSION['role'] === 'admin' && $adminId) {
-            $stmt = $db->prepare("SELECT voucher_limit FROM admins WHERE id = ? AND status = 1");
-            $stmt->execute([$adminId]);
+        // Per-admin voucher caps: tenant accounts (role 'user') use accounts.voucher_limit,
+        // platform staff (role 'admin') use admins.voucher_limit. Superadmin is unlimited.
+        $accountId = $_SESSION['account_id'] ?? null;
+        $staffId   = $_SESSION['admin_id'] ?? null;
+        $limit = -1;
+        if ($_SESSION['role'] === 'user' && $accountId) {
+            $stmt = $db->prepare("SELECT voucher_limit FROM accounts WHERE id = ? AND status = 1");
+            $stmt->execute([$accountId]);
             $limit = (int)$stmt->fetchColumn();
-            $limit = $limit === 0 ? -1 : $limit; // 0 not a valid limit, treat as unlimited
-            if ($limit > 0) {
-                $used = (int)$db->query("SELECT COUNT(*) FROM vouchers WHERE created_by = $adminId")->fetchColumn();
-                if ($used + $quantity > $limit) {
-                    jsonResponse(['error' => "Voucher limit reached. You have created $used of $limit allowed vouchers."], 403);
-                }
+        } elseif ($_SESSION['role'] === 'admin' && $staffId) {
+            $stmt = $db->prepare("SELECT voucher_limit FROM admins WHERE id = ? AND status = 1");
+            $stmt->execute([$staffId]);
+            $limit = (int)$stmt->fetchColumn();
+        }
+        $limit = $limit === 0 ? -1 : $limit; // 0 is not a valid cap, treat as unlimited
+        $creatorId = $accountId ?: ($_SESSION['role'] === 'admin' ? $staffId : null);
+        if ($limit > 0 && $creatorId) {
+            $used = (int)$db->query("SELECT COUNT(*) FROM vouchers WHERE created_by = " . (int)$creatorId)->fetchColumn();
+            if ($used + $quantity > $limit) {
+                jsonResponse(['error' => "Voucher limit reached. You have created $used of $limit allowed vouchers."], 403);
             }
         }
 
@@ -105,7 +113,7 @@ if ($method === 'POST') {
                 ':customer_name' => $customerName,
                 ':price' => $price,
                 ':expires_at' => $expiresAt,
-                ':created_by' => $adminId,
+                ':created_by' => $creatorId,
             ]);
 
             $vouchers[] = [

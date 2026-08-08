@@ -7,27 +7,27 @@ include __DIR__ . '/../components/header.php';
 <div class="page-header">
     <div class="page-header-left">
         <h1 class="page-title"><i class="fas fa-user-shield"></i> Admin Management</h1>
-        <p class="page-subtitle">Create general admins, reset their passwords, set usage limits and remove access.</p>
+        <p class="page-subtitle">Control all tenant admins: create, delete, reset passwords and limit voucher usage.</p>
     </div>
 </div>
 
 <div id="adminsAlert" style="display:none;margin-bottom:20px;"></div>
 
-<!-- Add Admin -->
+<!-- Create Admin -->
 <div class="card" style="margin-bottom:24px;">
     <div class="card-header">
-        <span class="card-title"><i class="fas fa-user-plus"></i> Create General Admin</span>
+        <span class="card-title"><i class="fas fa-user-plus"></i> Create Tenant Admin</span>
     </div>
     <div class="card-body">
         <form id="adminForm">
             <div class="form-row">
                 <div class="form-group">
-                    <label class="form-label" for="admUsername">Username</label>
-                    <input type="text" id="admUsername" class="form-control" placeholder="e.g. agent1" required>
+                    <label class="form-label" for="admName">Full Name</label>
+                    <input type="text" id="admName" class="form-control" placeholder="e.g. Jasiri Mombasa" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label" for="admEmail">Email</label>
-                    <input type="email" id="admEmail" class="form-control" placeholder="agent@wisp.co" required>
+                    <label class="form-label" for="admEmail">Email (login)</label>
+                    <input type="email" id="admEmail" class="form-control" placeholder="admin@wisp.co" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="admPassword">Temporary Password</label>
@@ -48,16 +48,16 @@ include __DIR__ . '/../components/header.php';
 <!-- Admins List -->
 <div class="card">
     <div class="card-header">
-        <span class="card-title"><i class="fas fa-users"></i> Admins</span>
+        <span class="card-title"><i class="fas fa-users"></i> All Tenant Admins</span>
     </div>
     <div class="card-body p-0">
         <div class="table-wrapper">
             <table>
                 <thead>
                     <tr>
-                        <th>Username</th>
+                        <th>Name</th>
                         <th>Email</th>
-                        <th>Role</th>
+                        <th>Routers</th>
                         <th>Vouchers Used / Limit</th>
                         <th>Status</th>
                         <th>Created</th>
@@ -145,11 +145,6 @@ include __DIR__ . '/../components/header.php';
 .adm-modal-header button:hover { color: var(--red); }
 .adm-modal-body { padding: 20px; }
 .adm-modal-footer { padding: 14px 20px; border-top: 1px solid var(--surface-4); display: flex; justify-content: flex-end; gap: 10px; }
-.role-badge {
-    display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
-}
-.role-badge.super { background: rgba(255,193,7,0.15); color: var(--yellow); }
-.role-badge.admin { background: rgba(66,133,244,0.15); color: var(--blue-300); }
 </style>
 
 <script>
@@ -184,24 +179,22 @@ async function loadAdmins() {
     currentAdmins = data.admins || [];
     const tbody = document.getElementById('adminsTable');
     if (!currentAdmins.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--on-surface-med);padding:20px;">No admins found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--on-surface-med);padding:20px;">No admins yet</td></tr>';
         return;
     }
     tbody.innerHTML = currentAdmins.map(a => `
         <tr>
-            <td><strong>${escapeHtml(a.username)}</strong>${a.is_self ? ' <span class="chip" style="background:rgba(66,133,244,0.15);color:var(--blue-300);">you</span>' : ''}</td>
+            <td><strong>${escapeHtml(a.name)}</strong></td>
             <td>${escapeHtml(a.email)}</td>
-            <td><span class="role-badge ${a.role === 'superadmin' ? 'super' : 'admin'}">${a.role}</span></td>
+            <td>${a.routers_count}</td>
             <td>${fmtLimit(a)}</td>
             <td>${a.status ? '<span class="status-pill active">Active</span>' : '<span class="status-pill expired">Disabled</span>'}</td>
             <td>${a.created_at ? new Date(a.created_at.replace(' ', 'T') + 'Z').toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
             <td>
                 <div class="td-actions" style="justify-content:flex-end;">
-                    ${a.is_self || a.role === 'superadmin' ? '' : `
-                        <button class="btn btn-outline btn-sm" onclick="openEdit(${a.id})" title="Edit limit / status"><i class="fas fa-edit"></i></button>
-                        <button class="btn btn-outline btn-sm" onclick="openPassword(${a.id})" title="Reset password"><i class="fas fa-key"></i></button>
-                        <button class="btn btn-outline btn-sm" onclick="deleteAdmin(${a.id})" title="Delete"><i class="fas fa-trash" style="color:var(--red);"></i></button>
-                    `}
+                    <button class="btn btn-outline btn-sm" onclick="openEdit(${a.id})" title="Edit limit / status"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-outline btn-sm" onclick="openPassword(${a.id})" title="Reset password"><i class="fas fa-key"></i></button>
+                    <button class="btn btn-outline btn-sm" onclick="deleteAdmin(${a.id})" title="Delete"><i class="fas fa-trash" style="color:var(--red);"></i></button>
                 </div>
             </td>
         </tr>
@@ -257,7 +250,7 @@ async function savePassword() {
 async function deleteAdmin(id) {
     const a = currentAdmins.find(x => x.id === id);
     if (!a) return;
-    if (!confirm('Delete admin "' + a.username + '"? This cannot be undone.')) return;
+    if (!confirm('Delete admin "' + a.name + '"? This cannot be undone.')) return;
     const res = await fetch(adminsApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,7 +263,7 @@ async function deleteAdmin(id) {
 
 document.getElementById('adminForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = document.getElementById('admUsername').value.trim();
+    const name = document.getElementById('admName').value.trim();
     const email = document.getElementById('admEmail').value.trim();
     const password = document.getElementById('admPassword').value;
     const limitRaw = document.getElementById('admLimit').value.trim();
@@ -279,7 +272,7 @@ document.getElementById('adminForm').addEventListener('submit', async (e) => {
     const res = await fetch(adminsApi, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create', username, email, password, voucher_limit: voucherLimit, active: 1 })
+        body: JSON.stringify({ action: 'create', name, email, password, voucher_limit: voucherLimit, active: 1 })
     });
     const data = await res.json();
     if (data.success) {
