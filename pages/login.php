@@ -61,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_SESSION['role']      = 'user';
         $_SESSION['account_id'] = $account['id'];
         $_SESSION['account_email'] = $account['email'];
+        $_SESSION['currency']  = $account['currency'] ?: 'TZS';
 
         header('Location: /dashboard');
         exit;
@@ -85,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_SESSION['logged_in'] = true;
         $_SESSION['username'] = $username;
         $_SESSION['role'] = $role;
+        $_SESSION['currency'] = $admin['currency'] ?: 'TZS';
 
         header('Location: /dashboard');
         exit;

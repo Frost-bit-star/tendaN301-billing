@@ -171,6 +171,10 @@ CREATE TABLE IF NOT EXISTS tokens (
 // Add tenant_id to routers if missing
 addColumnIfMissing($db, 'routers', 'tenant_id', 'INTEGER DEFAULT NULL');
 
+// Dashboard currency preference per account / admin
+addColumnIfMissing($db, 'accounts', 'currency', "TEXT DEFAULT 'TZS'");
+addColumnIfMissing($db, 'admins', 'currency', "TEXT DEFAULT 'TZS'");
+
 // -------------------------
 // Add missing columns for devices table if script re-run
 // -------------------------

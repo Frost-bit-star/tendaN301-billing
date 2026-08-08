@@ -78,7 +78,7 @@ if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
 
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     if ($_SESSION['role'] === 'admin') {
-        $allowedPagesForAdmin = ['home', 'dashboard', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue', 'support', 'reports', 'plans', 'billing', 'mikrotik', 'add_router', 'view', 'marketing'];
+        $allowedPagesForAdmin = ['home', 'dashboard', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue', 'support', 'reports', 'plans', 'billing', 'mikrotik', 'add_router', 'view', 'marketing', 'settings'];
         if (!in_array($page, $allowedPagesForAdmin)) {
             http_response_code(403);
             require __DIR__ . "/pages/403.php";

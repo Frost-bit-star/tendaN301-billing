@@ -123,7 +123,7 @@ include __DIR__ . '/../components/header.php';
                         <input type="number" class="form-control" id="genQuantity" value="1" min="1" max="100">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Price (TSh)</label>
+                        <label class="form-label">Price (<?= htmlspecialchars($appCurrencySymbol) ?>)</label>
                         <input type="number" class="form-control" id="genPrice" value="500" min="0">
                     </div>
                     <div class="form-group">
@@ -336,7 +336,7 @@ function renderVoucherTable() {
             <td>${escapeHtml(v.plan_name || '—')}</td>
             <td>${escapeHtml(v.customer_name || '—')}</td>
             <td>${v.phone ? escapeHtml(v.phone) : '—'}</td>
-            <td>TSh ${parseInt(v.price || 0).toLocaleString()}</td>
+            <td>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</td>
             <td><span class="status-pill ${v.status}">${v.status}</span></td>
             <td>${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
             <td>
@@ -368,7 +368,7 @@ async function loadPrintVouchers() {
                 <input type="checkbox" class="print-cb" id="pv_${v.id}" data-id="${v.id}" onchange="updatePrintPreview()">
                 <span style="flex:1;">
                     <span class="voucher-code" style="font-size:0.85rem;">${v.code}</span>
-                    <small style="color:var(--on-surface-med);"> - ${escapeHtml(v.plan_name || '')} - TSh ${parseInt(v.price || 0).toLocaleString()}</small>
+                    <small style="color:var(--on-surface-med);"> - ${escapeHtml(v.plan_name || '')} - ${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small>
                 </span>
             </label>
         `).join('') || '<p style="color:var(--on-surface-med)">No vouchers found</p>';
@@ -420,7 +420,7 @@ function updatePrintPreview() {
                 <strong style="color:var(--blue-500);">${escapeHtml((v.router_ssid || 'Jasiri WiFi').toUpperCase())}</strong><br>
                 <div class="voucher-code" style="font-size:1.4rem;letter-spacing:3px;margin:8px 0;">${v.code}</div>
                 <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
-                <small>TSh ${parseInt(v.price || 0).toLocaleString()}</small><br>
+                <small>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small><br>
                 <small style="color:var(--on-surface-med);">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</small>
             </div>
         </div>
@@ -432,7 +432,7 @@ function updatePrintPreview() {
             <h4>${escapeHtml(v.router_ssid || 'Jasiri WiFi')}</h4>
             <div class="code">${v.code}</div>
             <div class="detail"><strong>Package:</strong> ${escapeHtml(v.plan_name || '—')}</div>
-            <div class="detail"><strong>Price:</strong> TSh ${parseInt(v.price || 0).toLocaleString()}</div>
+            <div class="detail"><strong>Price:</strong> ${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</div>
             <div class="detail"><strong>Expires:</strong> ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
         </div>
     `).join('');
@@ -566,7 +566,7 @@ async function trackVoucher() {
                                         <tr><td class="td-label">Router</td><td>${escapeHtml(v.router_name || '—')}</td></tr>
                                         <tr><td class="td-label">Customer Phone</td><td><strong>${escapeHtml(v.phone || '—')}</strong></td></tr>
                                         <tr><td class="td-label">Customer Name</td><td>${escapeHtml(v.customer_name || '—')}</td></tr>
-                                        <tr><td class="td-label">Price</td><td>TSh ${parseInt(v.price || 0).toLocaleString()}</td></tr>
+                                        <tr><td class="td-label">Price</td><td>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</td></tr>
                                         <tr><td class="td-label">Used At</td><td>${v.used_at ? new Date(v.used_at).toLocaleString('en-GB') : '—'}</td></tr>
                                     </tbody>
                                 </table>

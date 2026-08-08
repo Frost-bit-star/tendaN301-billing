@@ -132,9 +132,9 @@ async function loadDashboard() {
         const d = await res.json();
         if (d.error) throw new Error(d.error);
 
-        document.getElementById('totalRevenue').textContent = 'TSh ' + formatNum(d.total_revenue);
-        document.getElementById('monthRevenueSub').textContent = 'This month: TSh ' + formatNum(d.month_revenue);
-        document.getElementById('todayRevenue').textContent = 'TSh ' + formatNum(d.today_revenue);
+        document.getElementById('totalRevenue').textContent = window.APP_CURRENCY + ' ' + formatNum(d.total_revenue);
+        document.getElementById('monthRevenueSub').textContent = 'This month: ' + window.APP_CURRENCY + ' ' + formatNum(d.month_revenue);
+        document.getElementById('todayRevenue').textContent = window.APP_CURRENCY + ' ' + formatNum(d.today_revenue);
         document.getElementById('activeVouchersSub').textContent = 'Active vouchers: ' + d.active_vouchers;
 
         document.getElementById('totalVouchers').textContent = d.total_vouchers;
@@ -207,7 +207,7 @@ function renderChart(data) {
         data: {
             labels,
             datasets: [{
-                label: 'Revenue (TSh)',
+                label: 'Revenue (' + window.APP_CURRENCY + ')',
                 data: values,
                 borderColor: '#1A73E8',
                 backgroundColor: 'rgba(26,115,232,0.08)',
@@ -225,7 +225,7 @@ function renderChart(data) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { callback: v => 'TSh ' + formatNum(v) },
+                    ticks: { callback: v => window.APP_CURRENCY + ' ' + formatNum(v) },
                     grid: { color: '#f0f0f0' }
                 },
                 x: { grid: { display: false } }

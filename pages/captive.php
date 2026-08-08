@@ -332,15 +332,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             <div class="chips-grid">
                 <div class="chip">
                     <span class="time">Masaa 12</span>
-                    <span class="price">500 TSH</span>
+                    <span class="price">500 <?= htmlspecialchars($appCurrencySymbol) ?></span>
                 </div>
                 <div class="chip">
                     <span class="time">Masaa 24</span>
-                    <span class="price">1000 TSH</span>
+                    <span class="price">1000 <?= htmlspecialchars($appCurrencySymbol) ?></span>
                 </div>
                 <div class="chip">
                     <span class="time">Siku 7</span>
-                    <span class="price">5000 TSH</span>
+                    <span class="price">5000 <?= htmlspecialchars($appCurrencySymbol) ?></span>
                 </div>
             </div>
         </div>

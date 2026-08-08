@@ -32,7 +32,7 @@ include __DIR__ . '/../components/header.php';
             <span class="stat-card-label">Total Revenue</span>
             <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
         </div>
-        <div class="stat-value" id="revTotal">TSh 0</div>
+        <div class="stat-value" id="revTotal"><?= htmlspecialchars($appCurrencySymbol) ?> 0</div>
     </div>
     <div class="stat-card">
         <div class="stat-card-header">
@@ -46,7 +46,7 @@ include __DIR__ . '/../components/header.php';
             <span class="stat-card-label">Average per Voucher</span>
             <div class="stat-icon orange"><i class="fas fa-receipt"></i></div>
         </div>
-        <div class="stat-value" id="revAvg">TSh 0</div>
+        <div class="stat-value" id="revAvg"><?= htmlspecialchars($appCurrencySymbol) ?> 0</div>
     </div>
 </div>
 
@@ -93,7 +93,7 @@ async function loadRouters() {
     } catch (e) {}
 }
 
-function fmt(n) { return 'TSh ' + parseInt(n || 0).toLocaleString(); }
+function fmt(n) { return window.APP_CURRENCY + ' ' + parseInt(n || 0).toLocaleString(); }
 
 async function loadRevenue() {
     const period = document.getElementById('revPeriod').value;
@@ -107,7 +107,7 @@ async function loadRevenue() {
 
         document.getElementById('revTotal').textContent = fmt(data.total);
         document.getElementById('revCount').textContent = data.count || 0;
-        document.getElementById('revAvg').textContent = data.count > 0 ? fmt(Math.round(data.total / data.count)) : 'TSh 0';
+        document.getElementById('revAvg').textContent = data.count > 0 ? fmt(Math.round(data.total / data.count)) : window.APP_CURRENCY + ' 0';
 
         const routerBody = document.getElementById('revByRouter');
         if ((data.by_router || []).length === 0) {
