@@ -1,172 +1,125 @@
 <?php
+$pageTitle = 'Dashboard';
+$activePage = 'dashboard';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 $adminName = $_SESSION['username'] ?? 'Admin';
 ?>
 <style>
-.dash-stat-card {
-    background: #fff;
-    border-radius: 14px;
-    padding: 1.5rem;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid #eef0f2;
-    transition: transform 0.2s;
-}
-.dash-stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
-.dash-stat-card .icon-box {
-    width: 52px; height: 52px; border-radius: 12px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem; color: #fff; margin-bottom: 1rem;
-}
-.dash-stat-card .stat-value { font-size: 1.8rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
-.dash-stat-card .stat-label { font-size: 0.82rem; color: #6c757d; margin-top: 4px; font-weight: 500; }
-.dash-stat-card .stat-sub { font-size: 0.78rem; color: #999; margin-top: 6px; }
-
-.chart-card {
-    background: #fff; border-radius: 14px; padding: 1.25rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #eef0f2;
-}
-.chart-card h6 { font-weight: 700; color: #1a1a2e; margin-bottom: 0; }
-
-.device-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0.75rem 0; border-bottom: 1px solid #f3f4f6;
-}
-.device-row:last-child { border-bottom: none; }
-.device-dot { width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
-.device-dot.on { background: #28a745; box-shadow: 0 0 6px rgba(40,167,69,0.4); }
-.device-dot.off { background: #dc3545; }
-
-.quick-action-btn {
-    display: flex; align-items: center; gap: 10px;
-    background: #f8f9fc; border: 1px solid #e4e7ec; border-radius: 10px;
-    padding: 0.85rem 1rem; text-decoration: none; color: #333;
-    font-weight: 600; font-size: 0.9rem; transition: all 0.2s;
-}
-.quick-action-btn:hover { background: #e8f0fe; border-color: #b3cfff; color: #0056d2; transform: translateX(4px); }
-.quick-action-btn i { font-size: 1.1rem; }
-
-@media (max-width: 768px) {
-    .dash-stat-card .stat-value { font-size: 1.4rem; }
-}
+.blink { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); animation:blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.device-row { cursor: pointer; }
 </style>
 
-<div class="content-wrapper" style="background: #f4f6f9;">
-<section class="content">
-<div class="container-fluid py-4">
-
-    <!-- Welcome -->
-    <div class="mb-4 d-flex justify-content-between align-items-end flex-wrap">
-        <div>
-            <h4 class="mb-1" style="font-weight:800; color:#1a1a2e;">Welcome back, <?= htmlspecialchars($adminName) ?>! 👋</h4>
-            <p class="text-muted mb-0" style="font-size:0.9rem;">Here's what's happening with your WISP business.</p>
-        </div>
-        <small class="text-muted" id="lastUpdated" style="font-size:0.8rem;">Last updated: —</small>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">Welcome back, <?= htmlspecialchars($adminName) ?></h1>
+        <p class="page-subtitle">
+            <span class="blink"></span>&nbsp;
+            Here's what's happening with your WISP business &middot; <span id="lastUpdated">Last updated: —</span>
+        </p>
     </div>
-
-    <!-- Stats Row -->
-    <div class="row mb-4">
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="dash-stat-card">
-                <div class="icon-box" style="background:linear-gradient(135deg,#4e73df,#224abe);">
-                    <i class="fas fa-dollar-sign"></i>
-                </div>
-                <div class="stat-value" id="totalRevenue">—</div>
-                <div class="stat-label">Total Revenue</div>
-                <div class="stat-sub" id="monthRevenueSub">This month: —</div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="dash-stat-card">
-                <div class="icon-box" style="background:linear-gradient(135deg,#28a745,#1e7e34);">
-                    <i class="fas fa-wifi"></i>
-                </div>
-                <div class="stat-value" id="onlineDevices">—</div>
-                <div class="stat-label">Online Devices</div>
-                <div class="stat-sub" id="onlineDevicesSub">0% online</div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="dash-stat-card">
-                <div class="icon-box" style="background:linear-gradient(135deg,#17a2b8,#117a8b);">
-                    <i class="fas fa-ticket-alt"></i>
-                </div>
-                <div class="stat-value" id="totalVouchers">—</div>
-                <div class="stat-label">Vouchers Sold</div>
-                <div class="stat-sub" id="monthVouchersSub">This month: —</div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-md-6 mb-3">
-            <div class="dash-stat-card">
-                <div class="icon-box" style="background:linear-gradient(135deg,#ffc107,#e0a800);">
-                    <i class="fas fa-bolt"></i>
-                </div>
-                <div class="stat-value" id="todayRevenue">—</div>
-                <div class="stat-label">Today's Revenue</div>
-                <div class="stat-sub" id="activeVouchersSub">Active vouchers: —</div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row">
-        <!-- Revenue Trend -->
-        <div class="col-xl-8 mb-4">
-            <div class="chart-card" style="height:320px;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="mb-0"><i class="fas fa-chart-line text-primary mr-1"></i> Revenue Trend</h6>
-                    <small class="text-muted">Last 6 months</small>
-                </div>
-                <canvas id="revenueChart" style="width:100%;height:250px;"></canvas>
-                <div id="revenueChartEmpty" class="text-center text-muted py-5" style="display:none;">
-                    <i class="fas fa-chart-line fa-2x mb-2" style="color:#dee2e6;"></i><br>
-                    No revenue data yet
-                </div>
-            </div>
-        </div>
-
-        <!-- Devices List -->
-        <div class="col-xl-4 mb-4">
-            <div class="chart-card" style="height:320px;">
-                <h6 class="mb-3"><i class="fas fa-server text-success mr-1"></i> Devices</h6>
-                <div id="devicesList" style="max-height:260px; overflow-y:auto;"></div>
-                <div id="devicesEmpty" class="text-center text-muted py-4" style="display:none;">
-                    <i class="fas fa-router fa-2x mb-2" style="color:#dee2e6;"></i><br>
-                    No devices yet
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Quick Actions -->
-    <div class="row">
-        <div class="col-12">
-            <div class="chart-card">
-                <h6 class="mb-3"><i class="fas fa-bolt text-warning mr-1"></i> Quick Actions</h6>
-                <div class="row">
-                    <div class="col-md-4 mb-2">
-                        <a href="connect_mikrotik" class="quick-action-btn w-100">
-                            <i class="fas fa-plus-circle text-primary"></i> Add New Device
-                        </a>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <a href="vouchers" class="quick-action-btn w-100">
-                            <i class="fas fa-ticket-alt text-success"></i> Generate Vouchers
-                        </a>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <a href="revenue" class="quick-action-btn w-100">
-                            <i class="fas fa-chart-bar text-warning"></i> View Reports
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
 </div>
-</section>
+
+<!-- Stats Row -->
+<div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Total Revenue</span>
+            <span class="stat-icon blue"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></span>
+        </div>
+        <div class="stat-value" id="totalRevenue">—</div>
+        <div class="stat-trend"><span class="stat-trend-label" id="monthRevenueSub">This month: —</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Online Devices</span>
+            <span class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg></span>
+        </div>
+        <div class="stat-value" id="onlineDevices">—</div>
+        <div class="stat-trend"><span class="stat-trend-label" id="onlineDevicesSub">0% online</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Vouchers Sold</span>
+            <span class="stat-icon yellow"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.07 15.93 0 13.35 0c-1.49 0-2.81.7-3.7 1.79L9 3l-.65-.21C7.48.7 6.16 0 4.65 0 2.07 0 0 2.07 0 4.65c0 .47.11.91.18 1.35H0v14h20V6zm-7-4.35c.55-.68 1.38-1.08 2.28-1.08 1.56 0 2.82 1.25 2.82 2.8 0 .48-.13.91-.31 1.31L11.38 4.5V2.73l1.62-.08zM1.85 4.65c0-1.55 1.26-2.8 2.82-2.8.9 0 1.73.4 2.28 1.08v1.77l-1.62.08-1.17.19c-.18-.4-.31-.83-.31-1.32zM18 18H2V8h16v10z"/></svg></span>
+        </div>
+        <div class="stat-value" id="totalVouchers">—</div>
+        <div class="stat-trend"><span class="stat-trend-label" id="monthVouchersSub">This month: —</span></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Today's Revenue</span>
+            <span class="stat-icon teal"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></span>
+        </div>
+        <div class="stat-value" id="todayRevenue">—</div>
+        <div class="stat-trend"><span class="stat-trend-label" id="activeVouchersSub">Active vouchers: —</span></div>
+    </div>
+</div>
+
+<div class="two-col">
+    <div class="stack">
+
+        <!-- Revenue Trend -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Revenue Trend</div>
+                <span class="card-subtitle">Last 6 months</span>
+            </div>
+            <div class="card-body" style="height:280px;position:relative">
+                <canvas id="revenueChart" style="width:100%;height:100%;"></canvas>
+                <div id="revenueChartEmpty" class="empty-state" style="display:none">
+                    <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg></div>
+                    <h3>No revenue data yet</h3>
+                    <p>Revenue will appear here once payments are recorded.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card">
+            <div class="card-header"><div class="card-title">Quick Actions</div></div>
+            <div class="card-body">
+                <div class="qa">
+                    <a href="connect_mikrotik">
+                        <svg viewBox="0 0 24 24"><path d="M13 7h-2v4H7v2h4v4h2v-4h4v-2h-4V7zm-1-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
+                        Add New Device
+                    </a>
+                    <a href="vouchers">
+                        <svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.07 15.93 0 13.35 0c-1.49 0-2.81.7-3.7 1.79L9 3l-.65-.21C7.48.7 6.16 0 4.65 0 2.07 0 0 2.07 0 4.65c0 .47.11.91.18 1.35H0v14h20V6zm-7-4.35c.55-.68 1.38-1.08 2.28-1.08 1.56 0 2.82 1.25 2.82 2.8 0 .48-.13.91-.31 1.31L11.38 4.5V2.73l1.62-.08zM1.85 4.65c0-1.55 1.26-2.8 2.82-2.8.9 0 1.73.4 2.28 1.08v1.77l-1.62.08-1.17.19c-.18-.4-.31-.83-.31-1.32zM18 18H2V8h16v10z"/></svg>
+                        Generate Vouchers
+                    </a>
+                    <a href="revenue">
+                        <svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg>
+                        View Reports
+                    </a>
+                    <a href="users">
+                        <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                        Manage Users
+                    </a>
+                    <a href="billing">
+                        <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                        Billing
+                    </a>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="stack">
+        <!-- Devices List -->
+        <div class="card">
+            <div class="card-header"><div class="card-title">Devices</div></div>
+            <div class="card-body" style="padding-top:8px">
+                <div id="devicesList"></div>
+                <div id="devicesEmpty" class="empty-state" style="display:none">
+                    <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.07 15.93 0 13.35 0c-1.49 0-2.81.7-3.7 1.79L9 3l-.65-.21C7.48.7 6.16 0 4.65 0 2.07 0 0 2.07 0 4.65c0 .47.11.91.18 1.35H0v14h20V6zm-7-4.35c.55-.68 1.38-1.08 2.28-1.08 1.56 0 2.82 1.25 2.82 2.8 0 .48-.13.91-.31 1.31L11.38 4.5V2.73l1.62-.08zM1.85 4.65c0-1.55 1.26-2.8 2.82-2.8.9 0 1.73.4 2.28 1.08v1.77l-1.62.08-1.17.19c-.18-.4-.31-.83-.31-1.32zM18 18H2V8h16v10z"/></svg></div>
+                    <h3>No devices yet</h3>
+                    <p>Connect a MikroTik device to get started.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
@@ -216,15 +169,15 @@ function renderDevices(devices) {
     }
     empty.style.display = 'none';
     el.innerHTML = devices.map(d => `
-        <div class="device-row" style="cursor:pointer;" onclick="location.href='mikrotik_devices?id=${d.id}'">
+        <div class="device-row" onclick="location.href='mikrotik_devices?id=${d.id}'">
             <div style="display:flex;align-items:center;">
                 <div class="device-dot ${d.online ? 'on' : 'off'}"></div>
                 <div>
-                    <div style="font-weight:600;font-size:0.9rem;">${escHtml(d.name)}</div>
-                    <div style="font-size:0.75rem;color:#999;">${escHtml(d.location || 'No location')}</div>
+                    <div style="font-weight:600;font-size:13px;">${escHtml(d.name)}</div>
+                    <div style="font-size:12px;color:var(--on-surface-med);">${escHtml(d.location || 'No location')}</div>
                 </div>
             </div>
-            <span class="badge ${d.online ? 'badge-success' : 'badge-danger'}" style="font-size:0.7rem;">${d.online ? 'Online' : 'Offline'}</span>
+            <span class="chip ${d.online ? 'active' : 'expired'}"><span class="chip-dot"></span>${d.online ? 'Online' : 'Offline'}</span>
         </div>
     `).join('');
 }
@@ -234,7 +187,7 @@ function renderChart(data) {
     const empty = document.getElementById('revenueChartEmpty');
     if (!data || data.length === 0) {
         canvas.style.display = 'none';
-        empty.style.display = 'block';
+        empty.style.display = 'flex';
         return;
     }
     canvas.style.display = 'block';
@@ -256,13 +209,13 @@ function renderChart(data) {
             datasets: [{
                 label: 'Revenue (TSh)',
                 data: values,
-                borderColor: '#4e73df',
-                backgroundColor: 'rgba(78,115,223,0.08)',
+                borderColor: '#1A73E8',
+                backgroundColor: 'rgba(26,115,232,0.08)',
                 fill: true,
                 tension: 0.4,
                 borderWidth: 2.5,
                 pointRadius: 4,
-                pointBackgroundColor: '#4e73df',
+                pointBackgroundColor: '#1A73E8',
             }]
         },
         options: {

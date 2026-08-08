@@ -1,7 +1,8 @@
 <?php
 ob_start();
+$pageTitle = 'Marketing';
+$activePage = 'marketing';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 <style>
 .customer-phone {
@@ -12,74 +13,66 @@ include __DIR__ . '/../components/sidebar.php';
 .select-col { width: 40px; }
 .msg-counter {
     font-size: 0.8rem;
-    color: #6c757d;
+    color: var(--on-surface-med);
     text-align: right;
     margin-top: 4px;
 }
-.msg-counter.over { color: #dc3545; font-weight: 600; }
+.msg-counter.over { color: var(--red); font-weight: 600; }
 </style>
 
-<div class="content-wrapper">
-<section class="content">
-<div class="container-fluid">
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-bullhorn"></i> Marketing</h1>
+        <p class="page-subtitle">Send promotional SMS messages to customers who have used your service.</p>
+    </div>
+</div>
 
-<h2 class="mt-4 mb-2"><i class="fas fa-bullhorn text-primary"></i> Marketing</h2>
-<p class="text-muted mb-4">Send promotional SMS messages to customers who have used your service.</p>
-
-<div class="row">
-    <div class="col-md-8">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-users"></i> Customers</h5>
-                <span class="badge badge-light" id="customerCount">0</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
-                        <thead class="thead-light">
-                            <tr>
-                                <th class="select-col"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
-                                <th>Phone</th>
-                                <th>Customer</th>
-                                <th>Last Used</th>
-                                <th>Plan</th>
-                            </tr>
-                        </thead>
-                        <tbody id="customerTableBody">
-                            <tr><td colspan="5" class="text-center text-muted py-4">Loading customers...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+<div class="two-col">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-users"></i> Customers</span>
+            <span class="chip info" id="customerCount">0</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="select-col"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
+                            <th>Phone</th>
+                            <th>Customer</th>
+                            <th>Last Used</th>
+                            <th>Plan</th>
+                        </tr>
+                    </thead>
+                    <tbody id="customerTableBody">
+                        <tr><td colspan="5" style="text-align:center;color:var(--on-surface-med);padding:24px;">Loading customers...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white">
-                <h5 class="mb-0"><i class="fas fa-comment"></i> Compose Message</h5>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-comment"></i> Compose Message</span>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">Recipients</label>
+                <div id="recipientCount" style="color:var(--on-surface-med);font-size:12px;">No customers selected</div>
             </div>
-            <div class="card-body">
-                <div class="form-group">
-                    <label>Recipients</label>
-                    <div id="recipientCount" class="text-muted small">No customers selected</div>
-                </div>
-                <div class="form-group">
-                    <label for="msgText">Message</label>
-                    <textarea class="form-control" id="msgText" rows="5" placeholder="Type your promotional message here..." maxlength="160" oninput="updateMsgCounter()"></textarea>
-                    <div class="msg-counter" id="msgCounter">0 / 160</div>
-                </div>
-                <button class="btn btn-primary btn-block btn-lg" id="sendBtn" onclick="sendMessage()" disabled>
-                    <i class="fas fa-paper-plane"></i> Send
-                </button>
-                <div id="sendResult" class="mt-3" style="display:none;"></div>
+            <div class="form-group">
+                <label class="form-label" for="msgText">Message</label>
+                <textarea class="form-control" id="msgText" rows="5" placeholder="Type your promotional message here..." maxlength="160" oninput="updateMsgCounter()"></textarea>
+                <div class="msg-counter" id="msgCounter">0 / 160</div>
             </div>
+            <button class="btn btn-primary" style="width:100%;" id="sendBtn" onclick="sendMessage()" disabled>
+                <i class="fas fa-paper-plane"></i> Send
+            </button>
+            <div id="sendResult" style="display:none;margin-top:12px;"></div>
         </div>
     </div>
-</div>
-
-</div>
-</section>
 </div>
 
 <script>
@@ -93,14 +86,14 @@ async function loadCustomers() {
         renderCustomers();
         document.getElementById('customerCount').textContent = data.total || 0;
     } catch (e) {
-        document.getElementById('customerTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">Failed to load customers</td></tr>';
+        document.getElementById('customerTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--red);padding:24px;">Failed to load customers</td></tr>';
     }
 }
 
 function renderCustomers() {
     const tbody = document.getElementById('customerTableBody');
     if (allCustomers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No customers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--on-surface-med);padding:24px;">No customers found</td></tr>';
         return;
     }
     tbody.innerHTML = allCustomers.map((c, i) => `
@@ -167,7 +160,7 @@ async function sendMessage() {
         if (data.failed > 0) {
             html += `<div class="alert alert-danger py-2 mb-1"><i class="fas fa-exclamation-circle"></i> Failed: ${data.failed}</div>`;
             if (data.errors) {
-                html += '<ul class="small text-danger mb-0">';
+                html += '<ul style="font-size:12px;color:var(--red);margin:0;">';
                 data.errors.forEach(e => { html += `<li>${escapeHtml(e.number)}: ${escapeHtml(e.error)}</li>`; });
                 html += '</ul>';
             }

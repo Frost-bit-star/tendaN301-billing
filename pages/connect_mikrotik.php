@@ -1,75 +1,21 @@
 <?php
 ob_start();
+$pageTitle = 'Connect MikroTik Device';
+$activePage = 'connect_mikrotik';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 <style>
-.step-wizard { display: flex; justify-content: center; margin-bottom: 2rem; }
-.step-wizard .step { display: flex; align-items: center; gap: 0.5rem; }
-.step-wizard .step-number {
-    width: 36px; height: 36px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 0.9rem; border: 2px solid #dee2e6; color: #6c757d; background: #fff;
-    transition: all 0.3s;
-}
-.step-wizard .step.active .step-number { border-color: #007bff; background: #007bff; color: #fff; }
-.step-wizard .step.completed .step-number { border-color: #28a745; background: #28a745; color: #fff; }
-.step-wizard .step-label { font-size: 0.8rem; color: #6c757d; }
-.step-wizard .step.active .step-label { color: #007bff; font-weight: 600; }
-.step-wizard .step.completed .step-label { color: #28a745; }
-.step-wizard .step-connector { width: 60px; height: 2px; background: #dee2e6; margin: 0 0.5rem; align-self: center; }
-.step-wizard .step-connector.active { background: #28a745; }
-
-.step-content { display: none; }
-.step-content.active { display: block; }
-
-.code-block {
-    background: #1a1a2e; color: #00ff41; padding: 1rem 1.2rem;
-    border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.85rem;
-    position: relative; overflow-x: auto; line-height: 1.6; border: 1px solid #333;
-}
-.code-block .copy-btn {
-    position: absolute; top: 8px; right: 8px;
-    background: rgba(255,255,255,0.1); color: #aaa; border: 1px solid #555;
-    padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.75rem;
-}
-.code-block .copy-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
-
-.status-indicator {
-    display: inline-block; width: 12px; height: 12px; border-radius: 50%;
-    margin-right: 8px; animation: pulse 2s infinite;
-}
-.status-indicator.offline { background: #dc3545; }
-.status-indicator.provisioning { background: #ffc107; }
-.status-indicator.online { background: #28a745; }
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-.config-card {
-    border: 1px solid #dee2e6; border-radius: 8px; padding: 1.2rem;
-    margin-bottom: 1rem; background: #f8f9fa;
-}
-.config-card h6 { margin-bottom: 0.5rem; color: #495057; }
-
-.wizard-nav .btn { min-width: 140px; }
-
-.service-toggle {
-    display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem;
-    border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 0.5rem; background: #fff;
-}
-.service-toggle label { margin: 0; font-weight: 500; flex: 1; }
-.service-toggle input[type="number"] { width: 100px; }
+.page-max { max-width: 900px; margin: 0 auto; }
 </style>
 
-<div class="content-wrapper">
-<section class="content">
-<div class="container-fluid" style="max-width: 900px; margin: 0 auto;">
+<div class="page-max">
 
-<h2 class="mt-4 mb-2"><i class="fas fa-plug text-primary"></i> Connect MikroTik Device</h2>
-<p class="text-muted mb-4">Register your device in 3 steps: device details, basic provisioning, and service configuration.</p>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-plug"></i> Connect MikroTik Device</h1>
+        <p class="page-subtitle">Register your device in 3 steps: device details, basic provisioning, and service configuration.</p>
+    </div>
+</div>
 
 <!-- Step Indicator -->
 <div class="step-wizard" id="stepWizard">
@@ -91,29 +37,29 @@ include __DIR__ . '/../components/sidebar.php';
 
 <!-- STEP 1: Device Details -->
 <div class="step-content active" id="step1">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-info-circle"></i> Step 1: Device Details</h5>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-info-circle"></i> Step 1: Device Details</span>
         </div>
         <div class="card-body">
-            <p class="text-muted">Name and location</p>
+            <p class="card-subtitle">Name and location</p>
             <form id="deviceForm">
                 <div class="form-group">
-                    <label for="deviceName">Device Name <span class="text-danger">*</span></label>
+                    <label class="form-label" for="deviceName">Device Name <span style="color:var(--red)">*</span></label>
                     <input type="text" class="form-control" id="deviceName" placeholder="e.g. sirari-mt-49152" required>
-                    <small class="text-muted">A unique name for this MikroTik router</small>
+                    <small style="color:var(--on-surface-med)">A unique name for this MikroTik router</small>
                 </div>
                 <div class="form-group">
-                    <label for="deviceLocation">Location</label>
+                    <label class="form-label" for="deviceLocation">Location</label>
                     <input type="text" class="form-control" id="deviceLocation" placeholder="e.g. Sirari, Geita">
-                    <small class="text-muted">Physical location of the device</small>
+                    <small style="color:var(--on-surface-med)">Physical location of the device</small>
                 </div>
                 <div class="form-group">
-                    <label for="deviceLanIP">Router LAN IP <small class="text-muted">(for local testing without WireGuard)</small></label>
+                    <label class="form-label" for="deviceLanIP">Router LAN IP <small style="color:var(--on-surface-med)">(for local testing without WireGuard)</small></label>
                     <input type="text" class="form-control" id="deviceLanIP" placeholder="e.g. 192.168.88.130">
-                    <small class="text-muted">If set, dashboard checks connectivity via this IP instead of WireGuard</small>
+                    <small style="color:var(--on-surface-med)">If set, dashboard checks connectivity via this IP instead of WireGuard</small>
                 </div>
-                <div class="wizard-nav text-right">
+                <div class="wizard-nav" style="text-align:right;">
                     <button type="submit" class="btn btn-primary" id="registerBtn">
                         Register Device <i class="fas fa-arrow-right"></i>
                     </button>
@@ -125,20 +71,20 @@ include __DIR__ . '/../components/sidebar.php';
 
 <!-- STEP 2: Basic Provisioning -->
 <div class="step-content" id="step2">
-    <div class="card shadow">
-        <div class="card-header bg-warning text-dark">
-            <h5 class="mb-0"><i class="fas fa-terminal"></i> Step 2: Basic Provisioning</h5>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-terminal"></i> Step 2: Basic Provisioning</span>
         </div>
         <div class="card-body">
-            <p class="text-muted">Connect to your MikroTik via Winbox or SSH, then run both terminal commands below in order.</p>
+            <p class="card-subtitle">Connect to your MikroTik via Winbox or SSH, then run both terminal commands below in order.</p>
 
             <div id="localModeNotice" class="alert alert-info" style="display:none;">
                 <i class="fas fa-info-circle"></i> <strong>Local Mode:</strong> Your server is running on a local network. WireGuard VPN will be skipped. The MikroTik connects directly to this server.
             </div>
 
             <div class="mb-4">
-                <h6><span class="badge badge-primary">1</span> Enable advanced device mode and fetch (RouterOS 7+)</h6>
-                <p class="text-muted small">New routers start in basic mode and block <code>/tool fetch</code> until device-mode allows it. Run this once.</p>
+                <h6><span class="chip info">1</span> Enable advanced device mode and fetch (RouterOS 7+)</h6>
+                <p class="card-subtitle">New routers start in basic mode and block <code>/tool fetch</code> until device-mode allows it. Run this once.</p>
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode('cmd1')"><i class="fas fa-copy"></i> Copy</button>
                     <code id="cmd1">/system device-mode update mode=advanced fetch=yes</code>
@@ -146,8 +92,8 @@ include __DIR__ . '/../components/sidebar.php';
             </div>
 
             <div class="mb-4">
-                <h6><span class="badge badge-primary">2</span> Download and import Jasiri script</h6>
-                <p class="text-muted small">Fetches the provisioning script from Jasiri and imports it. Wait 1–2 minutes for completion.</p>
+                <h6><span class="chip info">2</span> Download and import Jasiri script</h6>
+                <p class="card-subtitle">Fetches the provisioning script from Jasiri and imports it. Wait 1–2 minutes for completion.</p>
                 <div class="code-block">
                     <button class="copy-btn" onclick="copyCode('cmd2')"><i class="fas fa-copy"></i> Copy</button>
                     <code id="cmd2"></code>
@@ -155,20 +101,20 @@ include __DIR__ . '/../components/sidebar.php';
             </div>
 
             <!-- Connection Status -->
-            <div class="card mt-4" id="connectionStatusCard">
-                <div class="card-body text-center">
-                    <h6>Connection Status</h6>
+            <div class="card" style="margin-top:16px;border-color:var(--surface-4);box-shadow:none;">
+                <div class="card-body" style="text-align:center;">
+                    <h6 style="margin-bottom:10px;color:var(--on-surface-med);text-transform:uppercase;font-size:12px;letter-spacing:.5px;">Connection Status</h6>
                     <div id="statusDisplay">
                         <span class="status-indicator provisioning"></span>
                         <strong>Waiting for MikroTik</strong>
-                        <p class="text-muted small mt-2 mb-0">After both Step 2 commands finish on the MikroTik, we'll detect when it's online over WireGuard.</p>
+                        <p class="card-subtitle" style="margin-top:8px;">After both Step 2 commands finish on the MikroTik, we'll detect when it's online over WireGuard.</p>
                     </div>
-                    <div id="statusDetails" class="mt-3" style="display:none;">
-                        <div class="row text-left">
-                            <div class="col-md-6">
+                    <div id="statusDetails" style="display:none;margin-top:14px;">
+                        <div class="form-row" style="text-align:left;">
+                            <div>
                                 <small><strong>WireGuard IP:</strong> <span id="wgIPDisplay">—</span></small>
                             </div>
-                            <div class="col-md-6">
+                            <div>
                                 <small><strong>Status:</strong> <span id="statusText">—</span></small>
                             </div>
                         </div>
@@ -176,9 +122,9 @@ include __DIR__ . '/../components/sidebar.php';
                 </div>
             </div>
 
-            <div class="wizard-nav d-flex justify-content-between mt-4">
-                <button class="btn btn-secondary" onclick="goToStep(1)"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn btn-success" id="toStep3Btn" disabled onclick="goToStep(3)">
+            <div class="wizard-nav flex-row" style="justify-content:space-between;margin-top:20px;">
+                <button class="btn btn-outline" onclick="goToStep(1)"><i class="fas fa-arrow-left"></i> Back</button>
+                <button class="btn btn-primary" id="toStep3Btn" disabled onclick="goToStep(3)">
                     Continue <i class="fas fa-arrow-right"></i>
                 </button>
             </div>
@@ -188,88 +134,84 @@ include __DIR__ . '/../components/sidebar.php';
 
 <!-- STEP 3: Service Configuration -->
 <div class="step-content" id="step3">
-    <div class="card shadow">
-        <div class="card-header bg-success text-white">
-            <h5 class="mb-0"><i class="fas fa-cogs"></i> Step 3: Service Configuration</h5>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-cogs"></i> Step 3: Service Configuration</span>
         </div>
         <div class="card-body">
-            <p class="text-muted">Port assignment and services. Configure which services to enable on the device.</p>
+            <p class="card-subtitle">Port assignment and services. Configure which services to enable on the device.</p>
 
             <div class="config-card">
-                <h6><i class="fas fa-wifi text-primary"></i> Hotspot / PPPoE</h6>
-                <div class="form-group mb-2">
-                    <label>Service Mode</label>
-                    <select class="form-control form-control-sm" id="serviceMode">
+                <h6><i class="fas fa-wifi" style="color:var(--blue-500)"></i> Hotspot / PPPoE</h6>
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label class="form-label">Service Mode</label>
+                    <select class="form-control" id="serviceMode" style="max-width:320px;">
                         <option value="hotspot">Hotspot (Captive Portal)</option>
                         <option value="pppoe">PPPoE</option>
                     </select>
                 </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-group mb-0">
-                            <label>Bridge Interface</label>
-                            <input type="text" class="form-control form-control-sm" value="jasiri-bridge" readonly>
-                        </div>
+                <div class="form-row">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">Bridge Interface</label>
+                        <input type="text" class="form-control" value="jasiri-bridge" readonly>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group mb-0">
-                            <label>IP Pool</label>
-                            <input type="text" class="form-control form-control-sm" value="10.10.0.2-10.10.0.254" readonly>
-                        </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label class="form-label">IP Pool</label>
+                        <input type="text" class="form-control" value="10.10.0.2-10.10.0.254" readonly>
                     </div>
                 </div>
             </div>
 
             <div class="config-card">
-                <h6><i class="fas fa-shield-alt text-warning"></i> Firewall &amp; Services</h6>
+                <h6><i class="fas fa-shield-alt" style="color:var(--yellow)"></i> Firewall &amp; Services</h6>
                 <div class="service-toggle">
-                    <label><i class="fas fa-lock"></i> API SSL (port 8729)</label>
-                    <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" id="svcApiSsl" checked>
-                        <label class="custom-control-label" for="svcApiSsl"></label>
-                    </div>
+                    <label class="fw"><i class="fas fa-lock"></i> API SSL (port 8729)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="svcApiSsl" checked>
+                        <span class="slider"></span>
+                    </label>
                 </div>
                 <div class="service-toggle">
-                    <label><i class="fas fa-terminal"></i> SSH (port 22)</label>
-                    <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" id="svcSsh" checked>
-                        <label class="custom-control-label" for="svcSsh"></label>
-                    </div>
+                    <label class="fw"><i class="fas fa-terminal"></i> SSH (port 22)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="svcSsh" checked>
+                        <span class="slider"></span>
+                    </label>
                 </div>
                 <div class="service-toggle">
-                    <label><i class="fas fa-globe"></i> Webfig (port 80)</label>
-                    <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" id="svcWeb" checked>
-                        <label class="custom-control-label" for="svcWeb"></label>
-                    </div>
+                    <label class="fw"><i class="fas fa-globe"></i> Webfig (port 80)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="svcWeb" checked>
+                        <span class="slider"></span>
+                    </label>
                 </div>
                 <div class="service-toggle">
-                    <label><i class="fas fa-satellite-dish"></i> SNMP (port 161)</label>
-                    <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" id="svcSnmp" checked>
-                        <label class="custom-control-label" for="svcSnmp"></label>
-                    </div>
+                    <label class="fw"><i class="fas fa-satellite-dish"></i> SNMP (port 161)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="svcSnmp" checked>
+                        <span class="slider"></span>
+                    </label>
                 </div>
                 <div class="service-toggle">
-                    <label><i class="fas fa-exchange-alt"></i> RADIUS CoA (port 3799)</label>
-                    <div class="custom-control custom-switch">
-                        <input type="checkbox" class="custom-control-input" id="svcRadius" checked>
-                        <label class="custom-control-label" for="svcRadius"></label>
-                    </div>
+                    <label class="fw"><i class="fas fa-exchange-alt"></i> RADIUS CoA (port 3799)</label>
+                    <label class="switch">
+                        <input type="checkbox" id="svcRadius" checked>
+                        <span class="slider"></span>
+                    </label>
                 </div>
             </div>
 
             <div class="config-card">
-                <h6><i class="fas fa-file-download text-info"></i> Provisioning Script</h6>
-                <p class="text-muted small mb-2">Download the generated RouterOS script for this device:</p>
-                <button class="btn btn-outline-info btn-sm" id="downloadConfigBtn" onclick="downloadConfig()">
+                <h6><i class="fas fa-file-download" style="color:var(--blue-500)"></i> Provisioning Script</h6>
+                <p class="card-subtitle">Download the generated RouterOS script for this device:</p>
+                <button class="btn btn-secondary btn-sm" id="downloadConfigBtn" onclick="downloadConfig()">
                     <i class="fas fa-download"></i> Download routersetup.txt
                 </button>
             </div>
 
-            <div class="wizard-nav d-flex justify-content-between mt-4">
-                <button class="btn btn-secondary" onclick="goToStep(2)"><i class="fas fa-arrow-left"></i> Back</button>
-                <button class="btn btn-success btn-lg" id="finishBtn" onclick="finishSetup()">
+            <div class="wizard-nav flex-row" style="justify-content:space-between;margin-top:20px;">
+                <button class="btn btn-outline" onclick="goToStep(2)"><i class="fas fa-arrow-left"></i> Back</button>
+                <button class="btn btn-primary btn-lg" id="finishBtn" onclick="finishSetup()">
                     <i class="fas fa-check-circle"></i> Finish Setup
                 </button>
             </div>
@@ -277,8 +219,6 @@ include __DIR__ . '/../components/sidebar.php';
     </div>
 </div>
 
-</div>
-</section>
 </div>
 
 <script>
@@ -377,7 +317,7 @@ function startStatusPolling(routerId) {
                 details.style.display = 'block';
                 document.getElementById('wgIPDisplay').textContent = data.wireguard_ip || 'N/A (local mode)';
                 document.getElementById('statusText').textContent = 'Online';
-                document.getElementById('statusText').className = 'text-success';
+                document.getElementById('statusText').style.color = 'var(--green)';
                 document.getElementById('toStep3Btn').disabled = false;
                 clearInterval(statusPollInterval);
             } else if (data.status === 'registered') {
@@ -386,7 +326,7 @@ function startStatusPolling(routerId) {
                 details.style.display = 'block';
                 document.getElementById('wgIPDisplay').textContent = data.wireguard_ip || '—';
                 document.getElementById('statusText').textContent = 'Registered';
-                document.getElementById('statusText').className = 'text-info';
+                document.getElementById('statusText').style.color = 'var(--blue-500)';
             } else if (data.status === 'provisioning') {
                 statusStrong.textContent = 'Provisioning in progress...';
                 document.querySelector('#statusDisplay p').textContent = 'Script has been served to the device. Waiting for it to come online.';

@@ -1,160 +1,150 @@
 <?php
 ob_start();
+$pageTitle = 'MikroTik Devices';
+$activePage = 'mikrotik_devices';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 $deviceId = $_GET['id'] ?? null;
 ?>
 <style>
 .mikrotik-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+    gap: 20px;
 }
 .mikrotik-card {
-    background: linear-gradient(135deg, #ffffff, #fff5f5);
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--surface-4);
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: all var(--transition);
     position: relative;
     overflow: hidden;
+    box-shadow: var(--shadow-1);
 }
 .mikrotik-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    box-shadow: var(--shadow-3);
+    border-color: var(--blue-300);
 }
 .mikrotik-card .device-icon {
-    width: 48px; height: 48px; border-radius: 12px;
+    width: 48px; height: 48px; border-radius: var(--radius-md);
     display: flex; align-items: center; justify-content: center;
     font-size: 1.5rem; color: #fff; margin-bottom: 1rem;
 }
-.mikrotik-card .device-icon.online { background: linear-gradient(135deg, #28a745, #20c997); }
-.mikrotik-card .device-icon.offline { background: linear-gradient(135deg, #dc3545, #e83e8c); }
-.mikrotik-card .device-icon.pending { background: linear-gradient(135deg, #ffc107, #fd7e14); }
+.mikrotik-card .device-icon.online { background: linear-gradient(135deg, var(--green), #20c997); }
+.mikrotik-card .device-icon.offline { background: linear-gradient(135deg, var(--red), #e83e8c); }
+.mikrotik-card .device-icon.pending { background: linear-gradient(135deg, var(--yellow), var(--orange)); }
 
 .mikrotik-card .status-badge {
     position: absolute; top: 12px; right: 12px;
-    padding: 4px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    padding: 3px 10px; border-radius: var(--radius-full); font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
 }
-.mikrotik-card .status-badge.online { background: #d4edda; color: #155724; }
-.mikrotik-card .status-badge.offline { background: #f8d7da; color: #721c24; }
-.mikrotik-card .status-badge.pending { background: #fff3cd; color: #856404; }
+.mikrotik-card .status-badge.online { background: #E6F4EA; color: #137333; }
+.mikrotik-card .status-badge.offline { background: #FCE8E6; color: #C5221F; }
+.mikrotik-card .status-badge.pending { background: #FEF7E0; color: #B45309; }
 
-.empty-state {
-    text-align: center; padding: 4rem 2rem; color: #6c757d;
-}
-.empty-state i { font-size: 4rem; margin-bottom: 1rem; color: #dee2e6; }
+.empty-state { text-align:center; padding:4rem 2rem; color:var(--on-surface-med); }
 </style>
-
-<div class="content-wrapper">
-<section class="content">
-<div class="container-fluid">
 
 <?php if ($deviceId): ?>
 <!-- DEVICE DETAIL VIEW -->
-<div class="d-flex justify-content-between align-items-center mt-4 mb-4">
-    <div>
-        <a href="/mikrotik_devices" class="text-muted"><i class="fas fa-arrow-left"></i> Back to devices</a>
-        <h2 class="mb-0 mt-1"><i class="fas fa-router text-orange"></i> <span id="deviceName">Loading...</span></h2>
+<div class="page-header">
+    <div class="page-header-left">
+        <a href="/mikrotik_devices" class="back-link"><i class="fas fa-arrow-left"></i> Back to devices</a>
+        <h1 class="page-title"><i class="fas fa-router"></i> <span id="deviceName">Loading...</span></h1>
     </div>
-    <div id="deviceStatusBadge"></div>
+    <div class="page-header-actions" id="deviceStatusBadge"></div>
 </div>
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-wifi"></i> Wireless Configuration</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted small">Configure the WiFi network name (SSID) for this device.</p>
-                <form id="wirelessForm">
-                    <input type="hidden" id="routerId" value="<?= htmlspecialchars($deviceId) ?>">
-                    <div class="form-group">
-                        <label for="ssid">Network Name (SSID)</label>
-                        <input type="text" class="form-control" id="ssid" placeholder="e.g. JasiriWiFi" maxlength="32" required>
-                    </div>
-                    <div id="wirelessMsg"></div>
-                    <button type="submit" class="btn btn-primary" id="applyWirelessBtn">
-                        <i class="fas fa-check"></i> Apply Configuration
-                    </button>
-                </form>
-            </div>
+<div class="form-row">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-wifi"></i> Wireless Configuration</span>
+        </div>
+        <div class="card-body">
+            <p class="card-subtitle">Configure the WiFi network name (SSID) for this device.</p>
+            <form id="wirelessForm">
+                <input type="hidden" id="routerId" value="<?= htmlspecialchars($deviceId) ?>">
+                <div class="form-group">
+                    <label class="form-label" for="ssid">Network Name (SSID)</label>
+                    <input type="text" class="form-control" id="ssid" placeholder="e.g. JasiriWiFi" maxlength="32" required>
+                </div>
+                <div id="wirelessMsg"></div>
+                <button type="submit" class="btn btn-primary" id="applyWirelessBtn">
+                    <i class="fas fa-check"></i> Apply Configuration
+                </button>
+            </form>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Device Info</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <tr><td class="text-muted">Device ID</td><td id="infoDeviceId">—</td></tr>
-                    <tr><td class="text-muted">Location</td><td id="infoLocation">—</td></tr>
-                    <tr><td class="text-muted">IP Address</td><td id="infoIP">—</td></tr>
-                    <tr><td class="text-muted">WireGuard IP</td><td id="infoWG">—</td></tr>
-                    <tr><td class="text-muted">API Password</td><td id="infoApiPass">—</td></tr>
-                    <tr><td class="text-muted">Status</td><td id="infoStatus">—</td></tr>
-                    <tr><td class="text-muted">Last Provisioned</td><td id="infoLastProv">—</td></tr>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-info-circle"></i> Device Info</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-wrapper">
+                <table>
+                    <tbody>
+                        <tr><td class="td-label">Device ID</td><td id="infoDeviceId">—</td></tr>
+                        <tr><td class="td-label">Location</td><td id="infoLocation">—</td></tr>
+                        <tr><td class="td-label">IP Address</td><td id="infoIP">—</td></tr>
+                        <tr><td class="td-label">WireGuard IP</td><td id="infoWG">—</td></tr>
+                        <tr><td class="td-label">API Password</td><td id="infoApiPass">—</td></tr>
+                        <tr><td class="td-label">Status</td><td id="infoStatus">—</td></tr>
+                        <tr><td class="td-label">Last Provisioned</td><td id="infoLastProv">—</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card shadow">
-            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-chart-area"></i> Bandwidth Usage</h5>
-                <button class="btn btn-sm btn-light" onclick="loadBandwidth()"><i class="fas fa-sync"></i> Refresh</button>
+<div class="card" style="margin-top:20px;">
+    <div class="card-header">
+        <span class="card-title"><i class="fas fa-chart-area"></i> Bandwidth Usage</span>
+        <button class="btn btn-secondary btn-sm" onclick="loadBandwidth()"><i class="fas fa-sync"></i> Refresh</button>
+    </div>
+    <div class="card-body">
+        <div id="bandwidthLoading" class="text-center py-3">
+            <i class="fas fa-spinner fa-spin"></i> Loading...
+        </div>
+        <div id="bandwidthContent" style="display:none;">
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>User</th><th>IP</th><th>Bytes In</th><th>Bytes Out</th><th>Uptime</th></tr></thead>
+                    <tbody id="bandwidthTable"></tbody>
+                </table>
             </div>
-            <div class="card-body">
-                <div id="bandwidthLoading" class="text-center py-3">
-                    <i class="fas fa-spinner fa-spin"></i> Loading...
-                </div>
-                <div id="bandwidthContent" style="display:none;">
-                    <table class="table table-sm table-hover">
-                        <thead><tr><th>User</th><th>IP</th><th>Bytes In</th><th>Bytes Out</th><th>Uptime</th></tr></thead>
-                        <tbody id="bandwidthTable"></tbody>
-                    </table>
-                </div>
-                <div id="bandwidthEmpty" class="text-center text-muted py-3" style="display:none;">
-                    <i class="fas fa-wifi"></i> No active users
-                </div>
-                <div id="bandwidthError" class="text-center text-danger py-3" style="display:none;">
-                    <i class="fas fa-exclamation-triangle"></i> <span id="bandwidthErrorMsg">Failed to load</span>
-                </div>
-            </div>
+        </div>
+        <div id="bandwidthEmpty" class="text-center text-muted py-3" style="display:none;">
+            <i class="fas fa-wifi"></i> No active users
+        </div>
+        <div id="bandwidthError" class="text-center text-danger py-3" style="display:none;">
+            <i class="fas fa-exclamation-triangle"></i> <span id="bandwidthErrorMsg">Failed to load</span>
         </div>
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card shadow">
-            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="toggleTerminal()">
-                <h5 class="mb-0"><i class="fas fa-terminal"></i> SSH Terminal</h5>
-                <div>
-                    <button class="btn btn-sm btn-success" id="openTermBtn" onclick="event.stopPropagation();startTerminal()"><i class="fas fa-play"></i> Open Terminal</button>
-                    <button class="btn btn-sm btn-danger" id="closeTermBtn" onclick="event.stopPropagation();stopTerminal()" style="display:none"><i class="fas fa-stop"></i> Close</button>
-                </div>
+<div class="card" style="margin-top:20px;">
+    <div class="card-header" style="cursor:pointer" onclick="toggleTerminal()">
+        <span class="card-title"><i class="fas fa-terminal"></i> SSH Terminal</span>
+        <div>
+            <button class="btn btn-primary btn-sm" id="openTermBtn" onclick="event.stopPropagation();startTerminal()"><i class="fas fa-play"></i> Open Terminal</button>
+            <button class="btn btn-danger btn-sm" id="closeTermBtn" onclick="event.stopPropagation();stopTerminal()" style="display:none"><i class="fas fa-stop"></i> Close</button>
+        </div>
+    </div>
+    <div class="card-body p-0" id="terminalContainer" style="display:none;height:450px;background:#1a1a2e">
+        <iframe id="terminalFrame" style="width:100%;height:100%;border:none;display:none"></iframe>
+        <div id="terminalLoading" class="d-flex align-items-center justify-content-center h-100 text-white">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                <p>Connecting to router SSH...</p>
             </div>
-            <div class="card-body p-0" id="terminalContainer" style="display:none;height:450px;background:#1a1a2e">
-                <iframe id="terminalFrame" style="width:100%;height:100%;border:none;display:none"></iframe>
-                <div id="terminalLoading" class="d-flex align-items-center justify-content-center h-100 text-white">
-                    <div class="text-center">
-                        <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
-                        <p>Connecting to router SSH...</p>
-                    </div>
-                </div>
-                <div id="terminalError" class="d-flex align-items-center justify-content-center h-100 text-danger" style="display:none">
-                    <div class="text-center">
-                        <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                        <p id="terminalErrorMsg">Connection failed</p>
-                    </div>
-                </div>
+        </div>
+        <div id="terminalError" class="d-flex align-items-center justify-content-center h-100 text-danger" style="display:none">
+            <div class="text-center">
+                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
+                <p id="terminalErrorMsg">Connection failed</p>
             </div>
         </div>
     </div>
@@ -187,7 +177,7 @@ document.getElementById('wirelessForm').addEventListener('submit', async functio
         document.getElementById('ssid').value = data.ssid || document.getElementById('ssid').value.trim();
         document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-success py-2"><i class="fas fa-check"></i> ' + data.message + '</div>';
     } catch (err) {
-        document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-danger py-2">' + err.message + '</div>';
+        document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-danger py-2"><i class="fas fa-exclamation-triangle"></i> ' + err.message + '</div>';
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check"></i> Apply Configuration';
@@ -212,7 +202,7 @@ async function loadDevice() {
         const data = await res.json();
         deviceData = (data.routers || []).find(r => r.id == <?= json_encode($deviceId) ?>);
         if (!deviceData) {
-            document.querySelector('.container-fluid').innerHTML = '<div class="alert alert-danger mt-4">Device not found. <a href="/mikrotik_devices">Go back</a></div>';
+            document.querySelector('.page-container').innerHTML = '<div class="alert alert-danger mt-4"><i class="fas fa-exclamation-triangle"></i> Device not found. <a href="/mikrotik_devices">Go back</a></div>';
             return;
         }
 
@@ -222,7 +212,9 @@ async function loadDevice() {
         loadWirelessSsid();
 
         const status = deviceData.provisioning_status || 'offline';
-        document.getElementById('deviceStatusBadge').innerHTML = '<span class="badge badge-' + (status === 'online' ? 'success' : status === 'provisioning' ? 'warning' : 'danger') + '" style="font-size:0.9rem;padding:8px 16px;">' + status.toUpperCase() + '</span>';
+        const statusClass = status === 'online' ? 'active' : status === 'provisioning' ? 'pending' : 'inactive';
+        const statusLabel = status === 'provisioning' ? 'provisioning' : status;
+        document.getElementById('deviceStatusBadge').innerHTML = '<span class="chip ' + statusClass + '"><span class="chip-dot"></span>' + statusLabel.toUpperCase() + '</span>';
 
         document.getElementById('infoDeviceId').textContent = (deviceData.device_id || '').substring(0, 16) + '...';
         document.getElementById('infoLocation').textContent = deviceData.location || '—';
@@ -360,18 +352,23 @@ window.addEventListener('beforeunload', function() { stopTerminal(); });
 
 <?php else: ?>
 <!-- DEVICE LIST VIEW -->
-<div class="d-flex justify-content-between align-items-center mt-4 mb-4">
-    <h2 class="mb-0"><i class="fas fa-server text-orange"></i> MikroTik Devices</h2>
-    <a href="connect_mikrotik" class="btn btn-primary"><i class="fas fa-plus"></i> Add Device</a>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-server"></i> MikroTik Devices</h1>
+        <p class="page-subtitle">Manage your connected MikroTik routers.</p>
+    </div>
+    <div class="page-header-actions">
+        <a href="connect_mikrotik" class="btn btn-primary"><i class="fas fa-plus"></i> Add Device</a>
+    </div>
 </div>
 
 <div id="devicesGrid" class="mikrotik-grid"></div>
 
 <div id="emptyState" class="empty-state" style="display:none;">
-    <i class="fas fa-router"></i>
-    <h4>No MikroTik Devices</h4>
+    <div class="empty-state-icon"><i class="fas fa-router"></i></div>
+    <h3>No MikroTik Devices</h3>
     <p>Connect your first MikroTik router to get started.</p>
-    <a href="connect_mikrotik" class="btn btn-primary"><i class="fas fa-plug"></i> Connect Device</a>
+    <a href="connect_mikrotik" class="btn btn-primary" style="margin-top:16px;"><i class="fas fa-plug"></i> Connect Device</a>
 </div>
 
 <div id="loading" class="text-center py-5">
@@ -444,10 +441,6 @@ loadDevices();
 setInterval(loadDevices, 30000);
 </script>
 <?php endif; ?>
-
-</div>
-</section>
-</div>
 
 <?php
 include __DIR__ . '/../components/footer.php';

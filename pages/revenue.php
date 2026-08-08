@@ -1,98 +1,85 @@
 <?php
 ob_start();
+$pageTitle = 'Revenue';
+$activePage = 'revenue';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
-<style>
-.stat-card { border-radius: 12px; padding: 1.5rem; color: #fff; position: relative; overflow: hidden; }
-.stat-card .stat-icon { font-size: 2.5rem; opacity: 0.3; position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); }
-.stat-card .stat-value { font-size: 2rem; font-weight: 700; }
-.stat-card .stat-label { font-size: 0.85rem; opacity: 0.85; }
-</style>
 
-<div class="content-wrapper">
-<section class="content">
-<div class="container-fluid">
-
-<h2 class="mt-4 mb-2"><i class="fas fa-chart-line text-success"></i> Revenue</h2>
-<p class="text-muted mb-4">Income summary from used vouchers</p>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-chart-line"></i> Revenue</h1>
+        <p class="page-subtitle">Income summary from used vouchers</p>
+    </div>
+</div>
 
 <!-- Filters -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <select class="form-control" id="revPeriod" onchange="loadRevenue()">
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <select class="form-control" id="revRouter" onchange="loadRevenue()">
-            <option value="">All Routers</option>
-        </select>
-    </div>
+<div class="flex-row" style="margin-bottom:20px;">
+    <select class="form-control" id="revPeriod" onchange="loadRevenue()" style="max-width:220px;">
+        <option value="all">All Time</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+    </select>
+    <select class="form-control" id="revRouter" onchange="loadRevenue()" style="max-width:220px;">
+        <option value="">All Routers</option>
+    </select>
 </div>
 
 <!-- Stats Cards -->
-<div class="row mb-4">
-    <div class="col-md-4 mb-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #28a745, #20c997);">
-            <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
-            <div class="stat-value" id="revTotal">TSh 0</div>
-            <div class="stat-label">Total Revenue</div>
+<div class="stat-grid" style="margin-bottom:24px;">
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Total Revenue</span>
+            <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
         </div>
+        <div class="stat-value" id="revTotal">TSh 0</div>
     </div>
-    <div class="col-md-4 mb-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #007bff, #6610f2);">
-            <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
-            <div class="stat-value" id="revCount">0</div>
-            <div class="stat-label">Vouchers Used</div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Vouchers Used</span>
+            <div class="stat-icon blue"><i class="fas fa-ticket-alt"></i></div>
         </div>
+        <div class="stat-value" id="revCount">0</div>
     </div>
-    <div class="col-md-4 mb-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #fd7e14, #e83e8c);">
-            <div class="stat-icon"><i class="fas fa-receipt"></i></div>
-            <div class="stat-value" id="revAvg">TSh 0</div>
-            <div class="stat-label">Average per Voucher</div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Average per Voucher</span>
+            <div class="stat-icon orange"><i class="fas fa-receipt"></i></div>
         </div>
+        <div class="stat-value" id="revAvg">TSh 0</div>
     </div>
 </div>
 
-<div class="row">
+<div class="form-row">
     <!-- By Router -->
-    <div class="col-md-6 mb-4">
-        <div class="card shadow">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-router"></i> Revenue by Router</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <thead><tr><th>Router</th><th class="text-right">Vouchers</th><th class="text-right">Revenue</th></tr></thead>
-                    <tbody id="revByRouter"><tr><td colspan="3" class="text-center text-muted">Loading...</td></tr></tbody>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-router"></i> Revenue by Router</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Router</th><th style="text-align:right;">Vouchers</th><th style="text-align:right;">Revenue</th></tr></thead>
+                    <tbody id="revByRouter"><tr><td colspan="3" style="text-align:center;color:var(--on-surface-med);padding:20px;">Loading...</td></tr></tbody>
                 </table>
             </div>
         </div>
     </div>
 
     <!-- By Day -->
-    <div class="col-md-6 mb-4">
-        <div class="card shadow">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="fas fa-calendar"></i> Revenue by Day</h5>
-            </div>
-            <div class="card-body">
-                <table class="table table-sm">
-                    <thead><tr><th>Date</th><th class="text-right">Vouchers</th><th class="text-right">Revenue</th></tr></thead>
-                    <tbody id="revByDay"><tr><td colspan="3" class="text-center text-muted">Loading...</td></tr></tbody>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-calendar"></i> Revenue by Day</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th>Date</th><th style="text-align:right;">Vouchers</th><th style="text-align:right;">Revenue</th></tr></thead>
+                    <tbody id="revByDay"><tr><td colspan="3" style="text-align:center;color:var(--on-surface-med);padding:20px;">Loading...</td></tr></tbody>
                 </table>
             </div>
         </div>
     </div>
-</div>
-
-</div>
-</section>
 </div>
 
 <script>
@@ -124,26 +111,26 @@ async function loadRevenue() {
 
         const routerBody = document.getElementById('revByRouter');
         if ((data.by_router || []).length === 0) {
-            routerBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No revenue data</td></tr>';
+            routerBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--on-surface-med);padding:20px;">No revenue data</td></tr>';
         } else {
             routerBody.innerHTML = data.by_router.map(r => `
                 <tr>
                     <td>${escapeHtml(r.router_name || 'Unknown')}</td>
-                    <td class="text-right">${r.count}</td>
-                    <td class="text-right font-weight-bold">${fmt(r.revenue)}</td>
+                    <td style="text-align:right;">${r.count}</td>
+                    <td style="text-align:right;font-weight:600;">${fmt(r.revenue)}</td>
                 </tr>
             `).join('');
         }
 
         const dayBody = document.getElementById('revByDay');
         if ((data.by_day || []).length === 0) {
-            dayBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No revenue data</td></tr>';
+            dayBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--on-surface-med);padding:20px;">No revenue data</td></tr>';
         } else {
             dayBody.innerHTML = data.by_day.map(d => `
                 <tr>
                     <td>${d.day}</td>
-                    <td class="text-right">${d.count}</td>
-                    <td class="text-right font-weight-bold">${fmt(d.revenue)}</td>
+                    <td style="text-align:right;">${d.count}</td>
+                    <td style="text-align:right;font-weight:600;">${fmt(d.revenue)}</td>
                 </tr>
             `).join('');
         }

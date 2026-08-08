@@ -1,38 +1,16 @@
 <?php
 ob_start();
+$pageTitle = 'Internet Vouchers';
+$activePage = 'vouchers';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 <style>
-.stat-card {
-    border-radius: 12px; padding: 1.5rem; color: #fff; position: relative; overflow: hidden;
-}
-.stat-card .stat-icon { font-size: 2.5rem; opacity: 0.3; position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); }
-.stat-card .stat-value { font-size: 2rem; font-weight: 700; }
-.stat-card .stat-label { font-size: 0.85rem; opacity: 0.85; }
-.stat-card.total { background: linear-gradient(135deg, #667eea, #764ba2); }
-.stat-card.active { background: linear-gradient(135deg, #28a745, #20c997); }
-.stat-card.used { background: linear-gradient(135deg, #dc3545, #e83e8c); }
-
-.voucher-tabs .nav-link {
-    border-radius: 20px; margin-right: 0.5rem; padding: 0.5rem 1.2rem;
-    font-weight: 600; color: #6c757d; border: 1px solid #dee2e6;
-}
-.voucher-tabs .nav-link.active {
-    background: #007bff; color: #fff; border-color: #007bff;
-}
-
-.voucher-code {
-    font-family: 'Courier New', monospace; font-size: 1.1rem; font-weight: 700;
-    letter-spacing: 2px; color: #495057;
-}
-
 .status-pill {
-    padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    padding: 3px 10px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600; letter-spacing: .3px;
 }
-.status-pill.active { background: #d4edda; color: #155724; }
-.status-pill.used { background: #f8d7da; color: #721c24; }
-.status-pill.expired { background: #e2e3e5; color: #383d41; }
+.status-pill.active { background: #E6F4EA; color: #137333; }
+.status-pill.used { background: #FCE8E6; color: #C5221F; }
+.status-pill.expired { background: var(--surface-3); color: var(--on-surface-med); }
 
 .print-area { display: none; }
 
@@ -50,7 +28,7 @@ include __DIR__ . '/../components/sidebar.php';
         border-radius: 8px;
     }
     .print-voucher h4 {
-        margin: 0 0 0.3rem; font-size: 0.9rem; color: #007bff;
+        margin: 0 0 0.3rem; font-size: 0.9rem; color: var(--blue-500);
         text-transform: uppercase; letter-spacing: 1px;
     }
     .print-voucher .code {
@@ -62,125 +40,105 @@ include __DIR__ . '/../components/sidebar.php';
         font-size: 0.75rem; color: #555; margin: 2px 0;
     }
 }
-
-.generate-form .form-group label { font-weight: 600; font-size: 0.85rem; }
 </style>
 
-<div class="content-wrapper">
-<section class="content">
-<div class="container-fluid">
-
-<h2 class="mt-4 mb-2"><i class="fas fa-ticket-alt text-primary"></i> Internet Vouchers</h2>
-<p class="text-muted mb-4">Generate, track and manage vouchers for customer access</p>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-ticket-alt"></i> Internet Vouchers</h1>
+        <p class="page-subtitle">Generate, track and manage vouchers for customer access</p>
+    </div>
+</div>
 
 <!-- Stats Cards -->
-<div class="row mb-4" id="statsRow">
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card total">
-            <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
-            <div class="stat-value" id="statTotal">0</div>
-            <div class="stat-label">Total Vouchers</div>
+<div class="stat-grid" id="statsRow">
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Total Vouchers</span>
+            <div class="stat-icon blue"><i class="fas fa-ticket-alt"></i></div>
         </div>
+        <div class="stat-value" id="statTotal">0</div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card active">
-            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-            <div class="stat-value" id="statActive">0</div>
-            <div class="stat-label">Active</div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Active</span>
+            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
         </div>
+        <div class="stat-value" id="statActive">0</div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card used">
-            <div class="stat-icon"><i class="fas fa-times-circle"></i></div>
-            <div class="stat-value" id="statUsed">0</div>
-            <div class="stat-label">Used</div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Used</span>
+            <div class="stat-icon red"><i class="fas fa-times-circle"></i></div>
         </div>
+        <div class="stat-value" id="statUsed">0</div>
     </div>
-    <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card" style="background: linear-gradient(135deg, #6c757d, #adb5bd);">
-            <div class="stat-icon"><i class="fas fa-clock"></i></div>
-            <div class="stat-value" id="statExpired">0</div>
-            <div class="stat-label">Expired</div>
+    <div class="stat-card">
+        <div class="stat-card-header">
+            <span class="stat-card-label">Expired</span>
+            <div class="stat-icon yellow"><i class="fas fa-clock"></i></div>
         </div>
+        <div class="stat-value" id="statExpired">0</div>
     </div>
 </div>
 
 <!-- Tabs -->
-<ul class="nav voucher-tabs mb-4" id="voucherTabs">
-    <li class="nav-item">
-        <a class="nav-link active" data-tab="generate" onclick="showTab('generate')">
-            <i class="fas fa-plus-circle"></i> Generate Vouchers
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" data-tab="online" onclick="showTab('online')">
-            <i class="fas fa-wifi"></i> Online Vouchers
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" data-tab="print" onclick="showTab('print')">
-            <i class="fas fa-print"></i> Print Vouchers
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="nav-link" data-tab="track" onclick="showTab('track')">
-            <i class="fas fa-search"></i> Track Voucher
-        </a>
-    </li>
-</ul>
+<div class="seg-tabs" id="voucherTabs">
+    <span class="seg-tab active" data-tab="generate" onclick="showTab('generate')">
+        <i class="fas fa-plus-circle"></i> Generate Vouchers
+    </span>
+    <span class="seg-tab" data-tab="online" onclick="showTab('online')">
+        <i class="fas fa-wifi"></i> Online Vouchers
+    </span>
+    <span class="seg-tab" data-tab="print" onclick="showTab('print')">
+        <i class="fas fa-print"></i> Print Vouchers
+    </span>
+    <span class="seg-tab" data-tab="track" onclick="showTab('track')">
+        <i class="fas fa-search"></i> Track Voucher
+    </span>
+</div>
 
 <!-- Generate Tab -->
 <div class="tab-content" id="tab-generate">
-    <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-            <h5 class="mb-0"><i class="fas fa-magic"></i> Generate New Vouchers</h5>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-magic"></i> Generate New Vouchers</span>
         </div>
         <div class="card-body">
-            <form id="generateForm" class="generate-form">
-                <div class="row">
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Router *</label>
-                            <select class="form-control" id="genRouter" required>
-                                <option value="">Select router...</option>
-                            </select>
-                        </div>
+            <form id="generateForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Router *</label>
+                        <select class="form-control" id="genRouter" required>
+                            <option value="">Select router...</option>
+                        </select>
                     </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Package / Plan *</label>
-                            <select class="form-control" id="genPlan" required>
-                                <option value="">Select plan...</option>
-                            </select>
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label">Package / Plan *</label>
+                        <select class="form-control" id="genPlan" required>
+                            <option value="">Select plan...</option>
+                        </select>
                     </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>Quantity</label>
-                            <input type="number" class="form-control" id="genQuantity" value="1" min="1" max="100">
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="genQuantity" value="1" min="1" max="100">
                     </div>
-                    <div class="col-md-2">
-                        <div class="form-group">
-                            <label>Price (TSh)</label>
-                            <input type="number" class="form-control" id="genPrice" value="500" min="0">
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label">Price (TSh)</label>
+                        <input type="number" class="form-control" id="genPrice" value="500" min="0">
                     </div>
-                    <div class="col-md-3">
-                        <div class="form-group">
-                            <label>Customer Name</label>
-                            <input type="text" class="form-control" id="genCustomer" placeholder="Optional">
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label">Customer Name</label>
+                        <input type="text" class="form-control" id="genCustomer" placeholder="Optional">
                     </div>
                 </div>
-                <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
+                <button type="submit" class="btn btn-primary" id="generateBtn">
                     <i class="fas fa-cogs"></i> Generate Vouchers
                 </button>
             </form>
-            <div id="generatedCodes" class="mt-3" style="display:none;">
+            <div id="generatedCodes" style="display:none;margin-top:16px;">
                 <div class="alert alert-success">
                     <strong><i class="fas fa-check-circle"></i> Generated!</strong>
-                    <div id="generatedList" class="mt-2"></div>
+                    <div id="generatedList" style="margin-top:8px;"></div>
                 </div>
             </div>
         </div>
@@ -189,14 +147,14 @@ include __DIR__ . '/../components/sidebar.php';
 
 <!-- Online Vouchers Tab -->
 <div class="tab-content" id="tab-online" style="display:none;">
-    <div class="card shadow">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="fas fa-list"></i> Vouchers</h5>
-            <div>
-                <select class="form-control form-control-sm" id="filterRouter" style="width:auto;display:inline-block;" onchange="loadVouchers()">
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-list"></i> Vouchers</span>
+            <div class="flex-row">
+                <select class="form-control" id="filterRouter" style="width:auto;display:inline-block;" onchange="loadVouchers()">
                     <option value="">All Routers</option>
                 </select>
-                <select class="form-control form-control-sm" id="filterStatus" style="width:auto;display:inline-block;" onchange="loadVouchers()">
+                <select class="form-control" id="filterStatus" style="width:auto;display:inline-block;" onchange="loadVouchers()">
                     <option value="">All Status</option>
                     <option value="active">Active</option>
                     <option value="used">Used</option>
@@ -204,96 +162,92 @@ include __DIR__ . '/../components/sidebar.php';
                 </select>
             </div>
         </div>
-        <div class="card-body table-responsive">
-            <table class="table table-bordered table-hover">
-                <thead class="thead-dark">
-                    <tr>
-                        <th>Voucher Code</th>
-                        <th>Router</th>
-                        <th>Package</th>
-                        <th>Customer</th>
-                        <th>Phone</th>
-                        <th>Price</th>
-                        <th>Status</th>
-                        <th>Expires</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="voucherTableBody">
-                    <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
-                </tbody>
-            </table>
+        <div class="card-body">
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Voucher Code</th>
+                            <th>Router</th>
+                            <th>Package</th>
+                            <th>Customer</th>
+                            <th>Phone</th>
+                            <th>Price</th>
+                            <th>Status</th>
+                            <th>Expires</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="voucherTableBody">
+                        <tr><td colspan="9" style="text-align:center;color:var(--on-surface-med);padding:24px;">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Print Tab -->
 <div class="tab-content" id="tab-print" style="display:none;">
-    <div class="card shadow">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="fas fa-print"></i> Print Vouchers</h5>
-            <button class="btn btn-success btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print Now</button>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-print"></i> Print Vouchers</span>
+            <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fas fa-print"></i> Print Now</button>
         </div>
         <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label>Filter by router</label>
-                    <select class="form-control form-control-sm" id="printRouter" onchange="loadPrintVouchers()">
+            <div class="form-row" style="margin-bottom:16px;">
+                <div class="form-group">
+                    <label class="form-label">Filter by router</label>
+                    <select class="form-control" id="printRouter" onchange="loadPrintVouchers()">
                         <option value="">All Routers</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label>Filter by status</label>
-                    <select class="form-control form-control-sm" id="printFilter" onchange="loadPrintVouchers()">
+                <div class="form-group">
+                    <label class="form-label">Filter by status</label>
+                    <select class="form-control" id="printFilter" onchange="loadPrintVouchers()">
                         <option value="active">Active Only</option>
                         <option value="">All</option>
                     </select>
                 </div>
-                <div class="col-md-8">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="mb-0"><strong>Select vouchers to print</strong> <span id="printCount" class="badge badge-primary" style="display:none;">0</span></label>
-                        <label class="custom-control custom-checkbox mb-0" style="cursor:pointer;">
-                            <input type="checkbox" class="custom-control-input" id="selectAllPrint" onchange="toggleSelectAll()">
-                            <span class="custom-control-label" style="font-size:0.85rem;font-weight:600;">Select All</span>
-                        </label>
-                    </div>
-                    <div id="printCheckboxes" style="max-height:250px;overflow-y:auto;border:1px solid #dee2e6;padding:0.5rem;border-radius:4px;">
-                        Loading...
-                    </div>
-                </div>
             </div>
-            <div id="printPreview"></div>
+            <div class="flex-row" style="margin-bottom:8px;">
+                <span style="font-weight:600;font-size:13px;">Select vouchers to print <span id="printCount" class="chip info" style="display:none;">0</span></span>
+                <label style="cursor:pointer;display:flex;align-items:center;gap:6px;font-size:0.85rem;font-weight:600;margin:0;">
+                    <input type="checkbox" id="selectAllPrint" onchange="toggleSelectAll()">
+                    Select All
+                </label>
+            </div>
+            <div id="printCheckboxes" style="max-height:250px;overflow-y:auto;border:1px solid var(--surface-4);padding:8px;border-radius:var(--radius-md);">
+                Loading...
+            </div>
+            <div id="printPreview" style="margin-top:16px;"></div>
         </div>
     </div>
 </div>
 
 <!-- Track Voucher Tab -->
 <div class="tab-content" id="tab-track" style="display:none;">
-    <div class="card shadow">
-        <div class="card-header bg-dark text-white">
-            <h5 class="mb-0"><i class="fas fa-search"></i> Track Voucher Usage</h5>
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title"><i class="fas fa-search"></i> Track Voucher Usage</span>
         </div>
         <div class="card-body">
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="form-group">
-                        <label for="trackCode">Enter Voucher Code</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="trackCode" placeholder="00000000" maxlength="11"
-                                oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()">
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" onclick="trackVoucher()"><i class="fas fa-search"></i> Track</button>
-                            </div>
-                        </div>
+            <div class="form-row">
+                <div class="form-group" style="max-width:420px;">
+                    <label class="form-label" for="trackCode">Enter Voucher Code</label>
+                    <div class="flex-row">
+                        <input type="text" class="form-control" id="trackCode" placeholder="0000 0000" maxlength="11" style="flex:1;"
+                            oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()">
+                        <button class="btn btn-primary" onclick="trackVoucher()"><i class="fas fa-search"></i> Track</button>
                     </div>
                 </div>
             </div>
             <div id="trackResult" style="display:none;"></div>
             <div id="trackLoading" class="text-center py-4" style="display:none;">
-                <i class="fas fa-spinner fa-spin fa-2x text-muted"></i>
-                <p class="text-muted mt-2">Checking router...</p>
+                <i class="fas fa-spinner fa-spin fa-2x" style="color:var(--on-surface-low)"></i>
+                <p style="color:var(--on-surface-med);margin-top:8px;">Checking router...</p>
             </div>
-            <div id="trackEmpty" class="text-center py-4 text-muted">
+            <div id="trackEmpty" class="text-center py-4" style="color:var(--on-surface-med);">
                 <i class="fas fa-search fa-3x mb-3" style="opacity:0.3;"></i>
                 <p>Enter a voucher code above to track its usage and device status.</p>
             </div>
@@ -304,8 +258,6 @@ include __DIR__ . '/../components/sidebar.php';
 <!-- Print Layout (hidden, shown only when printing) -->
 <div class="print-area" id="printArea"></div>
 
-</div>
-</section>
 </div>
 
 <script>
@@ -367,14 +319,14 @@ async function loadVouchers() {
         allVouchers = data.vouchers || [];
         renderVoucherTable();
     } catch (e) {
-        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="9" class="text-center text-danger">Failed to load vouchers</td></tr>';
+        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--red);padding:24px;">Failed to load vouchers</td></tr>';
     }
 }
 
 function renderVoucherTable() {
     const tbody = document.getElementById('voucherTableBody');
     if (allVouchers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No vouchers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--on-surface-med);padding:24px;">No vouchers found</td></tr>';
         return;
     }
     tbody.innerHTML = allVouchers.map(v => `
@@ -388,7 +340,9 @@ function renderVoucherTable() {
             <td><span class="status-pill ${v.status}">${v.status}</span></td>
             <td>${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
             <td>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteVoucher(${v.id}, '${v.status}')"><i class="fas fa-trash"></i></button>
+                <div class="td-actions">
+                    <button class="btn btn-outline btn-sm" onclick="deleteVoucher(${v.id}, '${v.status}')"><i class="fas fa-trash"></i></button>
+                </div>
             </td>
         </tr>
     `).join('');
@@ -410,19 +364,19 @@ async function loadPrintVouchers() {
         printVouchers = data.vouchers || [];
 
         document.getElementById('printCheckboxes').innerHTML = printVouchers.map(v => `
-            <div class="custom-control custom-checkbox mb-1">
-                <input type="checkbox" class="custom-control-input print-cb" id="pv_${v.id}" data-id="${v.id}" onchange="updatePrintPreview()">
-                <label class="custom-control-label" for="pv_${v.id}">
+            <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;margin:0;font-size:13px;">
+                <input type="checkbox" class="print-cb" id="pv_${v.id}" data-id="${v.id}" onchange="updatePrintPreview()">
+                <span style="flex:1;">
                     <span class="voucher-code" style="font-size:0.85rem;">${v.code}</span>
-                    <small class="text-muted"> - ${escapeHtml(v.plan_name || '')} - TSh ${parseInt(v.price || 0).toLocaleString()}</small>
-                </label>
-            </div>
-        `).join('') || '<p class="text-muted">No vouchers found</p>';
+                    <small style="color:var(--on-surface-med);"> - ${escapeHtml(v.plan_name || '')} - TSh ${parseInt(v.price || 0).toLocaleString()}</small>
+                </span>
+            </label>
+        `).join('') || '<p style="color:var(--on-surface-med)">No vouchers found</p>';
 
-        document.getElementById('printPreview').innerHTML = '<p class="text-muted">Select vouchers above to preview</p>';
+        document.getElementById('printPreview').innerHTML = '<p style="color:var(--on-surface-med)">Select vouchers above to preview</p>';
         document.getElementById('printArea').innerHTML = '';
     } catch (e) {
-        document.getElementById('printCheckboxes').innerHTML = '<p class="text-danger">Failed to load</p>';
+        document.getElementById('printCheckboxes').innerHTML = '<p style="color:var(--red)">Failed to load</p>';
     }
 }
 
@@ -454,20 +408,20 @@ function updatePrintPreview() {
     const preview = document.getElementById('printPreview');
 
     if (selected.length === 0) {
-        preview.innerHTML = '<p class="text-muted">Select vouchers above to preview</p>';
+        preview.innerHTML = '<p style="color:var(--on-surface-med)">Select vouchers above to preview</p>';
         printArea.innerHTML = '';
         return;
     }
 
     // Screen preview
-    preview.innerHTML = '<div class="row">' + selected.map(v => `
-        <div class="col-md-3 col-sm-6 mb-3">
-            <div style="border:2px dashed #333;padding:1rem;text-align:center;border-radius:8px;background:#fff;">
-                <strong style="color:#007bff;">${escapeHtml((v.router_ssid || 'Jasiri WiFi').toUpperCase())}</strong><br>
-                <div class="voucher-code my-2" style="font-size:1.4rem;letter-spacing:3px;">${v.code}</div>
+    preview.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">' + selected.map(v => `
+        <div>
+            <div style="border:2px dashed var(--surface-4);padding:16px;text-align:center;border-radius:var(--radius-md);background:var(--surface);">
+                <strong style="color:var(--blue-500);">${escapeHtml((v.router_ssid || 'Jasiri WiFi').toUpperCase())}</strong><br>
+                <div class="voucher-code" style="font-size:1.4rem;letter-spacing:3px;margin:8px 0;">${v.code}</div>
                 <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
                 <small>TSh ${parseInt(v.price || 0).toLocaleString()}</small><br>
-                <small class="text-muted">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</small>
+                <small style="color:var(--on-surface-med);">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</small>
             </div>
         </div>
     `).join('') + '</div>';
@@ -491,9 +445,9 @@ function escapeHtml(str) {
 
 function showTab(tab) {
     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.voucher-tabs .nav-link').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.seg-tabs .seg-tab').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).style.display = 'block';
-    document.querySelector(`.voucher-tabs .nav-link[data-tab="${tab}"]`).classList.add('active');
+    document.querySelector(`.seg-tabs .seg-tab[data-tab="${tab}"]`).classList.add('active');
 
     if (tab === 'online') loadVouchers();
     if (tab === 'print') loadPrintVouchers();
@@ -593,42 +547,50 @@ async function trackVoucher() {
         const v = data.voucher;
         const online = data.is_online;
         const device = data.device;
-        const onlineBadge = online ? '<span class="badge badge-success"><i class="fas fa-circle"></i> Online</span>' : '<span class="badge badge-secondary"><i class="fas fa-circle"></i> Offline</span>';
+        const onlineBadge = online ? '<span class="chip active"><span class="chip-dot"></span> Online</span>' : '<span class="chip inactive"><span class="chip-dot"></span> Offline</span>';
 
         document.getElementById('trackResult').style.display = 'block';
         document.getElementById('trackResult').innerHTML = `
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Voucher: <span class="voucher-code">${escapeHtml(v.code)}</span></h5>
+                <div class="card-header">
+                    <span class="card-title">Voucher: <span class="voucher-code">${escapeHtml(v.code)}</span></span>
                     <span class="status-pill ${v.status}">${v.status.toUpperCase()}</span>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <table class="table table-sm">
-                                <tr><td class="text-muted">Plan</td><td><strong>${escapeHtml(v.plan_name || '—')}</strong></td></tr>
-                                <tr><td class="text-muted">Router</td><td>${escapeHtml(v.router_name || '—')}</td></tr>
-                                <tr><td class="text-muted">Customer Phone</td><td><strong>${escapeHtml(v.phone || '—')}</strong></td></tr>
-                                <tr><td class="text-muted">Customer Name</td><td>${escapeHtml(v.customer_name || '—')}</td></tr>
-                                <tr><td class="text-muted">Price</td><td>TSh ${parseInt(v.price || 0).toLocaleString()}</td></tr>
-                                <tr><td class="text-muted">Used At</td><td>${v.used_at ? new Date(v.used_at).toLocaleString('en-GB') : '—'}</td></tr>
-                            </table>
+                    <div class="form-row">
+                        <div>
+                            <div class="table-wrapper">
+                                <table>
+                                    <tbody>
+                                        <tr><td class="td-label">Plan</td><td><strong>${escapeHtml(v.plan_name || '—')}</strong></td></tr>
+                                        <tr><td class="td-label">Router</td><td>${escapeHtml(v.router_name || '—')}</td></tr>
+                                        <tr><td class="td-label">Customer Phone</td><td><strong>${escapeHtml(v.phone || '—')}</strong></td></tr>
+                                        <tr><td class="td-label">Customer Name</td><td>${escapeHtml(v.customer_name || '—')}</td></tr>
+                                        <tr><td class="td-label">Price</td><td>TSh ${parseInt(v.price || 0).toLocaleString()}</td></tr>
+                                        <tr><td class="td-label">Used At</td><td>${v.used_at ? new Date(v.used_at).toLocaleString('en-GB') : '—'}</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <h6 class="text-muted mb-3">Device Connection Status</h6>
-                            <div class="p-3 mb-3 rounded ${online ? 'bg-white' : 'bg-light'}" style="border:2px solid ${online ? '#28a745' : '#dee2e6'};background:${online ? '#f0fff4' : ''} !important;">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span>Status:</span> ${onlineBadge}
+                        <div>
+                            <h6 style="color:var(--on-surface-med);font-weight:600;margin-bottom:12px;">Device Connection Status</h6>
+                            <div style="padding:14px;border-radius:var(--radius-md);border:2px solid ${online ? 'var(--green)' : 'var(--surface-4)'};background:${online ? '#F0FFF4' : 'var(--surface-2)'};">
+                                <div class="flex-row" style="margin-bottom:10px;">
+                                    <span style="font-size:13px;">Status:</span> ${onlineBadge}
                                 </div>
                                 ${device ? `
-                                <table class="table table-sm mb-0">
-                                    <tr><td class="text-muted">MAC Address</td><td><code>${escapeHtml(device.mac || '—')}</code></td></tr>
-                                    <tr><td class="text-muted">IP Address</td><td>${escapeHtml(device.address || '—')}</td></tr>
-                                    <tr><td class="text-muted">Uptime</td><td>${formatUptime(device.uptime)}</td></tr>
-                                    <tr><td class="text-muted">Traffic In</td><td>${formatBytes(device.bytes_in)}</td></tr>
-                                    <tr><td class="text-muted">Traffic Out</td><td>${formatBytes(device.bytes_out)}</td></tr>
+                                <div class="table-wrapper">
+                                <table>
+                                    <tbody>
+                                        <tr><td class="td-label">MAC Address</td><td><code>${escapeHtml(device.mac || '—')}</code></td></tr>
+                                        <tr><td class="td-label">IP Address</td><td>${escapeHtml(device.address || '—')}</td></tr>
+                                        <tr><td class="td-label">Uptime</td><td>${formatUptime(device.uptime)}</td></tr>
+                                        <tr><td class="td-label">Traffic In</td><td>${formatBytes(device.bytes_in)}</td></tr>
+                                        <tr><td class="td-label">Traffic Out</td><td>${formatBytes(device.bytes_out)}</td></tr>
+                                    </tbody>
                                 </table>
-                                ` : '<p class="text-muted mb-0 small">No active session found on router</p>'}
+                                </div>
+                                ` : '<p style="color:var(--on-surface-med);margin:0;font-size:12px;">No active session found on router</p>'}
                             </div>
                         </div>
                     </div>

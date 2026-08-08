@@ -1,9 +1,10 @@
 <?php
 ob_start();
+$pageTitle = 'Users';
+$activePage = 'users';
 
 // Include header and sidebar
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 
 // Connect to SQLite Database
 $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
@@ -172,140 +173,137 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
-            <div id="clock-card" style="margin-bottom: 20px; font-size: 1.2em; padding: 10px; border: 1px solid #ccc; display: inline-block;">
-                <span id="time"></span> <span id="ampm"></span><br>
-                <span id="date"></span>
-            </div>
-
-            <h1 class="mt-4 mb-4 text-center">Users by Router</h1>
-
-            <?php foreach ($routers as $router): ?>
-                <h2><?php echo htmlspecialchars($router['name']); ?></h2>
-
-                <form method="POST" class="mb-2">
-                    <input type="hidden" name="sync_router_id" value="<?php echo $router['id']; ?>">
-                    <button class="btn btn-primary btn-sm"> Sync Router</button>
-                </form>
-
-                <?php
-                // Fetch all users for the router
-                $stmt = $db->prepare("
-                    SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
-                    FROM billing b
-                    JOIN plans p ON b.plan_id = p.id
-                    WHERE b.router_id = ?
-                    ORDER BY b.created_at DESC
-                ");
-                $stmt->execute([$router['id']]);
-                $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                // Fetch whitelist and compare
-                $whitelistMacs = array_map(function($mac) {
-                    return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
-                }, getRouterWhitelist($router['id']));
-                $dbMacs = array_map(function($u) {
-                    return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $u['mac'])));
-                }, $users);
-                $missingInDb = array_diff($whitelistMacs, $dbMacs);
-                $extraInDb   = array_diff($dbMacs, $whitelistMacs);
-                ?>
-
-                <div class="alert alert-info">
-                    <strong>Sync Status:</strong><br>
-                    Whitelist: <?php echo count($whitelistMacs); ?> |
-                    Database: <?php echo count($dbMacs); ?><br>
-                    Missing in DB: <?php echo count($missingInDb); ?><br>
-                    Extra in DB: <?php echo count($extraInDb); ?>
-                </div>
-
-                <?php if ($users): ?>
-                    <div class="card shadow mb-4">
-                        <div class="card-body">
-                            <table class="table table-bordered table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Phone Number</th>
-                                        <th>MAC Address</th>
-                                        <th>Plan</th>
-                                        <th>Plan Duration</th>
-                                        <th>Remaining Time</th>
-                                        <th>Created At</th>
-                                        <th>Ends At</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($users as $user):
-                                        $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
-                                        $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
-                                    ?>
-                                    <tr id="user-<?php echo $user['id']; ?>" 
-                                        data-router-id="<?php echo $router['id']; ?>"
-                                        data-mac="<?php echo $user['mac']; ?>">
-                                        <td><?php echo htmlspecialchars($user['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['mac']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
-                                        <td><?php echo $planDuration; ?></td>
-                                        <td class="remaining-time" data-end="<?php echo $user['end_at']; ?>">
-                                            <?php echo formatRemainingTime($remainingSeconds); ?>
-                                        </td>
-                                        <td><?php echo $user['created_at']; ?></td>
-                                        <td><?php echo $user['end_at']; ?></td>
-                                        <td>
-                                            <!-- Change Plan Form -->
-                                            <form method="POST" class="mb-1">
-                                                <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                <select name="new_plan_id" class="form-control form-control-sm mb-1">
-                                                    <?php foreach ($plans as $plan): ?>
-                                                        <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $user['plan_id'] ? 'selected' : ''; ?>>
-                                                            <?php echo htmlspecialchars($plan['name']); ?>
-                                                        </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <button type="submit" class="btn btn-info btn-sm w-100">Change Plan</button>
-                                            </form>
-
-                                            <!-- Delete Form -->
-                                            <form method="POST" class="mb-1">
-                                                <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
-                                                <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
-                                            </form>
-
-                                            <!-- Throttle Form -->
-                                            <form method="POST" class="mb-1 throttle-form">
-                                                <input type="hidden" name="throttle_user_id" value="<?php echo $user['id']; ?>">
-                                                <div class="mb-1">
-                                                    <input type="number" name="upload_speed" class="form-control form-control-sm" placeholder="Upload Speed (kbps)" step="0.01" required>
-                                                </div>
-                                                <div class="mb-1">
-                                                    <input type="number" name="download_speed" class="form-control form-control-sm" placeholder="Download Speed (kbps)" step="0.01" required>
-                                                </div>
-                                                <button type="submit" class="btn btn-warning btn-sm w-100">Throttle</button>
-                                            </form>
-
-                                            <button class="btn btn-success btn-sm w-100 unthrottle-btn" 
-                                                data-router-id="<?php echo $router['id']; ?>" 
-                                                data-mac="<?php echo $user['mac']; ?>">Unthrottle</button>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <p>No users found for this router.</p>
-                <?php endif; ?>
-
-            <?php endforeach; ?>
-        </div>
-    </section>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">Users by Router</h1>
+        <p class="page-subtitle">
+            <span id="time"></span> <span id="ampm"></span> &middot; <span id="date"></span>
+        </p>
+    </div>
 </div>
+
+<?php foreach ($routers as $router): ?>
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <div class="card-title">
+                <?php echo htmlspecialchars($router['name']); ?>
+            </div>
+            <form method="POST" style="margin:0">
+                <input type="hidden" name="sync_router_id" value="<?php echo $router['id']; ?>">
+                <button class="btn btn-outline btn-sm">Sync Router</button>
+            </form>
+        </div>
+
+        <?php
+        // Fetch all users for the router
+        $stmt = $db->prepare("
+            SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
+            FROM billing b
+            JOIN plans p ON b.plan_id = p.id
+            WHERE b.router_id = ?
+            ORDER BY b.created_at DESC
+        ");
+        $stmt->execute([$router['id']]);
+        $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fetch whitelist and compare
+        $whitelistMacs = array_map(function($mac) {
+            return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
+        }, getRouterWhitelist($router['id']));
+        $dbMacs = array_map(function($u) {
+            return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $u['mac'])));
+        }, $users);
+        $missingInDb = array_diff($whitelistMacs, $dbMacs);
+        $extraInDb   = array_diff($dbMacs, $whitelistMacs);
+        ?>
+
+        <div class="alert alert-info" style="margin:16px">
+            <svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            <span>
+                <strong>Sync Status:</strong>
+                Whitelist: <?php echo count($whitelistMacs); ?> |
+                Database: <?php echo count($dbMacs); ?> |
+                Missing in DB: <?php echo count($missingInDb); ?> |
+                Extra in DB: <?php echo count($extraInDb); ?>
+            </span>
+        </div>
+
+        <?php if ($users): ?>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone Number</th>
+                            <th>MAC Address</th>
+                            <th>Plan</th>
+                            <th>Plan Duration</th>
+                            <th>Remaining Time</th>
+                            <th>Created At</th>
+                            <th>Ends At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user):
+                            $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
+                            $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
+                        ?>
+                        <tr id="user-<?php echo $user['id']; ?>"
+                            data-router-id="<?php echo $router['id']; ?>"
+                            data-mac="<?php echo $user['mac']; ?>">
+                            <td style="font-weight:500"><?php echo htmlspecialchars($user['name']); ?></td>
+                            <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
+                            <td><code><?php echo htmlspecialchars($user['mac']); ?></code></td>
+                            <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
+                            <td><?php echo $planDuration; ?></td>
+                            <td class="remaining-time" data-end="<?php echo $user['end_at']; ?>" style="font-size:12px">
+                                <?php echo formatRemainingTime($remainingSeconds); ?>
+                            </td>
+                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $user['created_at']; ?></td>
+                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $user['end_at']; ?></td>
+                            <td>
+                                <div class="td-actions">
+                                    <form method="POST" class="mb-0">
+                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                        <select name="new_plan_id" class="form-control" style="padding:5px 10px;font-size:12px">
+                                            <?php foreach ($plans as $plan): ?>
+                                                <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $user['plan_id'] ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars($plan['name']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="btn btn-secondary btn-sm" style="width:100%">Change Plan</button>
+                                    </form>
+                                    <form method="POST" class="mb-0">
+                                        <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
+                                        <button type="submit" class="btn btn-danger btn-sm" style="width:100%" onclick="return confirm('Delete this user?')">Delete</button>
+                                    </form>
+                                    <form method="POST" class="mb-0 throttle-form">
+                                        <input type="hidden" name="throttle_user_id" value="<?php echo $user['id']; ?>">
+                                        <input type="number" name="upload_speed" class="form-control" style="padding:5px 10px;font-size:12px" placeholder="Upload (kbps)" step="0.01" required>
+                                        <input type="number" name="download_speed" class="form-control" style="padding:5px 10px;font-size:12px" placeholder="Download (kbps)" step="0.01" required>
+                                        <button type="submit" class="btn btn-outline btn-sm" style="width:100%">Throttle</button>
+                                    </form>
+                                    <button class="btn btn-primary btn-sm unthrottle-btn" style="width:100%"
+                                        data-router-id="<?php echo $router['id']; ?>"
+                                        data-mac="<?php echo $user['mac']; ?>">Unthrottle</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="empty-state" style="padding:40px">
+                <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+                <h3>No users found</h3>
+                <p>No users found for this router.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php endforeach; ?>
 
 <script>
 // Real-time clock

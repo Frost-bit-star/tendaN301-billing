@@ -1,9 +1,10 @@
 <?php
 ob_start();
+$pageTitle = 'Billing';
+$activePage = 'billing';
 
 // Include header and sidebar
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 
 // Connect to SQLite Database
 $db = new PDO('sqlite:' . __DIR__ . '/../db/routers.db');
@@ -102,106 +103,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
-            <h1 class="mt-4 mb-4 text-center">Expired Users by Router</h1>
-
-            <?php foreach ($routers as $router): ?>
-                <h2><?php echo htmlspecialchars($router['name']); ?></h2>
-
-                <?php
-                $stmt = $db->prepare("
-                    SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
-                    FROM billing b
-                    JOIN plans p ON b.plan_id = p.id
-                    WHERE b.router_id = ?
-                    ORDER BY b.created_at DESC
-                ");
-                $stmt->execute([$router['id']]);
-                $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-                // Filter expired users only
-                $users = array_filter($allUsers, function($u) {
-                    return (strtotime($u['end_at']) - time()) <= 0;
-                });
-                ?>
-
-                <?php if ($users): ?>
-                    <div class="card shadow mb-4">
-                        <div class="card-body">
-                            <table class="table table-bordered table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Phone Number</th>
-                                        <th>MAC Address</th>
-                                        <th>Plan</th>
-                                        <th>Plan Duration</th>
-                                        <th>Remaining Time</th>
-                                        <th>Created At</th>
-                                        <th>Ends At</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($users as $user):
-                                        $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
-                                        $rowId = 'user-' . $user['id'];
-
-                                        // Ensure internet_access is 0 for expired users
-                                        $updateAccessStmt = $db->prepare("UPDATE billing SET internet_access = 0 WHERE id = ?");
-                                        $updateAccessStmt->execute([$user['id']]);
-
-                                        $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
-                                    ?>
-                                    <tr id="<?php echo $rowId; ?>" style="background-color: #f8d7da;">
-                                        <td><?php echo htmlspecialchars($user['name']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['mac']); ?></td>
-                                        <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
-                                        <td><?php echo $planDuration; ?></td>
-                                        <td class="remaining-time" 
-                                            data-user-id="<?php echo $user['id']; ?>" 
-                                            data-end="<?php echo $user['end_at']; ?>">
-                                            <?php echo formatRemainingTime($remainingSeconds); ?>
-                                        </td>
-                                        <td><?php echo $user['created_at']; ?></td>
-                                        <td><?php echo $user['end_at']; ?></td>
-                                        <td>
-                                            <form method="POST" class="mb-1">
-                                                <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                <select name="new_plan_id" class="form-control form-control-sm mb-1">
-                                                    <?php foreach ($plans as $plan): ?>
-                                                        <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $user['plan_id'] ? 'selected' : ''; ?>>
-                                                            <?php echo htmlspecialchars($plan['name']); ?>
-                                                        </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                                <button type="submit" class="btn btn-info btn-sm w-100">Change Plan</button>
-                                            </form>
-                                            <form method="POST" class="mb-1">
-                                                <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
-                                                <button type="submit" class="btn btn-danger btn-sm w-100">Delete</button>
-                                            </form>
-                                            <!-- Throttle/Unthrottle buttons -->
-                                            <button class="btn btn-warning btn-sm w-100 mb-1" onclick="throttleDevice('<?php echo $user['mac']; ?>')">Throttle</button>
-                                            <button class="btn btn-success btn-sm w-100" onclick="unthrottleDevice('<?php echo $user['mac']; ?>')">Unthrottle</button>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <p>No expired users found for this router.</p>
-                <?php endif; ?>
-
-            <?php endforeach; ?>
-        </div>
-    </section>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">Expired Users</h1>
+        <p class="page-subtitle">Users whose plans have expired, grouped by router</p>
+    </div>
 </div>
+
+<?php foreach ($routers as $router): ?>
+
+    <?php
+    $stmt = $db->prepare("
+        SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
+        FROM billing b
+        JOIN plans p ON b.plan_id = p.id
+        WHERE b.router_id = ?
+        ORDER BY b.created_at DESC
+    ");
+    $stmt->execute([$router['id']]);
+    $allUsers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Filter expired users only
+    $users = array_filter($allUsers, function($u) {
+        return (strtotime($u['end_at']) - time()) <= 0;
+    });
+    ?>
+
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <div class="card-title"><?php echo htmlspecialchars($router['name']); ?></div>
+            <span class="chip expired"><span class="chip-dot"></span><?php echo count($users); ?> expired</span>
+        </div>
+
+        <?php if ($users): ?>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Phone Number</th>
+                            <th>MAC Address</th>
+                            <th>Plan</th>
+                            <th>Plan Duration</th>
+                            <th>Remaining Time</th>
+                            <th>Created At</th>
+                            <th>Ends At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user):
+                            $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
+                            $rowId = 'user-' . $user['id'];
+
+                            // Ensure internet_access is 0 for expired users
+                            $updateAccessStmt = $db->prepare("UPDATE billing SET internet_access = 0 WHERE id = ?");
+                            $updateAccessStmt->execute([$user['id']]);
+
+                            $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
+                        ?>
+                        <tr id="<?php echo $rowId; ?>">
+                            <td style="font-weight:500"><?php echo htmlspecialchars($user['name']); ?></td>
+                            <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
+                            <td><code><?php echo htmlspecialchars($user['mac']); ?></code></td>
+                            <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
+                            <td><?php echo $planDuration; ?></td>
+                            <td class="remaining-time"
+                                data-user-id="<?php echo $user['id']; ?>"
+                                data-end="<?php echo $user['end_at']; ?>" style="font-size:12px">
+                                <?php echo formatRemainingTime($remainingSeconds); ?>
+                            </td>
+                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $user['created_at']; ?></td>
+                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $user['end_at']; ?></td>
+                            <td>
+                                <div class="td-actions">
+                                    <form method="POST" class="mb-0">
+                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                        <select name="new_plan_id" class="form-control" style="padding:5px 10px;font-size:12px">
+                                            <?php foreach ($plans as $plan): ?>
+                                                <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $user['plan_id'] ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars($plan['name']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="btn btn-secondary btn-sm" style="width:100%">Change Plan</button>
+                                    </form>
+                                    <form method="POST" class="mb-0">
+                                        <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
+                                        <button type="submit" class="btn btn-danger btn-sm" style="width:100%" onclick="return confirm('Delete this user?')">Delete</button>
+                                    </form>
+                                    <button class="btn btn-outline btn-sm" style="width:100%" onclick="throttleDevice('<?php echo $user['mac']; ?>')">Throttle</button>
+                                    <button class="btn btn-primary btn-sm" style="width:100%" onclick="unthrottleDevice('<?php echo $user['mac']; ?>')">Unthrottle</button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="empty-state" style="padding:40px">
+                <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
+                <h3>No expired users</h3>
+                <p>No expired users found for this router.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+
+<?php endforeach; ?>
 
 <script>
 // JavaScript countdown

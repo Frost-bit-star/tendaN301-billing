@@ -169,24 +169,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login - WiFiBilling</title>
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+<title>Login · Jasiri WiFi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Google+Sans+Display:wght@400;500;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/main.css">
 <style>
-body { font-family: 'Lato', sans-serif; }
-.tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: #e5e7eb; font-weight: 600; border-radius: 8px 8px 0 0; transition: all 0.2s; }
-.tab-btn.active { background: #10b981; color: white; }
+.tab-btn { padding: 10px 14px; cursor: pointer; border: none; background: transparent; font-weight: 500; border-bottom: 2px solid transparent; transition: all .2s; color: var(--on-surface-med); }
+.tab-btn.active { color: var(--blue-500); border-bottom-color: var(--blue-500); }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
 .lds-ring, .lds-ring div { box-sizing: border-box; }
 .lds-ring { display: inline-block; position: relative; width: 80px; height: 80px; }
-.lds-ring div { box-sizing: border-box; display: block; position: absolute; width: 64px; height: 64px; margin: 8px; border: 8px solid currentColor; border-radius: 50%; animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite; border-color: #1FC69D transparent transparent transparent; }
+.lds-ring div { box-sizing: border-box; display: block; position: absolute; width: 64px; height: 64px; margin: 8px; border: 8px solid currentColor; border-radius: 50%; animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite; border-color: var(--blue-500) transparent transparent transparent; }
 .lds-ring div:nth-child(1){ animation-delay: -0.45s; }
 .lds-ring div:nth-child(2){ animation-delay: -0.3s; }
 .lds-ring div:nth-child(3){ animation-delay: -0.15s; }
@@ -195,135 +195,129 @@ body { font-family: 'Lato', sans-serif; }
 </head>
 <body>
 
-<div id="loading" class="hidden fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center bg-green-900 bg-opacity-50 z-50">
+<div id="loading" class="hidden fixed top-0 left-0 right-0 bottom-0 flex justify-center items-center z-50" style="display:none;position:fixed;inset:0;background:rgba(26,115,232,.25);align-items:center;justify-content:center;z-index:50">
     <div class="lds-ring"><div></div><div></div><div></div><div></div></div>
 </div>
 
-<div class="w-full max-w-md mx-auto p-4 min-h-screen flex flex-col justify-center bg-zinc-100 dark:bg-zinc-900">
+<div class="login-page">
 
-<div class="flex justify-center mb-4">
-    <img src="https://res.cloudinary.com/dib5bkbsy/image/upload/v1716487950/download_5_qc1uff.jpg" alt="Logo" class="rounded-full w-20 h-20">
-</div>
+<div class="login-card">
 
-<?php if(isset($errorMessage)): ?><div class="text-red-500 text-sm text-center mb-4"><?= $errorMessage ?></div><?php endif; ?>
-<?php if(isset($regMessage)): ?><div class="text-green-600 text-sm text-center mb-4"><?= $regMessage ?></div><?php endif; ?>
-<?php if(isset($otpMessage)): ?><div class="text-green-500 text-sm text-center mb-4"><?= $otpMessage ?></div><?php endif; ?>
+    <div class="login-logo">
+        <div class="login-logo-icon">
+            <svg viewBox="0 0 24 24"><path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/></svg>
+        </div>
+        <div class="login-logo-text">Jasiri WiFi</div>
+    </div>
 
-<!-- Tabs -->
-<div class="flex gap-1 mb-0">
-    <button class="tab-btn active" onclick="showTab('account')">Account Login</button>
-    <button class="tab-btn" onclick="showTab('register')">Register</button>
-    <button class="tab-btn" onclick="showTab('admin')">Admin</button>
-</div>
+    <?php if(isset($errorMessage)): ?><div class="alert alert-danger"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg><span><?= htmlspecialchars($errorMessage) ?></span></div><?php endif; ?>
+    <?php if(isset($regMessage)): ?><div class="alert alert-success"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg><span><?= htmlspecialchars($regMessage) ?></span></div><?php endif; ?>
+    <?php if(isset($otpMessage)): ?><div class="alert alert-info"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg><span><?= htmlspecialchars($otpMessage) ?></span></div><?php endif; ?>
 
-<!-- Account Login -->
-<div id="tab-account" class="tab-content active bg-white p-6 rounded-b-lg shadow-md">
-    <form method="POST">
-        <input type="hidden" name="action" value="account_login">
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Email</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-envelope text-green-500 mr-2"></i>
-                <input type="email" name="email" placeholder="Enter email" class="flex-grow bg-transparent border-none focus:ring-0" required>
+    <!-- Tabs -->
+    <div class="tabs" style="justify-content:center;gap:4px">
+        <button class="tab-btn active" onclick="showTab('account')">Account Login</button>
+        <button class="tab-btn" onclick="showTab('register')">Register</button>
+        <button class="tab-btn" onclick="showTab('admin')">Admin</button>
+    </div>
+
+    <!-- Account Login -->
+    <div id="tab-account" class="tab-content active">
+        <form method="POST">
+            <input type="hidden" name="action" value="account_login">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-control" type="email" name="email" placeholder="Enter email" required>
             </div>
-        </div>
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Password</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-lock text-green-500 mr-2"></i>
-                <input type="password" name="password" placeholder="Enter password" class="flex-grow bg-transparent border-none focus:ring-0" required>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-control" type="password" name="password" placeholder="Enter password" required>
             </div>
-        </div>
-        <button type="submit" class="w-full bg-green-500 text-white py-3 rounded-full font-semibold hover:bg-green-600">Login</button>
-    </form>
-</div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Login</button>
+        </form>
+    </div>
 
-<!-- Register -->
-<div id="tab-register" class="tab-content bg-white p-6 rounded-b-lg shadow-md">
-    <form method="POST">
-        <input type="hidden" name="action" value="register">
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Full Name</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-user text-green-500 mr-2"></i>
-                <input type="text" name="name" placeholder="Enter your name" class="flex-grow bg-transparent border-none focus:ring-0" required>
+    <!-- Register -->
+    <div id="tab-register" class="tab-content">
+        <form method="POST">
+            <input type="hidden" name="action" value="register">
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input class="form-control" type="text" name="name" placeholder="Enter your name" required>
             </div>
-        </div>
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Email</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-envelope text-green-500 mr-2"></i>
-                <input type="email" name="email" placeholder="Enter email" class="flex-grow bg-transparent border-none focus:ring-0" required>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-control" type="email" name="email" placeholder="Enter email" required>
             </div>
-        </div>
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Password</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-lock text-green-500 mr-2"></i>
-                <input type="password" name="password" placeholder="Create password" class="flex-grow bg-transparent border-none focus:ring-0" required>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-control" type="password" name="password" placeholder="Create password" required>
             </div>
-        </div>
-        <button type="submit" class="w-full bg-blue-500 text-white py-3 rounded-full font-semibold hover:bg-blue-600">Create Account</button>
-    </form>
-</div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Create Account</button>
+        </form>
+    </div>
 
-<!-- Admin Login (Legacy) -->
-<div id="tab-admin" class="tab-content bg-white p-6 rounded-b-lg shadow-md">
-    <form method="POST">
-        <input type="hidden" name="action" value="login">
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Login as:</label>
-            <div class="flex gap-4">
-                <label class="flex items-center gap-1"><input type="radio" name="role" value="superadmin" required> Super Admin</label>
-                <label class="flex items-center gap-1"><input type="radio" name="role" value="admin" required> Admin</label>
+    <!-- Admin Login (Legacy) -->
+    <div id="tab-admin" class="tab-content">
+        <form method="POST">
+            <input type="hidden" name="action" value="login">
+            <div class="form-group">
+                <label class="form-label">Login as:</label>
+                <div style="display:flex;gap:16px">
+                    <label class="flex-row" style="gap:6px"><input type="radio" name="role" value="superadmin" required> Super Admin</label>
+                    <label class="flex-row" style="gap:6px"><input type="radio" name="role" value="admin" required> Admin</label>
+                </div>
             </div>
-        </div>
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Username</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-user text-green-500 mr-2"></i>
-                <input type="text" name="username" placeholder="Username" class="flex-grow bg-transparent border-none focus:ring-0" required>
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input class="form-control" type="text" name="username" placeholder="Username" required>
             </div>
-        </div>
-        <div class="mb-4">
-            <label class="mb-2 font-semibold block">Password</label>
-            <div class="flex items-center bg-zinc-50 p-3 rounded-lg border">
-                <i class="fas fa-lock text-green-500 mr-2"></i>
-                <input type="password" name="password" placeholder="Password" class="flex-grow bg-transparent border-none focus:ring-0" required>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input class="form-control" type="password" name="password" placeholder="Password" required>
             </div>
-        </div>
-        <div class="text-right mb-4">
-            <button type="button" id="forgotBtn" class="text-green-500 underline text-sm">Forgot Password?</button>
-        </div>
-        <button type="submit" class="w-full bg-green-500 text-white py-3 rounded-full font-semibold hover:bg-green-600">Admin Login</button>
-    </form>
+            <div class="form-group" style="text-align:right">
+                <button type="button" id="forgotBtn" class="btn btn-outline btn-sm">Forgot Password?</button>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Admin Login</button>
+        </form>
 
-    <form method="POST" id="forgotForm" class="mt-4 hidden">
-        <input type="hidden" name="action" value="forgot">
-        <label class="mb-2 font-semibold block">Email for OTP:</label>
-        <input type="email" name="email" placeholder="Email" class="mb-4 p-2 border rounded w-full">
-        <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded">Send OTP</button>
-    </form>
+        <form method="POST" id="forgotForm" class="mt-16 hidden" style="display:none">
+            <input type="hidden" name="action" value="forgot">
+            <div class="form-group">
+                <label class="form-label">Email for OTP:</label>
+                <input class="form-control" type="email" name="email" placeholder="Email">
+            </div>
+            <button type="submit" class="btn btn-secondary" style="width:100%;justify-content:center">Send OTP</button>
+        </form>
 
-    <?php if(isset($_SESSION['otp'])): ?>
-    <form method="POST" class="mt-4">
-        <input type="hidden" name="action" value="verify_otp">
-        <label class="mb-2 font-semibold block">Enter OTP:</label>
-        <input type="text" name="otp" placeholder="OTP" class="mb-4 p-2 border rounded w-full" required>
-        <button type="submit" class="w-full bg-orange-500 text-white py-2 rounded">Verify OTP</button>
-    </form>
-    <?php endif; ?>
+        <?php if(isset($_SESSION['otp'])): ?>
+        <form method="POST" class="mt-16">
+            <input type="hidden" name="action" value="verify_otp">
+            <div class="form-group">
+                <label class="form-label">Enter OTP:</label>
+                <input class="form-control" type="text" name="otp" placeholder="OTP" required>
+            </div>
+            <button type="submit" class="btn btn-secondary" style="width:100%;justify-content:center">Verify OTP</button>
+        </form>
+        <?php endif; ?>
 
-    <?php if(isset($_SESSION['otp_verified']) && $_SESSION['otp_verified']): ?>
-    <form method="POST" class="mt-4">
-        <input type="hidden" name="action" value="reset_password">
-        <label class="mb-2 font-semibold block">New Password:</label>
-        <input type="password" name="new_password" placeholder="New Password" class="mb-2 p-2 border rounded w-full" required>
-        <label class="mb-2 font-semibold block">Confirm Password:</label>
-        <input type="password" name="confirm_password" placeholder="Confirm Password" class="mb-4 p-2 border rounded w-full" required>
-        <button type="submit" class="w-full bg-purple-500 text-white py-2 rounded">Reset Password</button>
-    </form>
-    <?php endif; ?>
+        <?php if(isset($_SESSION['otp_verified']) && $_SESSION['otp_verified']): ?>
+        <form method="POST" class="mt-16">
+            <input type="hidden" name="action" value="reset_password">
+            <div class="form-group">
+                <label class="form-label">New Password:</label>
+                <input class="form-control" type="password" name="new_password" placeholder="New Password" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm Password:</label>
+                <input class="form-control" type="password" name="confirm_password" placeholder="Confirm Password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Reset Password</button>
+        </form>
+        <?php endif; ?>
+    </div>
+
 </div>
 
 </div>
@@ -336,7 +330,7 @@ function showTab(name) {
     event.target.classList.add('active');
 }
 document.getElementById('forgotBtn').addEventListener('click', () => {
-    document.getElementById('forgotForm').classList.toggle('hidden');
+    document.getElementById('forgotForm').style.display = document.getElementById('forgotForm').style.display === 'block' ? 'none' : 'block';
 });
 </script>
 </body>

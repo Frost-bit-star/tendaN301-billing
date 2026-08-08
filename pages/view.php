@@ -1,35 +1,67 @@
 <?php
+$pageTitle = 'Router Dashboard';
+$activePage = 'view';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
+<style>
+/* Router cards */
+.view-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+}
+.router-card {
+    background: var(--surface);
+    border: 1px solid var(--surface-4);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    cursor: pointer;
+    transition: all var(--transition);
+    position: relative;
+    box-shadow: var(--shadow-1);
+}
+.router-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-3); border-color: var(--blue-300); }
+.router-card .card-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 
-<div class="content-wrapper">
-    <section class="content">
-        <div id="pageContent" class="container mx-auto py-8">
+/* Fullscreen iframe modal */
+#iframeModal {
+    position: fixed; inset: 0; background: rgba(10,10,14,0.96);
+    z-index: 99999; display: none; flex-direction: column; opacity: 0; transition: opacity .3s;
+}
+#iframeModal.visible { display: flex; opacity: 1; }
+#iframeModal .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 24px; background: rgba(30,30,40,0.95); border-bottom: 1px solid var(--surface-4);
+}
+#iframeModal .modal-header span { color: #fff; font-family: 'Google Sans', sans-serif; font-size: 18px; font-weight: 500; }
+#iframeModal .modal-header button {
+    color: #fff; background: none; border: none; font-size: 32px; line-height: 1; cursor: pointer; padding: 0 8px;
+}
+#iframeModal .modal-header button:hover { color: var(--blue-300); }
+#iframeModal iframe { flex: 1; width: 100%; border: 0; }
+body.modal-open #sidebar, body.modal-open .topbar, body.modal-open .mobile-bottom-nav { display: none !important; }
+body.modal-open #main-content { margin-left: 0 !important; }
+</style>
 
-            <h1 class="text-3xl font-bold mb-8 text-center">Router Dashboard</h1>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-desktop"></i> Router Dashboard</h1>
+        <p class="page-subtitle">Click a router to open its web interface in fullscreen.</p>
+    </div>
+</div>
 
-            <!-- Router Cards -->
-            <div id="routerCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <!-- Cards injected dynamically -->
-            </div>
+<!-- Router Cards -->
+<div id="routerCardsContainer" class="view-grid">
+    <!-- Cards injected dynamically -->
+</div>
 
-            <!-- Fullscreen Iframe Modal -->
-            <div id="iframeModal" class="fixed inset-0 bg-black bg-opacity-90 hidden z-[99999] flex flex-col transition-opacity duration-300">
-                <!-- Modal Header -->
-                <div class="relative flex justify-between items-center p-4 bg-gray-800 bg-opacity-90">
-                    <span id="modalRouterName" class="text-white text-2xl font-bold"></span>
-                    <button id="closeModal" 
-                            class="absolute top-4 right-4 text-white text-5xl font-bold hover:text-gray-300 z-[100000]">
-                        &times;
-                    </button>
-                </div>
-                <!-- Iframe -->
-                <iframe id="routerModalIframe" src="" class="flex-1 w-full h-full" frameborder="0"></iframe>
-            </div>
-
-        </div>
-    </section>
+<!-- Fullscreen Iframe Modal -->
+<div id="iframeModal">
+    <div class="modal-header">
+        <span id="modalRouterName"></span>
+        <button id="closeModal" aria-label="Close">&times;</button>
+    </div>
+    <iframe id="routerModalIframe" src=""></iframe>
 </div>
 
 <script>
@@ -49,16 +81,12 @@ const footer = document.querySelector('footer.main-footer');
 
 // Collapse sidebar, header, and footer only when opening the iframe
 function enterFullscreenMode() {
-    body.classList.add('sidebar-collapse');
-    header?.classList.add('hidden');
-    footer?.classList.add('hidden');
+    document.body.classList.add('modal-open');
 }
 
 // Restore layout when closing iframe
 function exitFullscreenMode() {
-    body.classList.remove('sidebar-collapse');
-    header?.classList.remove('hidden');
-    footer?.classList.remove('hidden');
+    document.body.classList.remove('modal-open');
 }
 
 // Load routers as cards
@@ -73,13 +101,13 @@ async function loadRouters() {
 
         json.routers.forEach(r => {
             const card = document.createElement('div');
-            card.className = 'bg-blue-600 text-white rounded-xl shadow-lg p-6 cursor-pointer hover:bg-blue-700 transition';
+            card.className = 'router-card';
             card.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span class="text-xl font-bold">${r.name}</span>
-                    <span class="w-4 h-4 rounded-full ${r.online ? 'bg-green-500' : 'bg-red-500'}"></span>
+                <div class="card-title">
+                    <span style="font-size:15px;font-weight:500;font-family:'Google Sans',sans-serif;">${r.name}</span>
+                    <span class="chip ${r.online ? 'active' : 'inactive'}"><span class="chip-dot"></span>${r.online ? 'Online' : 'Offline'}</span>
                 </div>
-                <div class="mt-4 text-sm">IP: ${r.ip}:${r.port || 80}</div>
+                <div style="margin-top:12px;font-size:13px;color:var(--on-surface-med);">IP: ${r.ip}:${r.port || 80}</div>
             `;
 
             card.onclick = () => {
@@ -87,8 +115,7 @@ async function loadRouters() {
 
                 modalRouterName.textContent = r.name;
                 routerModalIframe.src = `http://${r.ip}:${r.port || 80}`;
-                iframeModal.classList.remove('hidden');
-                setTimeout(() => iframeModal.classList.add('opacity-100'), 10);
+                iframeModal.classList.add('visible');
             };
 
             container.appendChild(card);
@@ -101,9 +128,8 @@ async function loadRouters() {
 
 // Close modal
 function closeOverlay() {
-    iframeModal.classList.remove('opacity-100');
+    iframeModal.classList.remove('visible');
     setTimeout(() => {
-        iframeModal.classList.add('hidden');
         routerModalIframe.src = '';
         modalRouterName.textContent = '';
         exitFullscreenMode(); // Restore layout
@@ -114,7 +140,7 @@ closeModal.onclick = closeOverlay;
 
 // Close modal with Esc key
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !iframeModal.classList.contains('hidden')) {
+    if (e.key === 'Escape' && iframeModal.classList.contains('visible')) {
         closeOverlay();
     }
 });

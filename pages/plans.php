@@ -1,47 +1,50 @@
 <?php
+$pageTitle = 'WiFi Plans';
+$activePage = 'plans';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
-            <h1 class="mt-4 mb-4">WiFi Plans</h1>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-tachometer-alt"></i> WiFi Plans</h1>
+        <p class="page-subtitle">Define the duration packages sold to customers.</p>
+    </div>
+</div>
 
-            <!-- Plan Creation Form -->
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-light">Create New Plan</div>
-                <div class="card-body">
-                    <form id="planForm" class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label">Plan Name</label>
-                            <input type="text" id="planName" class="form-control" placeholder="Plan Name" required>
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Days</label>
-                            <input type="number" id="planDays" class="form-control" placeholder="0" min="0">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Hours</label>
-                            <input type="number" id="planHours" class="form-control" placeholder="0" min="0" max="23">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label">Minutes</label>
-                            <input type="number" id="planMinutes" class="form-control" placeholder="0" min="0" max="59">
-                        </div>
-                        <div class="col-md-3">
-                            <button type="submit" class="btn btn-primary w-100">Add Plan</button>
-                        </div>
-                    </form>
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-header">
+        <span class="card-title">Create New Plan</span>
+    </div>
+    <div class="card-body">
+        <form id="planForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="planName">Plan Name</label>
+                    <input type="text" id="planName" class="form-control" placeholder="Plan Name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="planDays">Days</label>
+                    <input type="number" id="planDays" class="form-control" placeholder="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="planHours">Hours</label>
+                    <input type="number" id="planHours" class="form-control" placeholder="0" min="0" max="23">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="planMinutes">Minutes</label>
+                    <input type="number" id="planMinutes" class="form-control" placeholder="0" min="0" max="59">
+                </div>
+                <div class="form-group" style="display:flex;align-items:flex-end;">
+                    <button type="submit" class="btn btn-primary" style="width:100%;">Add Plan</button>
                 </div>
             </div>
+        </form>
+    </div>
+</div>
 
-            <!-- Plans List -->
-            <div id="plansList" class="plans-grid">
-                <div class="col-12 text-muted">Loading plans...</div>
-            </div>
-        </div>
-    </section>
+<!-- Plans List -->
+<div id="plansList" class="plans-grid">
+    <div style="color:var(--on-surface-med);">Loading plans...</div>
 </div>
 
 <style>
@@ -54,33 +57,38 @@ include __DIR__ . '/../components/sidebar.php';
 
 /* Plan cards */
 .plan-card {
-    background: #ffffff;
-    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--surface-4);
+    border-radius: var(--radius-lg);
     padding: 30px 20px;
-    min-height: 200px; /* good height */
+    min-height: 200px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-1);
     position: relative;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .plan-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-3);
+    border-color: var(--blue-300);
 }
 
 .plan-card h5 {
     font-size: 1.4rem;
     margin-bottom: 15px;
-    color: #333;
+    color: var(--on-surface);
+    font-family: 'Google Sans', sans-serif;
+    font-weight: 500;
 }
 
 .plan-card p {
     font-size: 1.1rem;
-    color: #555;
+    color: var(--on-surface-med);
     margin: 0;
+    font-weight: 500;
 }
 
 /* Delete button */
@@ -88,7 +96,7 @@ include __DIR__ . '/../components/sidebar.php';
     position: absolute;
     top: 12px;
     right: 12px;
-    background: #e74c3c;
+    background: var(--red);
     color: #fff;
     border: none;
     border-radius: 50%;
@@ -97,7 +105,9 @@ include __DIR__ . '/../components/sidebar.php';
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
+    transition: background var(--transition);
 }
+.plan-card .delete-btn:hover { background: #C62828; }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -119,7 +129,7 @@ async function loadPlans() {
     container.innerHTML = '';
 
     if (!data.success || !data.plans.length) {
-        container.innerHTML = `<div class="col-12 text-muted">No plans available</div>`;
+        container.innerHTML = `<div style="color:var(--on-surface-med);">No plans available</div>`;
         return;
     }
 

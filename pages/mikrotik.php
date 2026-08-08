@@ -1,19 +1,18 @@
 <?php
+$pageTitle = 'Users by Router';
+$activePage = 'mikrotik';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
-            <h1 class="mt-4 mb-4 text-center">Users by Router (Wired Only)</h1>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title"><i class="fas fa-network-wired"></i> Users by Router <span style="font-size:13px;color:var(--on-surface-med);font-weight:400;">(Wired Only)</span></h1>
+        <p class="page-subtitle">Throttle wired users on each MikroTik router.</p>
+    </div>
+</div>
 
-            <div id="routersContainer">
-                <div class="text-center text-muted">Loading routers...</div>
-            </div>
-
-        </div>
-    </section>
+<div id="routersContainer">
+    <div class="text-center" style="color:var(--on-surface-med);">Loading routers...</div>
 </div>
 
 <script>
@@ -21,14 +20,14 @@ const throttleApi = '/auth/throttle.php';
 
 async function loadRouters() {
     const container = document.getElementById('routersContainer');
-    container.innerHTML = '<div class="text-center text-info">Loading routers...</div>';
+    container.innerHTML = '<div class="text-center" style="color:var(--on-surface-med);">Loading routers...</div>';
 
     try {
         const res = await fetch(throttleApi);
         const data = await res.json();
 
         if (!data.routers || !data.routers.length) {
-            container.innerHTML = '<div class="text-center text-danger">No routers found</div>';
+            container.innerHTML = '<div class="text-center" style="color:var(--red);">No routers found</div>';
             return;
         }
 
@@ -44,22 +43,22 @@ async function loadRouters() {
 
                 const rows = wiredUsers.map(user => `
                     <tr id="user-${user.mac}" 
-                        style="background-color:${user.internet_access ? '' : '#f8d7da'}">
-                        <td>${user.mac}</td>
+                        style="background-color:${user.internet_access ? '' : '#FCE8E6'}">
+                        <td><code>${user.mac}</code></td>
                         <td>${user.ip}</td>
                         <td>${user.hostname}</td>
                         <td>${user.internet_access ? 'Yes' : 'No'}</td>
                         <td>
-                            <input type="number" class="form-control form-control-sm up-speed"
+                            <input type="number" class="form-control up-speed" style="max-width:110px;padding:6px 10px;font-size:12px;"
                                    value="${user.upLimit}">
                         </td>
                         <td>
-                            <input type="number" class="form-control form-control-sm down-speed"
+                            <input type="number" class="form-control down-speed" style="max-width:110px;padding:6px 10px;font-size:12px;"
                                    value="${user.downLimit}">
                         </td>
                         <td>${user.last_seen}</td>
                         <td>
-                            <button class="btn btn-warning btn-sm throttle-btn"
+                            <button class="btn btn-primary btn-sm throttle-btn"
                                 data-mac="${user.mac}" data-router-id="${router.router_id}">
                                 Set Throttle
                             </button>
@@ -68,9 +67,13 @@ async function loadRouters() {
                 `).join('');
 
                 tableHTML = `
-                    <div class="card shadow mb-4">
-                        <div class="card-body">
-                            <table class="table table-bordered table-striped">
+                    <div class="card" style="margin-bottom:24px;">
+                        <div class="card-header">
+                            <span class="card-title"><i class="fas fa-server"></i> ${router.name} <span class="chip ${router.status === 'online' ? 'active' : router.status === 'provisioning' ? 'pending' : 'inactive'}"><span class="chip-dot"></span>${router.status}</span></span>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-wrapper">
+                            <table>
                                 <thead>
                                     <tr>
                                         <th>MAC</th>
@@ -85,15 +88,16 @@ async function loadRouters() {
                                 </thead>
                                 <tbody>${rows}</tbody>
                             </table>
+                            </div>
                         </div>
                     </div>
                 `;
             } else {
-                tableHTML = '<p>No wired users found for this router.</p>';
+                tableHTML = '<p style="color:var(--on-surface-med);margin:8px 0 20px;">No wired users found for this router.</p>';
             }
 
             container.innerHTML += `
-                <h2>${router.name} (${router.status})</h2>
+                <h2 style="font-size:16px;font-family:\'Google Sans\',sans-serif;font-weight:500;color:var(--on-surface);margin:0 0 12px;">${router.name} (${router.status})</h2>
                 ${tableHTML}
             `;
         });
@@ -101,7 +105,7 @@ async function loadRouters() {
         attachThrottleHandlers();
 
     } catch (err) {
-        container.innerHTML = '<div class="text-danger">Failed to load router data</div>';
+        container.innerHTML = '<div style="color:var(--red);">Failed to load router data</div>';
         console.error(err);
     }
 }

@@ -1,64 +1,78 @@
 <?php
+$pageTitle = 'Router Management';
+$activePage = 'add_router';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">Router Management</h1>
+        <p class="page-subtitle">Add, update and monitor your Tenda routers</p>
+    </div>
+</div>
 
-            <h1 class="mt-4 mb-4">Router Management</h1>
-
-            <!-- Add Router -->
-            <div class="card mb-4">
-                <div class="card-header">Add / Update Router</div>
-                <div class="card-body">
-                    <form id="routerForm" class="form-inline">
-                        <input type="hidden" id="routerId">
-                        <input type="text" id="routerName" class="form-control mr-2 mb-2" placeholder="Router Name" required>
-                        <input type="text" id="routerIP" class="form-control mr-2 mb-2" placeholder="IP Address" required>
-                        <input type="number" id="routerPort" class="form-control mr-2 mb-2" value="80" placeholder="Port">
-                        <input type="password" id="routerPassword" class="form-control mr-2 mb-2" placeholder="Password" required>
-                        <button class="btn btn-success mb-2">Save Router</button>
-                    </form>
-                    <div id="routerMessage" class="mt-2"></div>
-                </div>
+<div class="two-col">
+    <div class="stack">
+        <!-- Add Router -->
+        <div class="card">
+            <div class="card-header"><div class="card-title">Add / Update Router</div></div>
+            <div class="card-body">
+                <form id="routerForm">
+                    <input type="hidden" id="routerId">
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label">Router Name</label>
+                            <input type="text" id="routerName" class="form-control" placeholder="Router Name" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label">IP Address</label>
+                            <input type="text" id="routerIP" class="form-control" placeholder="IP Address" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label">Port</label>
+                            <input type="number" id="routerPort" class="form-control" value="80" placeholder="Port">
+                        </div>
+                        <div class="form-group" style="margin-bottom:0">
+                            <label class="form-label">Password</label>
+                            <input type="password" id="routerPassword" class="form-control" placeholder="Password" required>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary mt-16">Save Router</button>
+                    <div id="routerMessage" class="form-hint"></div>
+                </form>
             </div>
-
-            <!-- Router List -->
-            <div class="card">
-                <div class="card-header">Current Routers</div>
-                <div class="card-body">
-                    <table class="table table-bordered" id="routerTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Name</th>
-                                <th>IP</th>
-                                <th>Port</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-            </div>
-
         </div>
-    </section>
+    </div>
+
+    <div class="stack">
+        <!-- Router List -->
+        <div class="card">
+            <div class="card-header"><div class="card-title">Current Routers</div></div>
+            <div class="table-wrapper">
+                <table id="routerTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>IP</th>
+                            <th>Port</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
-.status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    display: inline-block;
-    margin-right: 6px;
-}
-.online { background:#28a745; }
-.offline { background:#dc3545; }
+.status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; }
+.online { background: var(--green); }
+.offline { background: var(--red); }
 </style>
 
 <script>
@@ -77,25 +91,27 @@ async function loadRouters() {
     json.routers.forEach(r => {
         // Use the status directly from the backend response
         const status = r.online
-            ? `<span class="status-dot online"></span>Online`
-            : `<span class="status-dot offline"></span>Offline`;
+            ? `<span class="chip active"><span class="chip-dot"></span>Online</span>`
+            : `<span class="chip expired"><span class="chip-dot"></span>Offline</span>`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${r.id}</td>
-            <td>${r.name}</td>
-            <td>${r.ip}</td>
+            <td style="font-weight:500">${r.name}</td>
+            <td style="font-family:monospace">${r.ip}</td>
             <td>${r.port || 80}</td>
             <td>${status}</td>
             <td>
-                <button class="btn btn-sm btn-primary"
-                    onclick="editRouter(${r.id}, '${r.name}', '${r.ip}', ${r.port || 80})">
-                    Edit
-                </button>
-                <button class="btn btn-sm btn-danger"
-                    onclick="deleteRouter(${r.id})">
-                    Delete
-                </button>
+                <div class="td-actions">
+                    <button class="btn btn-outline btn-sm"
+                        onclick="editRouter(${r.id}, '${r.name}', '${r.ip}', ${r.port || 80})">
+                        Edit
+                    </button>
+                    <button class="btn btn-danger btn-sm"
+                        onclick="deleteRouter(${r.id})">
+                        Delete
+                    </button>
+                </div>
             </td>
         `;
         tbody.appendChild(tr);

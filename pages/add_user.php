@@ -1,8 +1,9 @@
 <?php
 ob_start();
+$pageTitle = 'Add User';
+$activePage = 'add_user';
 
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 require_once __DIR__ . '/../auth/config.php';
 
 // -----------------------
@@ -13,7 +14,7 @@ $macAddress = strtoupper($_GET['paid_mac'] ?? '');
 $planId     = $_GET['plan_id'] ?? '';
 
 if (!$routerId || !$macAddress || !$planId) {
-    echo "<p class='text-danger'>Missing required parameters. Please check the URL and try again.</p>";
+    echo "<div class='alert alert-danger'><svg viewBox='0 0 24 24'><path d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/></svg><span>Missing required parameters. Please check the URL and try again.</span></div>";
     exit;
 }
 
@@ -71,7 +72,7 @@ $planStmt->execute([$planId]);
 $plan = $planStmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$router || !$plan) {
-    echo "<p class='text-danger'>Invalid router or plan data. Please check the URL and try again.</p>";
+    echo "<div class='alert alert-danger'><svg viewBox='0 0 24 24'><path d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/></svg><span>Invalid router or plan data. Please check the URL and try again.</span></div>";
     exit;
 }
 
@@ -187,46 +188,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
 
     } catch (Exception $e) {
-        echo "<p class='text-danger'>Error: " . htmlspecialchars($e->getMessage()) . "</p>";
+        echo "<div class='alert alert-danger'><svg viewBox='0 0 24 24'><path d='M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z'/></svg><span>Error: " . htmlspecialchars($e->getMessage()) . "</span></div>";
     }
 }
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
-            <h1 class="mt-4 mb-4 text-center">Add User</h1>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">Add User</h1>
+        <p class="page-subtitle">Activate a device by assigning it a plan</p>
+    </div>
+</div>
 
-            <div class="card shadow mb-4">
-                <div class="card-body">
-                    <h4>Router Name: <?php echo htmlspecialchars($router['name']); ?></h4>
-                    <p><strong>MAC Address:</strong> <?php echo htmlspecialchars($macAddress); ?></p>
-                    <p><strong>Plan Name:</strong> <?php echo htmlspecialchars($plan['name']); ?></p>
-                    <p><strong>Plan Duration:</strong>
-                        <?php echo ($plan['days'] ?? 0) . " days " . ($plan['hours'] ?? 0) . " hours " . ($plan['minutes'] ?? 0) . " minutes"; ?>
-                    </p>
-                </div>
+<div class="card" style="margin-bottom:24px">
+    <div class="card-header"><div class="card-title">Plan &amp; Device Details</div></div>
+    <div class="card-body">
+        <div class="form-row">
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Router Name</label>
+                <div style="font-size:14px;font-weight:500"><?php echo htmlspecialchars($router['name']); ?></div>
             </div>
-
-            <div class="card shadow">
-                <div class="card-body">
-                    <form action="" method="POST">
-                        <div class="form-group">
-                            <label for="userName">Name</label>
-                            <input type="text" name="name" id="userName" class="form-control" placeholder="Enter Name" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="userPhone">Phone Number</label>
-                            <input type="text" name="phone_number" id="userPhone" class="form-control" placeholder="Enter Phone Number" required>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary">Save User & Activate</button>
-                    </form>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">MAC Address</label>
+                <div><code><?php echo htmlspecialchars($macAddress); ?></code></div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Plan Name</label>
+                <div style="font-size:14px;font-weight:500"><?php echo htmlspecialchars($plan['name']); ?></div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">Plan Duration</label>
+                <div style="font-size:14px;font-weight:500">
+                    <?php echo ($plan['days'] ?? 0) . " days " . ($plan['hours'] ?? 0) . " hours " . ($plan['minutes'] ?? 0) . " minutes"; ?>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</div>
+
+<div class="card" style="max-width:560px">
+    <div class="card-header"><div class="card-title">Customer Details</div></div>
+    <div class="card-body">
+        <form action="" method="POST">
+            <div class="form-group">
+                <label class="form-label" for="userName">Name</label>
+                <input type="text" name="name" id="userName" class="form-control" placeholder="Enter Name" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="userPhone">Phone Number</label>
+                <input type="text" name="phone_number" id="userPhone" class="form-control" placeholder="Enter Phone Number" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save User &amp; Activate</button>
+        </form>
+    </div>
 </div>
 
 <?php include __DIR__ . '/../components/footer.php'; ?>

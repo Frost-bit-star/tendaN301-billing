@@ -1,101 +1,104 @@
 <?php
+$pageTitle = 'Bill User';
+$activePage = 'billuser';
 include __DIR__ . '/../components/header.php';
-include __DIR__ . '/../components/sidebar.php';
 ?>
 
-<div class="content-wrapper">
-    <section class="content">
-        <div class="container-fluid">
-            <h1 class="mt-4 mb-4 text-center">WiFi Routers Dashboard</h1>
+<div class="page-header">
+    <div class="page-header-left">
+        <h1 class="page-title">WiFi Routers Dashboard</h1>
+        <p class="page-subtitle">Select a router to view connected devices and assign plans</p>
+    </div>
+</div>
 
-            <!-- Routers List -->
-            <div id="routersList" class="routers-grid">
-                <div class="col-12 text-center text-muted">Loading routers...</div>
-            </div>
+<!-- Routers List -->
+<div id="routersList" class="routers-grid">
+    <div class="col-12 text-center text-muted">Loading routers...</div>
+</div>
 
-            <!-- Devices Table (hidden initially) -->
-            <div id="devicesSection" style="display:none;">
-                <!-- Buttons Container -->
-                <div class="mb-3 d-flex justify-content-between align-items-center">
-                    <button class="btn btn-secondary" onclick="backToRouters()">← Back to Routers</button>
-                    <button class="btn btn-info" onclick="refreshDevicesTable()">⟳ Refresh</button>
-                </div>
+<!-- Devices Table (hidden initially) -->
+<div id="devicesSection" style="display:none;">
+    <!-- Buttons Container -->
+    <div class="flex-row" style="margin-bottom:16px;justify-content:space-between">
+        <button class="btn btn-outline" onclick="backToRouters()">← Back to Routers</button>
+        <button class="btn btn-primary" onclick="refreshDevicesTable()">⟳ Refresh</button>
+    </div>
 
-                <h3 id="routerNameHeading" class="mb-3" data-router-id=""></h3>
+    <h3 id="routerNameHeading" class="card-title" style="margin-bottom:16px" data-router-id=""></h3>
 
-                <!-- Filter Mode Switch -->
-                <div class="mb-3">
-                    <div class="switch">
-                        <input class="switch-check" id="filterSwitch" type="checkbox">
-                        <label class="switch-label" for="filterSwitch">
-                            Filter Mode
-                            <span></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="card shadow">
-                    <div class="card-body p-0">
-                        <table class="table table-bordered table-striped mb-0" id="devicesTable">
-                            <thead class="thead-dark">
-                                <tr>
-                                    <th>Hostname</th>
-                                    <th>IP</th>
-                                    <th>MAC</th>
-                                    <th>Connection</th>
-                                    <th>Plans</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td colspan="5" class="text-center text-muted">Select a router to view devices</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-            </div>
+    <!-- Filter Mode Switch -->
+    <div class="mb-16">
+        <div class="switch">
+            <input class="switch-check" id="filterSwitch" type="checkbox">
+            <label class="switch-label" for="filterSwitch">
+                Filter Mode
+                <span></span>
+            </label>
         </div>
-    </section>
+    </div>
+
+    <div class="card">
+        <div class="table-wrapper">
+            <table id="devicesTable">
+                <thead>
+                    <tr>
+                        <th>Hostname</th>
+                        <th>IP</th>
+                        <th>MAC</th>
+                        <th>Connection</th>
+                        <th>Plans</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td colspan="5" style="text-align:center;padding:30px;color:var(--on-surface-med)">Select a router to view devices</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
 <style>
 /* --- Routers Cards --- */
-.routers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; }
+.routers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .router-card {
-    background: linear-gradient(135deg, #ffffff, #4e73df);
-    color: #1a1a1a;
+    background: var(--surface);
+    color: var(--on-surface);
     font-weight: 600;
-    border-radius: 16px;
-    padding: 25px 20px;
+    border: 1px solid var(--surface-4);
+    border-radius: var(--radius-lg);
+    padding: 24px 20px;
     text-align: center;
     cursor: pointer;
-    transition: transform 0.3s, box-shadow 0.3s;
+    transition: transform .2s, box-shadow .2s;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
     height: 200px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: var(--shadow-1);
 }
-.router-card h4 { margin-bottom: 8px; color: #224abe; }
+.router-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-3); border-color: var(--blue-300); }
+.router-card h4 { margin-bottom: 8px; color: var(--blue-500); font-family: 'Google Sans', sans-serif; }
 .router-card p { margin: 3px 0; font-size: 0.9rem; }
-.router-card .device-info { margin-top: 10px; font-size: 0.85rem; color: #555; }
-.router-card:hover { transform: translateY(-6px); box-shadow: 0 12px 28px rgba(0,0,0,0.2); }
+.router-card .device-info { margin-top: 10px; font-size: 0.85rem; color: var(--on-surface-med); }
 .plan-badge {
     display: inline-block;
-    background: #4e73df;
-    color: #fff;
-    padding: 6px 12px;
-    border-radius: 16px;
+    background: var(--blue-50);
+    color: var(--blue-600);
+    border: 1px solid var(--blue-200);
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
     margin: 3px 2px;
     cursor: pointer;
     font-size: 0.85rem;
-    transition: all 0.2s;
+    font-weight: 500;
+    transition: all .2s;
 }
-.plan-badge:hover { background: #224abe; }
+.plan-badge:hover { background: var(--blue-100); }
 
 /* Whitelisted row style */
-.whitelisted { background-color: #d4edda !important; }
+.whitelisted { background-color: #E6F4EA !important; }
 
 /* Responsive */
 @media (max-width: 1024px) { .routers-grid { grid-template-columns: repeat(2, 1fr); } }
@@ -103,12 +106,10 @@ include __DIR__ . '/../components/sidebar.php';
 
 /* --- Filter Switch --- */
 .switch {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: var(--surface-3);
   border-radius: 30px;
-  border: 4px solid rgba(58, 58, 58, 0.1);
-  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5) inset;
+  border: 4px solid var(--surface-4);
   height: 48px;
-  margin: 2px;
   position: relative;
   width: 120px;
   display: inline-block;
@@ -117,10 +118,8 @@ include __DIR__ . '/../components/sidebar.php';
 .switch-check { position: absolute; visibility: hidden; user-select: none; }
 .switch-label { cursor: pointer; display: block; height: 42px; text-indent: -9999px; width: 115px; user-select: none; }
 .switch-label span {
-  background: linear-gradient(#4f4f4f, #2b2b2b);
+  background: var(--blue-500);
   border-radius: 30px;
-  border: 1px solid #1a1a1a;
-  box-shadow: 0 0 4px rgba(0,0,0,0.5), 0 1px 1px rgba(255,255,255,0.1) inset, 0 -2px 0 rgba(0,0,0,0.2) inset;
   display: block;
   height: 38px;
   left: 1px;
