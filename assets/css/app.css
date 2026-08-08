@@ -197,3 +197,47 @@ code {
 .config-card h6 { margin-bottom: 12px; color: var(--on-surface); font-weight: 600; }
 
 .wizard-nav .btn { min-width: 140px; }
+
+/* Sidebar router status (bottom of sidebar) */
+.sidebar-status {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--surface-4);
+  margin-bottom: 6px;
+}
+.sidebar-status-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--on-surface-med);
+  padding: 0 6px 8px;
+}
+.sidebar-status-title .fa-signal { font-size: 12px; }
+.sidebar-status-refresh {
+  margin-left: auto; background: none; border: none; color: var(--on-surface-low);
+  cursor: pointer; font-size: 11px; padding: 2px 4px;
+}
+.sidebar-status-refresh:hover { color: var(--blue-500); }
+.sidebar-status-refresh.loading .fa-sync { animation: spin 1s linear infinite; }
+.sidebar-status-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 160px; overflow-y: auto;
+}
+.sidebar-status-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--on-surface-med);
+  padding: 4px 6px; border-radius: var(--radius-sm);
+  white-space: nowrap; overflow: hidden;
+}
+.sidebar-status-item:hover { background: var(--surface-3); }
+.sidebar-status-name { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+.sidebar-status-state { font-size: 11px; font-weight: 500; }
+.sidebar.collapsed .sidebar-status { display: none; }
+
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; display: inline-block;
+}
+.status-dot.online   { background: var(--green); box-shadow: 0 0 0 3px rgba(52,199,89,.18); }
+.status-dot.offline  { background: var(--red); }
+.status-dot.pending  { background: var(--yellow); }
+.status-dot.loading  { background: var(--on-surface-low); animation: pulse 1.5s infinite; }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

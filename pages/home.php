@@ -3,11 +3,11 @@
 
 <head>
     <meta charset="utf-8">
-    <title>jasiri x Tenda N301 | High-Speed Fiber Internet in sirari</title>
+    <title>jasiri x WISP | High-Speed Fiber Internet in sirari</title>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <meta content="Tenda N301 fiber, fiber internet mombasa, home fiber siari, business internet siari, jasiri fiber, tenda router setup" name="keywords">
-    <meta content="jasiri Data Fiber Technologies powered by Tenda N301. Reliable and affordable pure optical fiber internet across Mombasa County. Plans from KES 1,500/month." name="description">
-    <meta property="og:title" content="jasiri x Tenda N301 | Fast & Reliable Fiber Internet in Mombasa">
+    <meta content="WISP fiber, fiber internet mombasa, home fiber siari, business internet siari, jasiri fiber, wireless internet" name="keywords">
+    <meta content="jasiri Data Fiber Technologies powered by WISP. Reliable and affordable pure optical fiber internet across Mombasa County. Plans from KES 1,500/month." name="description">
+    <meta property="og:title" content="jasiri x WISP | Fast & Reliable Fiber Internet in Mombasa">
     <meta property="og:description" content="Pure optical fiber intesh 30,000. CAK licensed & EHS certified.">
     <meta property="og:type" content="website">
 
@@ -398,7 +398,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="#packages">N301 Bundles</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#packages">WISP Bundles</a></li>
                     <li class="nav-item"><a class="nav-link" href="#pricing-table">Plans</a></li>
                     <li class="nav-item"><a class="nav-link" href="#about">About</a></li>
                     <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
@@ -413,22 +413,22 @@
                 <div class="col-lg-6">
                     <div class="hero-tagline text-luminous-blue text-uppercase fw-semibold">
                         <i class="fas fa-wifi"></i>
-                        <span>Optimized for Tenda N301 Routers</span>
+                        <span>Optimized for WISP Networks</span>
                     </div>
-                    <h1 class="display-3 fw-bold mb-3 mt-2">Unlimited Fiber.<br><span style="color: var(--luminous-blue);">Powered by Tenda N301.</span></h1>
-                    <p class="lead text-secondary mb-4">Get the best out of your Tenda N301 with our pure optical fiber. Stable, fast, and local support in sirari.</p>
+                    <h1 class="display-3 fw-bold mb-3 mt-2">Unlimited Fiber.<br><span style="color: var(--luminous-blue);">Powered by WISP.</span></h1>
+                    <p class="lead text-secondary mb-4">Get the best out of your WISP connection with our pure optical fiber. Stable, fast, and local support in sirari.</p>
                     <div class="d-flex gap-3 mb-4 flex-wrap">
                         <a href="/login" class="btn btn-luminous">LOGIN</a>
-                        <a href="#packages" class="btn btn-outline-luminous">Tenda Bundle info</a>
+                        <a href="#packages" class="btn btn-outline-luminous">WISP Bundle info</a>
                     </div>
                     <div class="d-flex flex-wrap gap-3">
                         <div class="minimal-badge"><i class="fas fa-check-circle text-luminous-green me-1"></i><span>Plug & Play</span></div>
                         <div class="minimal-badge"><i class="fas fa-infinity text-luminous-orange me-1"></i><span>No Data Caps</span></div>
-                        <div class="minimal-badge"><i class="fas fa-microchip text-luminous-blue me-1"></i><span>Compatible with N301</span></div>
+                        <div class="minimal-badge"><i class="fas fa-microchip text-luminous-blue me-1"></i><span>WISP Powered</span></div>
                     </div>
                 </div>
                 <div class="col-lg-6 mt-5 mt-lg-0">
-                    <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&h=450&fit=crop" class="img-fluid rounded-4 shadow" alt="Tenda N301 Fiber Connection">
+                    <img src="https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&h=450&fit=crop" class="img-fluid rounded-4 shadow" alt="WISP Fiber Connection">
                 </div>
             </div>
         </div>
@@ -438,10 +438,10 @@
         <div class="row align-items-stretch g-5">
             <div class="col-lg-6">
                 <h5 class="fw-bold text-luminous-blue text-uppercase">Seamless Setup</h5>
-                <h2 class="fw-bold mb-3">Tenda N301 Fiber Experience</h2>
-                <p class="text-secondary">At jasiri Data Fiber Technologies, we ensure your Tenda N301 router is perfectly configured for our high-speed network. We serve Bamburi and Greater Mombasa with pure fiber that handles 4K streaming and gaming with ease.</p>
+                <h2 class="fw-bold mb-3">WISP Fiber Experience</h2>
+                <p class="text-secondary">At jasiri Data Fiber Technologies, we ensure your WISP connection is perfectly configured for our high-speed network. We serve Bamburi and Greater Mombasa with pure fiber that handles 4K streaming and gaming with ease.</p>
                 <div class="row mt-4">
-                    <div class="col-6 mb-3"><i class="fa fa-router text-luminous-blue me-2"></i> Pre-configured N301</div>
+                    <div class="col-6 mb-3"><i class="fa fa-router text-luminous-blue me-2"></i> Pre-configured WISP</div>
                     <div class="col-6 mb-3"><i class="fa fa-shield-alt text-luminous-cyan me-2"></i> Secure WiFi</div>
                     <div class="col-6 mb-3"><i class="fa fa-bolt text-luminous-green me-2"></i> Instant Activation</div>
                     <div class="col-6 mb-3"><i class="fa fa-tools text-luminous-purple me-2"></i> Expert On-site Setup</div>
@@ -450,7 +450,7 @@
             <div class="col-lg-6">
                 <div class="coverage-card h-100 d-flex flex-column justify-content-center">
                     <h3 class="fw-bold mb-3">Check Your Location</h3>
-                    <p class="text-secondary mb-4">Confirm if your area is ready for a Tenda N301 + Fiber installation.</p>
+                    <p class="text-secondary mb-4">Confirm if your area is ready for a WISP + Fiber installation.</p>
                     <div class="input-group">
                         <input type="text" class="form-control form-control-lg border-luminous-blue" placeholder="e.g. sirari, N...">
                         <button class="btn btn-luminous px-4">Check Now</button>
@@ -462,13 +462,13 @@
     <div class="container py-5" id="packages">
         <div class="text-center mb-5">
             <h5 class="text-luminous-blue text-uppercase fw-bold">Our Top Bundles</h5>
-            <h2 class="fw-bold">Fiber Plans Perfect for Tenda N301</h2>
+            <h2 class="fw-bold">Fiber Plans Perfect for WISP</h2>
             <p class="text-secondary">Reliable hardware meets lightning-fast speeds</p>
         </div>
         <div class="row g-4">
-            <div class="col-md-4"><div class="glass-card p-4 h-100 text-center"><div class="feature-icon-modern mx-auto"><i class="fa fa-home fs-1 text-luminous-blue"></i></div><h4 class="fw-bold mt-3">Basic N301 Home</h4><p class="text-muted">Best for small apartments</p><div class="bg-light rounded-3 p-2 mb-3"><span class="fw-bold fs-4">Tsh 5,000</span><span class="text-muted">/month</span></div><p class="small">5 Mbps Unlimited | N301 Compatible</p><button class="btn btn-outline-luminous w-100 mt-2">Order Bundle</button></div></div>
-            <div class="col-md-4"><div class="glass-card p-4 h-100 text-center position-relative overflow-hidden"><span class="badge-luminous position-absolute top-0 end-0 m-3">Popular</span><div class="feature-icon-modern mx-auto"><i class="fa fa-wifi fs-1 text-luminous-green"></i></div><h4 class="fw-bold mt-3">Family Streaming</h4><p class="text-muted">N301 Optimized for HD</p><div class="bg-light rounded-3 p-2 mb-3"><span class="fw-bold fs-4">Tsh 15,000</span><span class="text-muted">/month</span></div><p class="small">10 Mbps Unlimited | High Stability</p><button class="btn btn-luminous w-100 mt-2">Order Bundle</button></div></div>
-            <div class="col-md-4"><div class="glass-card p-4 h-100 text-center"><div class="feature-icon-modern mx-auto"><i class="fa fa-briefcase fs-1 text-luminous-purple"></i></div><h4 class="fw-bold mt-3">N301 Pro Business</h4><p class="text-muted">For offices and cyber cafes</p><div class="bg-light rounded-3 p-2 mb-3"><span class="fw-bold fs-4">Tsh 30,000</span><span class="text-muted">/month</span></div><p class="small">30 Mbps | Multi-user support</p><button class="btn btn-outline-luminous w-100 mt-2">Order Bundle</button></div></div>
+            <div class="col-md-4"><div class="glass-card p-4 h-100 text-center"><div class="feature-icon-modern mx-auto"><i class="fa fa-home fs-1 text-luminous-blue"></i></div><h4 class="fw-bold mt-3">Basic WISP Home</h4><p class="text-muted">Best for small apartments</p><div class="bg-light rounded-3 p-2 mb-3"><span class="fw-bold fs-4">Tsh 5,000</span><span class="text-muted">/month</span></div><p class="small">5 Mbps Unlimited | WISP Compatible</p><button class="btn btn-outline-luminous w-100 mt-2">Order Bundle</button></div></div>
+            <div class="col-md-4"><div class="glass-card p-4 h-100 text-center position-relative overflow-hidden"><span class="badge-luminous position-absolute top-0 end-0 m-3">Popular</span><div class="feature-icon-modern mx-auto"><i class="fa fa-wifi fs-1 text-luminous-green"></i></div><h4 class="fw-bold mt-3">Family Streaming</h4><p class="text-muted">WISP Optimized for HD</p><div class="bg-light rounded-3 p-2 mb-3"><span class="fw-bold fs-4">Tsh 15,000</span><span class="text-muted">/month</span></div><p class="small">10 Mbps Unlimited | High Stability</p><button class="btn btn-luminous w-100 mt-2">Order Bundle</button></div></div>
+            <div class="col-md-4"><div class="glass-card p-4 h-100 text-center"><div class="feature-icon-modern mx-auto"><i class="fa fa-briefcase fs-1 text-luminous-purple"></i></div><h4 class="fw-bold mt-3">WISP Pro Business</h4><p class="text-muted">For offices and cyber cafes</p><div class="bg-light rounded-3 p-2 mb-3"><span class="fw-bold fs-4">Tsh 30,000</span><span class="text-muted">/month</span></div><p class="small">30 Mbps | Multi-user support</p><button class="btn btn-outline-luminous w-100 mt-2">Order Bundle</button></div></div>
         </div>
     </div>
 
@@ -483,10 +483,10 @@
                     <tr><th>Speed</th><th>Recommended Router</th><th>Monthly Price</th><th>Action</th></tr>
                 </thead>
                 <tbody>
-                    <tr><td><strong>5 Mbps</strong></td><td>Tenda N301</td><td class="fw-bold text-luminous-blue">Tsh 5,000</td><td><button class="btn btn-sm btn-outline-luminous">Subscribe</button></td></tr>
-                    <tr><td><strong>10 Mbps</strong></td><td>Tenda N301</td><td class="fw-bold text-luminous-orange">Tsh 15,000</td><td><button class="btn btn-sm btn-outline-luminous">Subscribe</button></td></tr>
-                    <tr><td><strong>20 Mbps</strong></td><td>Tenda N301 / AC Series</td><td class="fw-bold text-luminous-blue">Tsh 30,000</td><td><button class="btn btn-sm btn-outline-luminous">Subscribe</button></td></tr>
-                    <tr class="highlight-max-yellow"><td><strong>30 Mbps</strong></td><td>Tenda N301 Optimized</td><td class="fw-bold">Tsh 50,000</td><td><button class="btn btn-sm btn-luminous">Best Value</button></td></tr>
+                    <tr><td><strong>5 Mbps</strong></td><td>WISP</td><td class="fw-bold text-luminous-blue">Tsh 5,000</td><td><button class="btn btn-sm btn-outline-luminous">Subscribe</button></td></tr>
+                    <tr><td><strong>10 Mbps</strong></td><td>WISP</td><td class="fw-bold text-luminous-orange">Tsh 15,000</td><td><button class="btn btn-sm btn-outline-luminous">Subscribe</button></td></tr>
+                    <tr><td><strong>20 Mbps</strong></td><td>WISP / AC Series</td><td class="fw-bold text-luminous-blue">Tsh 30,000</td><td><button class="btn btn-sm btn-outline-luminous">Subscribe</button></td></tr>
+                    <tr class="highlight-max-yellow"><td><strong>30 Mbps</strong></td><td>WISP Optimized</td><td class="fw-bold">Tsh 50,000</td><td><button class="btn btn-sm btn-luminous">Best Value</button></td></tr>
                 </tbody>
             </table>
         </div>
@@ -497,12 +497,12 @@
             <div class="row g-4">
                 <div class="col-lg-4">
                     <h4 class="text-navy-blue">jasiri Technologies</h4>
-                    <p class="text-secondary">Your local experts for Tenda N301 fiber setups in sirari. Reliable, fast, and affordable internet.</p>
+                    <p class="text-secondary">Your local experts for WISP fiber setups in sirari. Reliable, fast, and affordable internet.</p>
                 </div>
                 <div class="col-lg-4">
                     <h5>Quick Links</h5>
                     <ul class="list-unstyled">
-                        <li><a href="#" class="text-decoration-none text-secondary">N301 Setup Guide</a></li>
+                        <li><a href="#" class="text-decoration-none text-secondary">WISP Setup Guide</a></li>
                         <li><a href="#packages" class="text-decoration-none text-secondary">Fiber Packages</a></li>
                         <li><a href="#contact" class="text-decoration-none text-secondary">Contact Support</a></li>
                     </ul>
@@ -517,7 +517,7 @@
                 </div>
             </div>
             <hr>
-            <p class="text-center text-muted small">© 2026 jasiri Data Fiber Technologies. Optimized for Tenda Solutions.</p>
+            <p class="text-center text-muted small">© 2026 jasiri Data Fiber Technologies. Optimized for WISP Solutions.</p>
         </div>
     </footer>
 

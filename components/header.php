@@ -8,7 +8,7 @@ $role       = $_SESSION['role'] ?? 'admin';
 
 $_cur = basename(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 
-function _navActive($page) { return $_cur === $page ? 'active' : ''; }
+function _navActive($page) { global $_cur; return $_cur === $page ? 'active' : ''; }
 ?>
 <!-- components/header.php -->
 <!DOCTYPE html>
@@ -28,6 +28,36 @@ function _navActive($page) { return $_cur === $page ? 'active' : ''; }
     <script>
     function navActive(p) { return location.pathname.replace(/\/+$/, '') === ('/' + p) ? 'active' : ''; }
     function navOpen(pages) { return pages.indexOf(location.pathname.replace(/\/+$/, '').split('/').pop()) !== -1; }
+    function _esc(s) {
+        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    async function loadSidebarStatus() {
+        const list = document.getElementById('sidebarStatusList');
+        if (!list) return;
+        try {
+            const res = await fetch('/api/mikrotik.php?action=list');
+            const data = await res.json();
+            const routers = data.routers || [];
+            if (routers.length === 0) {
+                list.innerHTML = '<div class="sidebar-status-item"><span class="status-dot offline"></span><span>No MikroTik devices</span></div>';
+                return;
+            }
+            list.innerHTML = routers.map(function(r) {
+                let dot = 'offline', label = 'Offline';
+                if (r.online) { dot = 'online'; label = 'Online'; }
+                else if (r.provisioning_status === 'provisioning' || r.provisioning_status === 'pending') { dot = 'pending'; label = 'Provisioning'; }
+                return '<div class="sidebar-status-item" title="' + _esc(r.wireguard_ip || '') + '">'
+                    + '<span class="status-dot ' + dot + '"></span>'
+                    + '<span class="sidebar-status-name">' + _esc(r.name) + '</span>'
+                    + '<span class="sidebar-status-state">' + label + '</span>'
+                    + '</div>';
+            }).join('');
+        } catch (e) {
+            list.innerHTML = '<div class="sidebar-status-item"><span class="status-dot offline"></span><span>Status unavailable</span></div>';
+        }
+    }
+    loadSidebarStatus();
+    setInterval(loadSidebarStatus, 30000);
     </script>
 </head>
 <body>
@@ -134,6 +164,18 @@ function _navActive($page) { return $_cur === $page ? 'active' : ''; }
     </nav>
 
     <div class="sidebar-footer">
+        <div class="sidebar-status">
+            <div class="sidebar-status-title">
+                <i class="fas fa-signal"></i>
+                <span class="nav-label">Router Status</span>
+                <button type="button" class="sidebar-status-refresh" onclick="loadSidebarStatus()" title="Refresh status">
+                    <i class="fas fa-sync"></i>
+                </button>
+            </div>
+            <div class="sidebar-status-list" id="sidebarStatusList">
+                <div class="sidebar-status-item"><span class="status-dot loading"></span><span>Loading…</span></div>
+            </div>
+        </div>
         <a href="logout" class="sidebar-collapse-btn" style="text-decoration:none">
             <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
             <span class="nav-label">Logout</span>

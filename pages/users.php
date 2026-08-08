@@ -15,14 +15,48 @@ $tenantId = $_SESSION['account_id'] ?? null;
 $isAdmin  = ($_SESSION['role'] === 'superadmin' || $_SESSION['role'] === 'admin');
 
 // Fetch routers and plans scoped by tenant
+$routerCols = "id, name, type, wireguard_ip, ip, port, password, provisioning_status, service_mode";
 if ($isAdmin) {
-    $routers = $db->query("SELECT id, name FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+    $routers = $db->query("SELECT $routerCols FROM routers")->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $stmt = $db->prepare("SELECT id, name FROM routers WHERE tenant_id = ?");
+    $stmt = $db->prepare("SELECT $routerCols FROM routers WHERE tenant_id = ?");
     $stmt->execute([$tenantId]);
     $routers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 $plans = $db->query("SELECT * FROM plans")->fetchAll(PDO::FETCH_ASSOC);
+
+// Function to format byte counts
+function fmtBytes($b) {
+    $b = (float)$b;
+    if ($b >= 1073741824) return round($b / 1073741824, 1) . ' GB';
+    if ($b >= 1048576) return round($b / 1048576, 1) . ' MB';
+    if ($b >= 1024) return round($b / 1024, 1) . ' KB';
+    return $b . ' B';
+}
+
+// Fetch currently connected sessions from a MikroTik router
+function getMikrotikActiveSessions($router) {
+    $mode = ($router['service_mode'] ?? 'hotspot') === 'pppoe' ? 'pppoe' : 'hotspot';
+
+    if (($router['provisioning_status'] ?? 'offline') !== 'online') {
+        return ['ok' => false, 'mode' => $mode, 'offline' => true];
+    }
+
+    require_once __DIR__ . '/../api/mikrotik_api.php';
+
+    $apiIP = !empty($router['wireguard_ip']) && $router['wireguard_ip'] !== '0.0.0.0' ? $router['wireguard_ip'] : $router['ip'];
+    $apiPort = intval($router['port'] ?: 8729);
+
+    try {
+        $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+        $api->connect();
+        $sessions = ($mode === 'pppoe') ? $api->getPppActiveUsers() : $api->getHotspotActiveUsers();
+        $api->close();
+        return ['ok' => true, 'mode' => $mode, 'sessions' => $sessions];
+    } catch (Exception $e) {
+        return ['ok' => false, 'mode' => $mode, 'error' => $e->getMessage()];
+    }
+}
 
 // Function to format remaining time
 function formatRemainingTime($seconds) {
@@ -183,6 +217,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <?php foreach ($routers as $router): ?>
+    <?php if (($router['type'] ?? 'tenda') === 'mikrotik'):
+        $mtk = getMikrotikActiveSessions($router);
+        $mtkStatus = $router['provisioning_status'] ?? 'offline';
+        $mtkChip = $mtkStatus === 'online' ? 'active' : ($mtkStatus === 'provisioning' || $mtkStatus === 'pending' ? 'pending' : 'inactive');
+        $mtkChipLabel = $mtkStatus === 'provisioning' || $mtkStatus === 'pending' ? 'pending' : $mtkStatus;
+    ?>
+    <div class="card" style="margin-bottom:24px">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-router"></i> <?php echo htmlspecialchars($router['name']); ?>
+                <span class="chip <?php echo $mtkChip; ?>"><span class="chip-dot"></span><?php echo htmlspecialchars($mtkChipLabel); ?></span>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+        </div>
+        <div class="card-body">
+            <?php if (!$mtk['ok']): ?>
+                <div class="alert alert-warning" style="margin:16px">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <?php if (!empty($mtk['offline'])): ?>
+                        Router is offline — no connected users available.
+                    <?php else: ?>
+                        Could not reach this router: <?php echo htmlspecialchars($mtk['error'] ?? 'unknown error'); ?>
+                    <?php endif; ?>
+                </div>
+            <?php else:
+                $mtkSessions = $mtk['sessions'] ?? []; ?>
+                <div class="alert alert-info" style="margin:16px">
+                    <i class="fas fa-plug"></i>
+                    <strong><?php echo count($mtkSessions); ?> connected user(s)</strong> via <?php echo $mtk['mode'] === 'pppoe' ? 'PPPoE' : 'Hotspot'; ?> RADIUS
+                </div>
+                <?php if ($mtkSessions): ?>
+                    <div class="table-wrapper">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>IP Address</th>
+                                    <th>MAC / Caller ID</th>
+                                    <th>Uptime</th>
+                                    <th>Traffic In</th>
+                                    <th>Traffic Out</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($mtkSessions as $s): ?>
+                                <tr>
+                                    <td style="font-weight:500"><?php echo htmlspecialchars($s['user'] ?? $s['name'] ?? '—'); ?></td>
+                                    <td><?php echo htmlspecialchars($s['address'] ?? '—'); ?></td>
+                                    <td><code><?php echo htmlspecialchars($s['mac-address'] ?? $s['caller-id'] ?? '—'); ?></code></td>
+                                    <td><?php echo htmlspecialchars($s['uptime'] ?? '—'); ?></td>
+                                    <td><?php echo htmlspecialchars(fmtBytes($s['bytes-in'] ?? 0)); ?></td>
+                                    <td><?php echo htmlspecialchars(fmtBytes($s['bytes-out'] ?? 0)); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state" style="padding:40px">
+                        <div class="empty-state-icon"><i class="fas fa-wifi"></i></div>
+                        <h3>No connected users</h3>
+                        <p>No active sessions right now on this router.</p>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php continue; endif; ?>
+
     <div class="card" style="margin-bottom:24px">
         <div class="card-header">
             <div class="card-title">

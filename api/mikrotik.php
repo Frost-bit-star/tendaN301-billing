@@ -115,7 +115,8 @@ function removeWireGuardPeer($peerPubKey) {
     return $returnCode === 0;
 }
 
-function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId) {
+function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId, $mode = 'hotspot') {
+    $mode = in_array($mode, ['hotspot', 'pppoe'], true) ? $mode : 'hotspot';
     $listenPort = getServerWgPort();
     $timestamp = date('Ymd_His');
     $serverHost = getServerHost();
@@ -127,6 +128,7 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script = "# Jasiri WiFi Auto-Provisioning Script\n";
     $script .= "# Device: $name - $deviceId\n";
     $script .= "# Generated: " . date('Y-m-d H:i:s') . " UTC\n";
+    $script .= "# Service Mode: $mode\n";
     $script .= "# Client WireGuard IP: $wireguardIP\n\n";
 
     $script .= "/system identity set name=\"$name\"\n\n";
@@ -143,10 +145,13 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= "/ip address add address=10.10.0.1/24 comment=\"Added by Jasiri\" interface=jasiri-bridge\n";
     $script .= ":do { /ip pool remove [find name=jasiri-pool] } on-error={}\n";
     $script .= "/ip pool add name=jasiri-pool ranges=10.10.0.2-10.10.0.254\n";
-    $script .= ":do { /ip dhcp-server remove [find name=jasiri-dhcp] } on-error={}\n";
-    $script .= "/ip dhcp-server add address-pool=jasiri-pool disabled=no interface=jasiri-bridge name=jasiri-dhcp\n";
-    $script .= ":do { /ip dhcp-server network remove [find address~\"10.10.0.0\"] } on-error={}\n";
-    $script .= "/ip dhcp-server network add address=10.10.0.0/24 dns-server=10.10.0.1,8.8.8.8,8.8.4.4 gateway=10.10.0.1\n\n";
+    if ($mode !== 'pppoe') {
+        $script .= ":do { /ip dhcp-server remove [find name=jasiri-dhcp] } on-error={}\n";
+        $script .= "/ip dhcp-server add address-pool=jasiri-pool disabled=no interface=jasiri-bridge name=jasiri-dhcp\n";
+        $script .= ":do { /ip dhcp-server network remove [find address~\"10.10.0.0\"] } on-error={}\n";
+        $script .= "/ip dhcp-server network add address=10.10.0.0/24 dns-server=10.10.0.1,8.8.8.8,8.8.4.4 gateway=10.10.0.1\n";
+    }
+    $script .= "\n";
 
     $script .= ":do { /radius remove [find service=hotspot] } on-error={}\n";
     $script .= ":do { /radius remove [find service=ppp] } on-error={}\n";
@@ -241,24 +246,36 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId)
     $script .= ":do { /ip firewall nat remove [find comment=\"Jasiri Internet Access\"] } on-error={}\n";
     $script .= "/ip firewall nat add action=masquerade chain=srcnat comment=\"Jasiri Internet Access\"\n\n";
 
-    $script .= "# --- Hotspot / Captive Portal ---\n";
-    $script .= ":do { /ip hotspot profile remove [find name=hs-prof1] } on-error={}\n";
-    $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login=http-pap\n\n";
+    if ($mode === 'pppoe') {
+        $script .= "# --- PPPoE Server (WISP) ---\n";
+        $script .= ":do { /ppp profile remove [find name=jasiri-pppoe] } on-error={}\n";
+        $script .= "/ppp profile add name=jasiri-pppoe local-address=10.10.0.1 remote-address=jasiri-pool dns-server=10.10.0.1,8.8.8.8,8.8.4.4 comment=\"Jasiri PPPoE Profile\"\n";
+        $script .= ":do { /interface pppoe-server server remove [find name=jasiri-pppoe] } on-error={}\n";
+        $script .= "/interface pppoe-server server add name=jasiri-pppoe interface=jasiri-bridge service-name=jasiri default-profile=jasiri-pppoe authentication=pap,chap,mschap1,mschap2 one-session-per-host=yes max-mtu=1480 max-mru=1480 keepalive-timeout=60\n";
+        $script .= "/interface pppoe-server server enable [find name=\"jasiri-pppoe\"]\n\n";
+        $script .= "# PPPoE user accounts are managed via RADIUS (service=ppp) by the Jasiri server\n\n";
+    } else {
+        $script .= "# --- Hotspot / Captive Portal ---\n";
+        $script .= ":do { /ip hotspot profile remove [find name=hs-prof1] } on-error={}\n";
+        $script .= "/ip hotspot profile add name=hs-prof1 hotspot-address=10.10.0.1 dns-name=jasiri.local login=http-pap\n\n";
 
-    $script .= ":do { /ip hotspot remove [find name=hotspot1] } on-error={}\n";
-    $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1\n";
-    $script .= "/ip hotspot enable [find name=\"hotspot1\"]\n\n";
+        $script .= ":do { /ip hotspot remove [find name=hotspot1] } on-error={}\n";
+        $script .= "/ip hotspot add name=hotspot1 interface=jasiri-bridge address-pool=jasiri-pool profile=hs-prof1\n";
+        $script .= "/ip hotspot enable [find name=\"hotspot1\"]\n\n";
 
-    $script .= ":do { /ip hotspot walled-garden remove [find dst-host~\"jasiri\"] } on-error={}\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site\n";
-    $script .= "/ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site\n\n";
+        $script .= ":do { /ip hotspot walled-garden remove [find dst-host~\"jasiri\"] } on-error={}\n";
+        $script .= "/ip hotspot walled-garden add action=allow dst-host=jasiri.stackverify.site\n";
+        $script .= "/ip hotspot walled-garden add action=allow dst-host=*.jasiri.stackverify.site\n\n";
 
-    $script .= ":do { /ip dns static remove [find name=jasiri.local] } on-error={}\n";
-    $script .= "/ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m\n\n";
+        $script .= ":do { /ip dns static remove [find name=jasiri.local] } on-error={}\n";
+        $script .= "/ip dns static add name=jasiri.local address=10.10.0.1 ttl=1m\n\n";
+    }
 
     $script .= "/ip dns set allow-remote-requests=yes servers=8.8.8.8,8.8.4.4\n\n";
 
-    $script .= "/tool fetch mode={$serverScheme} url=\"{$serverScheme}://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=hotspot/login.html keep-result=yes as-value\n\n";
+    if ($mode === 'hotspot') {
+        $script .= "/tool fetch mode={$serverScheme} url=\"{$serverScheme}://{$serverHost}/api/hotspot_login.php?device={$deviceId}\" dst-path=hotspot/login.html keep-result=yes as-value\n\n";
+    }
 
     $script .= "/log info \"Jasiri WiFi provisioning completed successfully\"\n";
     $script .= "/log info \"Device ID: $deviceId\"\n";
@@ -426,8 +443,13 @@ if ($method === 'POST') {
             jsonResponse(['error' => 'router_id required'], 400);
         }
 
-        $stmt = $db->prepare("UPDATE routers SET provisioning_status = 'online', last_provisioned_at = :ts WHERE id = :id");
-        $stmt->execute([':ts' => date('Y-m-d H:i:s'), ':id' => $routerId]);
+        $serviceMode = $input['services']['service_mode'] ?? 'hotspot';
+        if (!in_array($serviceMode, ['hotspot', 'pppoe'], true)) {
+            $serviceMode = 'hotspot';
+        }
+
+        $stmt = $db->prepare("UPDATE routers SET provisioning_status = 'online', last_provisioned_at = :ts, service_mode = :mode WHERE id = :id");
+        $stmt->execute([':ts' => date('Y-m-d H:i:s'), ':id' => $routerId, ':mode' => $serviceMode]);
 
         jsonResponse(['success' => true, 'message' => 'Configuration saved']);
     }
@@ -543,7 +565,7 @@ if ($method === 'GET') {
             jsonResponse(['error' => 'Invalid token'], 404);
         }
 
-        $provData = generateProvisionScript($db, $router['id'], $router['name'], $router['wireguard_ip'], $router['device_id']);
+        $provData = generateProvisionScript($db, $router['id'], $router['name'], $router['wireguard_ip'], $router['device_id'], $router['service_mode'] ?? 'hotspot');
 
         if (isset($provData['error'])) {
             jsonResponse(['error' => $provData['error']], 500);

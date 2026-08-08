@@ -304,6 +304,10 @@ class MikroTikAPI {
         return $this->command(['/ip/hotspot/active/print']);
     }
 
+    public function getPppActiveUsers() {
+        return $this->command(['/ppp/active/print']);
+    }
+
     public function getHotspotUserStats() {
         return $this->command(['/ip/hotspot/user/stats/print']);
     }

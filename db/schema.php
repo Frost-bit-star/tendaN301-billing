@@ -46,6 +46,9 @@ addColumnIfMissing($db, 'routers', 'wg_pubkey', 'TEXT');
 // Saved wireless SSID for this router (used on printed vouchers)
 addColumnIfMissing($db, 'routers', 'ssid', 'TEXT');
 
+// Access service mode: 'hotspot' (captive portal) or 'pppoe' (PPPoE server)
+addColumnIfMissing($db, 'routers', 'service_mode', "TEXT DEFAULT 'hotspot'");
+
 // -------------------------
 // Plans table
 // -------------------------
