@@ -175,6 +175,21 @@ addColumnIfMissing($db, 'routers', 'tenant_id', 'INTEGER DEFAULT NULL');
 addColumnIfMissing($db, 'accounts', 'currency', "TEXT DEFAULT 'TZS'");
 addColumnIfMissing($db, 'admins', 'currency', "TEXT DEFAULT 'TZS'");
 
+// Admin management (superadmin delegates to general admins)
+addColumnIfMissing($db, 'admins', 'role', "TEXT DEFAULT 'admin'");           // 'superadmin' or 'admin'
+addColumnIfMissing($db, 'admins', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited
+addColumnIfMissing($db, 'admins', 'status', 'INTEGER DEFAULT 1');             // 1 = active, 0 = disabled
+addColumnIfMissing($db, 'admins', 'created_by', 'INTEGER DEFAULT NULL');      // superadmin id who created them
+
+// Attribute voucher creation to an admin (used for per-admin usage limits)
+addColumnIfMissing($db, 'vouchers', 'created_by', 'INTEGER DEFAULT NULL');
+
+// Bootstrap: guarantee at least one superadmin exists (promote the original seed admin)
+$superCount = (int)$db->query("SELECT COUNT(*) FROM admins WHERE role = 'superadmin'")->fetchColumn();
+if ($superCount === 0) {
+    $db->exec("UPDATE admins SET role = 'superadmin' WHERE id = (SELECT id FROM admins ORDER BY id ASC LIMIT 1)");
+}
+
 // -------------------------
 // Add missing columns for devices table if script re-run
 // -------------------------

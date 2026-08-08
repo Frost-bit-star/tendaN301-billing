@@ -34,6 +34,11 @@ if ($method === 'POST') {
     $action = $input['action'] ?? 'generate';
 
     if ($action === 'generate') {
+        // Require an authenticated session (admins, or tenant users)
+        if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+            jsonResponse(['error' => 'Not authenticated'], 401);
+        }
+
         $planId = $input['plan_id'] ?? null;
         $routerId = $input['router_id'] ?? null;
         $phone = trim($input['phone'] ?? '');
@@ -41,6 +46,21 @@ if ($method === 'POST') {
         $price = floatval($input['price'] ?? 0);
         $quantity = max(1, min(100, intval($input['quantity'] ?? 1)));
         $expiresAt = $input['expires_at'] ?? null;
+
+        // General admins are capped by their voucher_limit (superadmins & tenants unlimited)
+        $adminId = $_SESSION['admin_id'] ?? null;
+        if ($_SESSION['role'] === 'admin' && $adminId) {
+            $stmt = $db->prepare("SELECT voucher_limit FROM admins WHERE id = ? AND status = 1");
+            $stmt->execute([$adminId]);
+            $limit = (int)$stmt->fetchColumn();
+            $limit = $limit === 0 ? -1 : $limit; // 0 not a valid limit, treat as unlimited
+            if ($limit > 0) {
+                $used = (int)$db->query("SELECT COUNT(*) FROM vouchers WHERE created_by = $adminId")->fetchColumn();
+                if ($used + $quantity > $limit) {
+                    jsonResponse(['error' => "Voucher limit reached. You have created $used of $limit allowed vouchers."], 403);
+                }
+            }
+        }
 
         if (!$planId) {
             jsonResponse(['error' => 'Plan is required'], 400);
@@ -62,8 +82,8 @@ if ($method === 'POST') {
 
         $vouchers = [];
         $stmt = $db->prepare("
-            INSERT INTO vouchers (code, plan_id, router_id, phone, customer_name, price, status, expires_at)
-            VALUES (:code, :plan_id, :router_id, :phone, :customer_name, :price, 'active', :expires_at)
+            INSERT INTO vouchers (code, plan_id, router_id, phone, customer_name, price, status, expires_at, created_by)
+            VALUES (:code, :plan_id, :router_id, :phone, :customer_name, :price, 'active', :expires_at, :created_by)
         ");
 
         for ($i = 0; $i < $quantity; $i++) {
@@ -85,6 +105,7 @@ if ($method === 'POST') {
                 ':customer_name' => $customerName,
                 ':price' => $price,
                 ':expires_at' => $expiresAt,
+                ':created_by' => $adminId,
             ]);
 
             $vouchers[] = [

@@ -76,16 +76,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'login') {
     $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
-    $role     = $_POST['role'] ?? '';
 
     $stmt = $db->prepare("SELECT * FROM admins WHERE username = :username LIMIT 1");
     $stmt->execute([':username' => $username]);
     $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($admin && password_verify($password, $admin['password'])) {
+    if (!$admin) {
+        $errorMessage = 'Invalid username or password.';
+    } elseif ((int)($admin['status'] ?? 1) !== 1) {
+        $errorMessage = 'This admin account has been disabled. Contact the super admin.';
+    } elseif (password_verify($password, $admin['password'])) {
         $_SESSION['logged_in'] = true;
         $_SESSION['username'] = $username;
-        $_SESSION['role'] = $role;
+        $_SESSION['admin_id'] = (int)$admin['id'];
+        // Role comes from the database, never from the form radio buttons
+        $_SESSION['role'] = $admin['role'] ?: 'admin';
         $_SESSION['currency'] = $admin['currency'] ?: 'TZS';
 
         header('Location: /dashboard');
