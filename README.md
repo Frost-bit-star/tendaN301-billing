@@ -1,3 +1,109 @@
+# Captive Portal Project
+
+[![Status](https://img.shields.io/badge/status-active-brightgreen)](https://shields.io/)
+[![Platform](https://img.shields.io/badge/platform-MikroTik-blue)](https://www.mikrotik.com/)
+[![Deployment](https://img.shields.io/badge/deployment-ready-success)](https://shields.io/)
+[![Voucher](https://img.shields.io/badge/voucher-supported-success)](https://shields.io/)
+[![M--Pesa](https://img.shields.io/badge/M--Pesa-supported-success)](https://shields.io/)
+[![PPPoE](https://img.shields.io/badge/PPPoE-supported-success)](https://shields.io/)
+
+## Project Status
+
+The **Tenda project has been deprecated and is no longer maintained**.
+
+Development has moved away from the Tenda implementation. The **`master` branch now contains the complete MikroTik codebase and is ready for deployment**.
+
+For new deployments, use the **`master` branch**.
+
+## Master Branch
+
+The `master` branch contains the current and complete **MikroTik implementation**, including support for:
+
+* MikroTik HotSpot / captive portal
+* Voucher authentication
+* M-Pesa integration
+* PPPoE
+* Deployment-ready configuration and code
+
+[![MikroTik](https://img.shields.io/badge/MikroTik-supported-blue)](https://www.mikrotik.com/)
+[![Voucher](https://img.shields.io/badge/Voucher-supported-success)](https://shields.io/)
+[![M--Pesa](https://img.shields.io/badge/M--Pesa-supported-success)](https://shields.io/)
+[![PPPoE](https://img.shields.io/badge/PPPoE-supported-success)](https://shields.io/)
+
+The `master` branch should be considered the **primary branch for deployment and future development**.
+
+## Branch Status
+
+| Branch       | Status                                                                                            | Purpose                                       |
+| ------------ | ------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `master`     | [![Deployment Ready](https://img.shields.io/badge/deployment-ready-success)](https://shields.io/) | Full MikroTik codebase and current deployment |
+| Tenda branch | [![Deprecated](https://img.shields.io/badge/status-deprecated-red)](https://shields.io/)          | Legacy Tenda reverse-engineering              |
+
+## Tenda Project
+
+The original project was focused on the **Tenda captive portal and reverse-engineering work**.
+
+That implementation has now been **deprecated** and is **no longer maintained**.
+
+The Tenda code is retained for historical and reference purposes only. No new features, deployments, or maintenance should be expected for the Tenda implementation.
+
+[![Tenda](https://img.shields.io/badge/Tenda-deprecated-red)](https://shields.io/)
+[![Maintenance](https://img.shields.io/badge/maintenance-unmaintained-lightgrey)](https://shields.io/)
+[![Legacy](https://img.shields.io/badge/legacy-archived-orange)](https://shields.io/)
+
+## MikroTik Deployment
+
+The recommended deployment target is now **MikroTik**.
+
+The `master` branch provides the full codebase required for deployment, including:
+
+| Component              | Status    |
+| ---------------------- | --------- |
+| MikroTik HotSpot       | Supported |
+| Captive Portal         | Supported |
+| Voucher Authentication | Supported |
+| M-Pesa                 | Supported |
+| PPPoE                  | Supported |
+| Deployment             | Ready     |
+
+## Project Direction
+
+```text
+Tenda
+  |
+  +-- Reverse Engineering
+  +-- Legacy Code
+  +-- Deprecated
+  +-- No Longer Maintained
+  |
+  v
+MikroTik
+  |
+  +-- Full Codebase
+  +-- Voucher Support
+  +-- M-Pesa Support
+  +-- PPPoE Support
+  +-- Captive Portal
+  +-- Deployment Ready
+```
+
+## Important Notice
+
+The **Tenda implementation is deprecated and no longer maintained**.
+
+The **`master` branch is the primary branch** and contains the complete MikroTik codebase ready for deployment.
+
+For all new installations, deployments, bug fixes, and future development, use **`master`**.
+
+---
+
+[![MikroTik](https://img.shields.io/badge/MikroTik-production-blue)](https://www.mikrotik.com/)
+[![Deployment](https://img.shields.io/badge/deployment-ready-success)](https://shields.io/)
+[![Voucher](https://img.shields.io/badge/voucher-supported-success)](https://shields.io/)
+[![M--Pesa](https://img.shields.io/badge/M--Pesa-supported-success)](https://shields.io/)
+[![PPPoE](https://img.shields.io/badge/PPPoE-supported-success)](https://shields.io/)
+
+
 # Tenda Micro-ISP Router Project
 ## inside the device
 
