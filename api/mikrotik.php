@@ -708,5 +708,79 @@ if ($method === 'GET') {
         ]);
     }
 
+    if ($action === 'platform_stats') {
+        if (($_SESSION['role'] ?? '') !== 'superadmin') {
+            jsonResponse(['error' => 'Forbidden'], 403);
+        }
+
+        $routers = $db->query("SELECT * FROM routers WHERE type = 'mikrotik' ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+        $onlineDevices = 0;
+        foreach ($routers as $r) {
+            if (isRouterOnlineWg($r)) $onlineDevices++;
+        }
+
+        $totalAdmins = $db->query("SELECT COUNT(*) FROM accounts")->fetchColumn();
+        $activeAdmins = $db->query("SELECT COUNT(*) FROM accounts WHERE status = 1")->fetchColumn();
+        $disabledAdmins = $totalAdmins - $activeAdmins;
+
+        $totalRevenue = $db->query("SELECT COALESCE(SUM(price), 0) FROM vouchers WHERE status = 'used'")->fetchColumn();
+        $monthRevenue = $db->query("SELECT COALESCE(SUM(price), 0) FROM vouchers WHERE status = 'used' AND used_at >= date('now', 'start of month')")->fetchColumn();
+        $todayRevenue = $db->query("SELECT COALESCE(SUM(price), 0) FROM vouchers WHERE status = 'used' AND date(used_at) = date('now')")->fetchColumn();
+
+        $totalVouchers = $db->query("SELECT COUNT(*) FROM vouchers")->fetchColumn();
+        $monthVouchers = $db->query("SELECT COUNT(*) FROM vouchers WHERE status = 'used' AND used_at >= date('now', 'start of month')")->fetchColumn();
+        $activeVouchers = $db->query("SELECT COUNT(*) FROM vouchers WHERE status = 'active'")->fetchColumn();
+
+        $revenueByMonth = $db->query("
+            SELECT strftime('%Y-%m', used_at) as month, SUM(price) as revenue, COUNT(*) as count
+            FROM vouchers WHERE status = 'used'
+            GROUP BY strftime('%Y-%m', used_at)
+            ORDER BY month DESC LIMIT 6
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        $tenants = $db->query("
+            SELECT a.id, a.name, a.email, a.voucher_limit, a.status, a.created_at,
+                   (SELECT COUNT(*) FROM routers r WHERE r.tenant_id = a.id) AS routers_count,
+                   (SELECT COUNT(*) FROM vouchers v WHERE v.created_by = a.id) AS vouchers_count,
+                   (SELECT COUNT(*) FROM vouchers v WHERE v.created_by = a.id AND v.status = 'used') AS vouchers_used,
+                   (SELECT COALESCE(SUM(price), 0) FROM vouchers v WHERE v.created_by = a.id AND v.status = 'used') AS revenue
+            FROM accounts a
+            ORDER BY revenue DESC
+        ")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($tenants as &$t) {
+            $t['voucher_limit'] = (int)$t['voucher_limit'];
+            $t['status'] = (int)$t['status'];
+            $t['routers_count'] = (int)$t['routers_count'];
+            $t['vouchers_count'] = (int)$t['vouchers_count'];
+            $t['vouchers_used'] = (int)$t['vouchers_used'];
+            $t['revenue'] = floatval($t['revenue']);
+        }
+
+        $recentVouchers = $db->query("
+            SELECT v.id, v.code, v.status, v.price, v.used_at, v.created_at, a.name AS account_name
+            FROM vouchers v
+            LEFT JOIN accounts a ON a.id = v.created_by
+            ORDER BY v.created_at DESC, v.id DESC LIMIT 10
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        jsonResponse([
+            'total_admins' => (int)$totalAdmins,
+            'active_admins' => (int)$activeAdmins,
+            'disabled_admins' => (int)$disabledAdmins,
+            'total_routers' => count($routers),
+            'online_routers' => $onlineDevices,
+            'offline_routers' => count($routers) - $onlineDevices,
+            'total_revenue' => floatval($totalRevenue),
+            'month_revenue' => floatval($monthRevenue),
+            'today_revenue' => floatval($todayRevenue),
+            'total_vouchers' => (int)$totalVouchers,
+            'month_vouchers' => (int)$monthVouchers,
+            'active_vouchers' => (int)$activeVouchers,
+            'revenue_by_month' => $revenueByMonth,
+            'tenants' => $tenants,
+            'recent_vouchers' => $recentVouchers,
+        ]);
+    }
+
     jsonResponse(['error' => 'Invalid request'], 400);
 }

@@ -78,7 +78,7 @@ if (!isset($_SESSION['logged_in']) && !in_array($page, $publicPages)) {
 
 if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     // Super-admin-only pages
-    $superAdminOnlyPages = ['admins'];
+    $superAdminOnlyPages = ['admins', 'admin_dashboard'];
     if (in_array($page, $superAdminOnlyPages) && ($_SESSION['role'] ?? '') !== 'superadmin') {
         http_response_code(403);
         require __DIR__ . "/pages/403.php";
@@ -86,7 +86,7 @@ if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
     }
 
     if ($_SESSION['role'] === 'admin') {
-        $allowedPagesForAdmin = ['home', 'dashboard', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue', 'support', 'reports', 'plans', 'billing', 'mikrotik', 'add_router', 'view', 'marketing', 'settings', 'admins'];
+        $allowedPagesForAdmin = ['home', 'dashboard', 'admin_dashboard', 'billuser', 'users', 'login', 'logout', 'register', 'connect_mikrotik', 'mikrotik_devices', 'vouchers', 'revenue', 'support', 'reports', 'plans', 'billing', 'mikrotik', 'add_router', 'view', 'marketing', 'settings', 'admins'];
         if (!in_array($page, $allowedPagesForAdmin)) {
             http_response_code(403);
             require __DIR__ . "/pages/403.php";

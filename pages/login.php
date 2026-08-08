@@ -97,7 +97,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $_SESSION['role'] = $admin['role'] ?: 'admin';
         $_SESSION['currency'] = $admin['currency'] ?: 'TZS';
 
-        header('Location: /dashboard');
+        // Super admin runs the platform (manages tenant admins); general staff see the WISP dashboard
+        header('Location: ' . (($_SESSION['role'] === 'superadmin') ? '/admin_dashboard' : '/dashboard'));
         exit;
     } else {
         $errorMessage = 'Invalid username or password.';
