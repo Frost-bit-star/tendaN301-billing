@@ -73,6 +73,92 @@ function formatRemainingTime($seconds) {
     return "{$days}d {$hours}h {$minutes}m {$secs}s";
 }
 
+// Parse a MikroTik duration string ("26m7s", "1h23m", "2d03:45:12") into seconds
+function parseMikrotikDuration($str) {
+    $str = trim((string)$str);
+    if ($str === '' || $str === '-' || $str === '0' || $str === '0s' || $str === '0m') return null;
+
+    // Colon formats: "HH:MM:SS" or "XdHH:MM:SS"
+    if (preg_match('/^(\d+)d\s*(\d+):(\d+):(\d+)$/i', $str, $m)) {
+        return ((int)$m[1] * 86400) + ((int)$m[2] * 3600) + ((int)$m[3] * 60) + (int)$m[4];
+    }
+    if (preg_match('/^(\d+):(\d+):(\d+)$/', $str, $m)) {
+        return ((int)$m[1] * 3600) + ((int)$m[2] * 60) + (int)$m[3];
+    }
+
+    // Unit style: "26m7s", "1h23m", "1w2d3h4m5s"
+    $sec = 0;
+    if (preg_match_all('/(\d+)\s*(w|d|h|m|s)/i', $str, $m, PREG_SET_ORDER)) {
+        foreach ($m as $t) {
+            $v = (int)$t[1];
+            switch (strtolower($t[2])) {
+                case 'w': $sec += $v * 604800; break;
+                case 'd': $sec += $v * 86400; break;
+                case 'h': $sec += $v * 3600; break;
+                case 'm': $sec += $v * 60; break;
+                case 's': $sec += $v; break;
+            }
+        }
+        return $sec;
+    }
+    return null;
+}
+
+// Timing for a connected MikroTik session. When the username is a voucher
+// code, derive everything from the plan: used time since used_at, the ending
+// time (used_at + plan duration) and the remaining time. Falls back to the
+// router's own session-time-left when there is no matching voucher.
+function getMikrotikSessionTiming($db, $routerId, $session) {
+    $now = time();
+    $username = $session['user'] ?? $session['name'] ?? null;
+
+    $routerLeft = parseMikrotikDuration($session['session-time-left'] ?? '');
+
+    if ($username !== null) {
+        $stmt = $db->prepare("
+            SELECT v.used_at, p.days, p.hours, p.minutes
+            FROM vouchers v
+            LEFT JOIN plans p ON v.plan_id = p.id
+            WHERE v.code = ? AND v.router_id = ? AND v.status = 'used'
+            ORDER BY v.used_at DESC LIMIT 1
+        ");
+        $stmt->execute([$username, $routerId]);
+        $v = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($v && $v['used_at']) {
+            $total = ((int)$v['days'] * 86400) + ((int)$v['hours'] * 3600) + ((int)$v['minutes'] * 60);
+            $startTs = strtotime($v['used_at']);
+            if ($total > 0 && $startTs) {
+                $endTs = $startTs + $total;
+                return [
+                    'start_ts'          => $startTs,
+                    'end_ts'            => $endTs,
+                    'used_seconds'      => max(0, $now - $startTs),
+                    'remaining_seconds' => max(0, $endTs - $now),
+                    'source'            => 'plan',
+                ];
+            }
+        }
+    }
+
+    if ($routerLeft !== null) {
+        return [
+            'start_ts'          => null,
+            'end_ts'            => $now + $routerLeft,
+            'used_seconds'      => null,
+            'remaining_seconds' => $routerLeft,
+            'source'            => 'router',
+        ];
+    }
+
+    return [
+        'start_ts'          => null,
+        'end_ts'            => null,
+        'used_seconds'      => null,
+        'remaining_seconds' => null,
+        'source'            => null,
+    ];
+}
+
 // Fetch every device the router knows about: whitelist (allowed), blacklist (blocked) and online clients
 function getRouterDevices($routerId) {
     $url = "/auth/v2.php";
@@ -272,17 +358,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <th>IP Address</th>
                                     <th>MAC / Caller ID</th>
                                     <th>Uptime</th>
+                                    <th>Used Time</th>
+                                    <th>Remaining Time</th>
+                                    <th>Ends At</th>
                                     <th>Traffic In</th>
                                     <th>Traffic Out</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($mtkSessions as $s): ?>
+                                <?php foreach ($mtkSessions as $s):
+                                    $tm = getMikrotikSessionTiming($db, $router['id'], $s); ?>
                                 <tr>
                                     <td style="font-weight:500"><?php echo htmlspecialchars($s['user'] ?? $s['name'] ?? '—'); ?></td>
                                     <td><?php echo htmlspecialchars($s['address'] ?? '—'); ?></td>
                                     <td><code><?php echo htmlspecialchars($s['mac-address'] ?? $s['caller-id'] ?? '—'); ?></code></td>
                                     <td><?php echo htmlspecialchars($s['uptime'] ?? '—'); ?></td>
+                                    <td>
+                                        <?php if ($tm['used_seconds'] !== null): ?>
+                                            <span class="time-used" data-live="1" data-start="<?php echo $tm['start_ts']; ?>"><?php echo formatRemainingTime($tm['used_seconds']); ?></span>
+                                        <?php else: ?>
+                                            <span style="color:var(--on-surface-med)">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($tm['remaining_seconds'] !== null): ?>
+                                            <span class="remaining-time" data-remain-until="<?php echo time() + $tm['remaining_seconds']; ?>"><?php echo formatRemainingTime($tm['remaining_seconds']); ?></span>
+                                        <?php else: ?>
+                                            <span style="color:var(--on-surface-med)">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($tm['end_ts']): ?>
+                                            <span title="<?php echo htmlspecialchars(date('Y-m-d H:i:s', $tm['end_ts'])); ?>"><?php echo date('D, M j Y H:i', $tm['end_ts']); ?></span>
+                                        <?php else: ?>
+                                            <span style="color:var(--on-surface-med)">—</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?php echo htmlspecialchars(fmtBytes($s['bytes-in'] ?? 0)); ?></td>
                                     <td><?php echo htmlspecialchars(fmtBytes($s['bytes-out'] ?? 0)); ?></td>
                                 </tr>
@@ -607,6 +718,13 @@ function updateClock() {
         const start = parseInt(td.dataset.start, 10);
         if (!start) return;
         td.textContent = fmtDur(nowSec - start);
+    });
+
+    // Count down remaining time for connected MikroTik sessions
+    document.querySelectorAll('.remaining-time[data-remain-until]').forEach(td => {
+        const until = parseInt(td.dataset.remainUntil, 10);
+        if (isNaN(until)) return;
+        td.textContent = fmtDur(until - nowSec);
     });
 }
 
