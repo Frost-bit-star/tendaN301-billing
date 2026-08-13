@@ -3,7 +3,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once __DIR__ . '/../db/schema.php';
+require_once __DIR__ . '/../db/locale.php';
 require_once __DIR__ . '/../api/mikrotik_api.php';
+
+$appCurrencySymbol = $appCurrencyMap[$_SESSION['currency'] ?? 'TZS'] ?? 'TSh';
+appSetTimezone($_SESSION['timezone'] ?? $defaultTimezone);
 
 $routerDeviceId = $_GET['router'] ?? '';
 $clientMAC = $_GET['mac'] ?? $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
@@ -24,6 +28,14 @@ $router = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$router) {
     $stmt = $db->query("SELECT * FROM routers WHERE type = 'mikrotik' LIMIT 1");
     $router = $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+// Use the router owner's configured timezone so activation timestamps are correct
+if ($router && !empty($router['tenant_id'])) {
+    $tzStmt = $db->prepare("SELECT timezone FROM accounts WHERE id = ?");
+    $tzStmt->execute([$router['tenant_id']]);
+    $tenantTz = $tzStmt->fetchColumn();
+    if ($tenantTz) appSetTimezone($tenantTz);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {

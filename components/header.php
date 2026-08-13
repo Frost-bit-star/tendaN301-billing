@@ -1,6 +1,9 @@
 <?php
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+require_once __DIR__ . '/../db/locale.php';
+appSetTimezone($_SESSION['timezone'] ?? $defaultTimezone);
+
 $pageTitle  = $pageTitle  ?? 'Admin Dashboard';
 $activePage = $activePage ?? basename(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 $adminName  = $_SESSION['username'] ?? 'Admin';
@@ -11,18 +14,6 @@ $_cur = basename(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
 
 function _navActive($page) { global $_cur; return $_cur === $page ? 'active' : ''; }
 
-$appCurrencyMap = [
-    'TZS' => 'TSh',
-    'KES' => 'KES',
-    'USD' => '$',
-    'UGX' => 'UGX',
-    'RWF' => 'RWF',
-    'NGN' => 'NGN',
-    'ZMW' => 'K',
-    'GHS' => 'GH₵',
-    'XOF' => 'FCFA',
-    'MWK' => 'MK',
-];
 $appCurrencyCode = $_SESSION['currency'] ?? 'TZS';
 $appCurrencySymbol = $appCurrencyMap[$appCurrencyCode] ?? $appCurrencyCode;
 ?>
@@ -44,6 +35,7 @@ $appCurrencySymbol = $appCurrencyMap[$appCurrencyCode] ?? $appCurrencyCode;
     <script>
     window.APP_CURRENCY = '<?= htmlspecialchars($appCurrencySymbol, ENT_QUOTES) ?>';
     window.APP_CURRENCY_CODE = '<?= htmlspecialchars($appCurrencyCode, ENT_QUOTES) ?>';
+    window.APP_TIMEZONE = '<?= htmlspecialchars($_SESSION['timezone'] ?? $defaultTimezone, ENT_QUOTES) ?>';
     function navActive(p) { return location.pathname.replace(/\/+$/, '') === ('/' + p) ? 'active' : ''; }
     function navOpen(pages) { return pages.indexOf(location.pathname.replace(/\/+$/, '').split('/').pop()) !== -1; }
     function _esc(s) {
@@ -112,32 +104,44 @@ $appCurrencySymbol = $appCurrencyMap[$appCurrencyCode] ?? $appCurrencyCode;
             </div>
             <div class="nav-submenu">
                 <a href="connect_mikrotik" class="nav-item <?= _navActive('connect_mikrotik') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 3v8h2V7.41L15.59 18H11v2h10V10h-2v4.59L8.41 4H13V2H3z"/></svg></span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></span>
                     <span class="nav-label">Connect Device</span>
                 </a>
                 <a href="mikrotik_devices" class="nav-item <?= _navActive('mikrotik_devices') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.07 15.93 0 13.35 0c-1.49 0-2.81.7-3.7 1.79L9 3l-.65-.21C7.48.7 6.16 0 4.65 0 2.07 0 0 2.07 0 4.65c0 .47.11.91.18 1.35H0v14h20V6zm-7-4.35c.55-.68 1.38-1.08 2.28-1.08 1.56 0 2.82 1.25 2.82 2.8 0 .48-.13.91-.31 1.31L11.38 4.5V2.73l1.62-.08zM1.85 4.65c0-1.55 1.26-2.8 2.82-2.8.9 0 1.73.4 2.28 1.08v1.77l-1.62.08-1.17.19c-.18-.4-.31-.83-.31-1.32zM18 18H2V8h16v10z"/></svg></span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg></span>
                     <span class="nav-label">View Devices</span>
                 </a>
                 <a href="vouchers" class="nav-item <?= _navActive('vouchers') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 6h-2.18c.07-.44.18-.88.18-1.35C18 2.07 15.93 0 13.35 0c-1.49 0-2.81.7-3.7 1.79L9 3l-.65-.21C7.48.7 6.16 0 4.65 0 2.07 0 0 2.07 0 4.65c0 .47.11.91.18 1.35H0v14h20V6zm-7-4.35c.55-.68 1.38-1.08 2.28-1.08 1.56 0 2.82 1.25 2.82 2.8 0 .48-.13.91-.31 1.31L11.38 4.5V2.73l1.62-.08zM1.85 4.65c0-1.55 1.26-2.8 2.82-2.8.9 0 1.73.4 2.28 1.08v1.77l-1.62.08-1.17.19c-.18-.4-.31-.83-.31-1.32zM18 18H2V8h16v10z"/></svg></span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M22 10V6c0-1.11-.9-2-2-2H4c-1.1 0-1.99.89-1.99 2v4c1.1 0 1.99.9 1.99 2s-.89 2-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c-1.1 0-2-.9-2-2s.9-2 2-2zm-9 7.5h-2v-2h2v2zm0-4.5h-2v-2h2v2zm0-4.5h-2v-2h2v2z"/></svg></span>
                     <span class="nav-label">Vouchers</span>
                 </a>
                 <a href="revenue" class="nav-item <?= _navActive('revenue') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M5 9.2h3V19H5V9.2zM10.6 5h2.8v14h-2.8V5zm5.6 8H19v6h-2.8v-6z"/></svg></span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></span>
                     <span class="nav-label">Revenue</span>
                 </a>
                 <a href="marketing" class="nav-item <?= _navActive('marketing') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM9 11H7V9h2v2zm4 0h-2V9h2v2zm4 0h-2V9h2v2z"/></svg></span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M18 11v2h4v-2h-4zm-2 6.61c.96.71 2.21 1.65 3.2 2.39.4-.53.8-1.07 1.2-1.6-.99-.74-2.24-1.68-3.2-2.4-.4.54-.8 1.08-1.2 1.61zM20 4c-.4.53-.8 1.07-1.2 1.6.99.73 2.24 1.67 3.2 2.4.4-.53.8-1.07 1.2-1.6C22.24 5.67 20.99 4.73 20 4zm-6 16.9h2v-3h-2v3zM4 16.5h3v3c0 1.66 1.34 3 3 3h2c1.66 0 3-1.34 3-3V7.5c0-1.66-1.34-3-3-3h-2c-1.66 0-3 1.34-3 3v3H4c-1.1 0-2 .9-2 2v5c0 1.1.9 2 2 2zm3-3v-2h2v2H7zm0-5h2v3H7v-3z"/></svg></span>
                     <span class="nav-label">Marketing</span>
                 </a>
             </div>
         </div>
 
+        <div class="nav-section-label">Shared</div>
+
+        <a href="users" class="nav-item <?= _navActive('users') ?>">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
+            <span class="nav-label">Manage Users</span>
+        </a>
+
+        <a href="plans" class="nav-item <?= _navActive('plans') ?>">
+            <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg></span>
+            <span class="nav-label">Plans</span>
+        </a>
+
         <div class="nav-section-label">Tenda Routers</div>
 
-        <div class="nav-item-group <?= in_array($_cur, ['view','add_router','billuser','users','billing','plans','mikrotik']) ? 'open' : '' ?>">
-            <div class="nav-item nav-item-parent <?= in_array($_cur, ['view','add_router','billuser','users','billing','plans','mikrotik']) ? 'active' : '' ?>" onclick="toggleSub(this)">
+        <div class="nav-item-group <?= in_array($_cur, ['view','add_router','billuser','billing','mikrotik']) ? 'open' : '' ?>">
+            <div class="nav-item nav-item-parent <?= in_array($_cur, ['view','add_router','billuser','billing','mikrotik']) ? 'active' : '' ?>" onclick="toggleSub(this)">
                 <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M17 7H7C4.24 7 2 9.24 2 12s2.24 5 5 5h10c2.76 0 5-2.24 5-5s-2.24-5-5-5zm0 8H7c-1.66 0-3-1.34-3-3s1.34-3 3-3h10c1.66 0 3 1.34 3 3s-1.34 3-3 3zM7 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></span>
                 <span class="nav-label">Tenda Routers</span>
                 <svg class="chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
@@ -155,20 +159,12 @@ $appCurrencySymbol = $appCurrencyMap[$appCurrencyCode] ?? $appCurrencyCode;
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
                     <span class="nav-label">Add User</span>
                 </a>
-                <a href="users" class="nav-item <?= _navActive('users') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
-                    <span class="nav-label">Manage Users</span>
-                </a>
                 <a href="billing" class="nav-item <?= _navActive('billing') ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></span>
                     <span class="nav-label">Billing</span>
                 </a>
-                <a href="plans" class="nav-item <?= _navActive('plans') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/></svg></span>
-                    <span class="nav-label">Plans</span>
-                </a>
                 <a href="mikrotik" class="nav-item <?= _navActive('mikrotik') ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 7h-8V5h8v2zm0-4h-8v2h8V3zm4 12c0 2.21-1.79 4-4 4h-6v6l-4-4H4c-2.21 0-4-1.79-4-4V4c0-2.21 1.79-4 4-4h16c2.21 0 4 1.79 4 4v11z"/></svg></span>
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M13 22h8v-7h-3v-4h-5V9h3V2H8v7h3v2H6v4H3v7h8v-7H8v-2h8v2h-3v7z"/></svg></span>
                     <span class="nav-label">Wired Devices</span>
                 </a>
             </div>

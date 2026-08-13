@@ -7,6 +7,10 @@ session_start();
 error_reporting(E_ALL & ~E_DEPRECATED);
 ini_set('display_errors', '1');
 
+// Apply the account's chosen server timezone to the whole request
+require_once __DIR__ . '/db/locale.php';
+appSetTimezone($_SESSION['timezone'] ?? $defaultTimezone);
+
 // -----------------------------
 // API v1 routes - bypass session, go direct
 // -----------------------------

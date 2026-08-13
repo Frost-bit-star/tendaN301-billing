@@ -4,6 +4,7 @@ $pageTitle = 'Settings';
 $activePage = 'settings';
 
 require_once __DIR__ . '/../db/schema.php';
+require_once __DIR__ . '/../db/locale.php';
 // schema.php defines $db (single shared connection)
 
 $role    = $_SESSION['role'] ?? 'user';
@@ -11,19 +12,6 @@ $accountId = $_SESSION['account_id'] ?? null;
 
 $msgSuccess = '';
 $msgError   = '';
-
-$currencyOptions = [
-    'TZS' => 'TZS - Tanzanian Shilling (TSh)',
-    'KES' => 'KES - Kenyan Shilling (KES)',
-    'UGX' => 'UGX - Ugandan Shilling (UGX)',
-    'RWF' => 'RWF - Rwandan Franc (RWF)',
-    'NGN' => 'NGN - Nigerian Naira (NGN)',
-    'USD' => 'USD - US Dollar ($)',
-    'ZMW' => 'ZMW - Zambian Kwacha (K)',
-    'GHS' => 'GHS - Ghanaian Cedi (GH₵)',
-    'XOF' => 'XOF - West African Franc (FCFA)',
-    'MWK' => 'MWK - Malawian Kwacha (MK)',
-];
 
 // Load current profile
 if ($role === 'user' && $accountId) {
@@ -55,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!array_key_exists($newCurrency, $currencyOptions)) {
                 $newCurrency = 'TZS';
             }
+            $newTimezone = appValidTimezone($_POST['timezone'] ?? '');
 
             if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
                 $msgError = 'Please enter a valid email address.';
@@ -78,18 +67,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (empty($msgError)) {
                     if ($role === 'user') {
-                        $db->prepare("UPDATE accounts SET name = ?, email = ?, currency = ? WHERE id = ?")
-                           ->execute([$newName, $newEmail, $newCurrency, $profile['id']]);
+                        $db->prepare("UPDATE accounts SET name = ?, email = ?, currency = ?, timezone = ? WHERE id = ?")
+                           ->execute([$newName, $newEmail, $newCurrency, $newTimezone, $profile['id']]);
                         $_SESSION['username'] = $newName;
                     } else {
-                        $db->prepare("UPDATE admins SET email = ?, currency = ? WHERE username = ?")
-                           ->execute([$newEmail, $newCurrency, $profile['username']]);
+                        $db->prepare("UPDATE admins SET email = ?, currency = ?, timezone = ? WHERE username = ?")
+                           ->execute([$newEmail, $newCurrency, $newTimezone, $profile['username']]);
                     }
                     $_SESSION['account_email'] = $newEmail;
                     $_SESSION['currency'] = $newCurrency;
-                    $msgSuccess = 'Profile updated. Currency is now ' . $newCurrency . ' and will persist for your dashboard.';
+                    $_SESSION['timezone'] = $newTimezone;
+                    date_default_timezone_set($newTimezone);
+                    $msgSuccess = 'Profile updated. Currency is now ' . $newCurrency . ' and timezone is now ' . $newTimezone . '.';
                     $profile['email'] = $newEmail;
                     $profile['currency'] = $newCurrency;
+                    $profile['timezone'] = $newTimezone;
                     if ($role === 'user') $profile['name'] = $newName;
                 }
             }
@@ -161,12 +153,23 @@ include __DIR__ . '/../components/header.php';
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="profileCurrency">Dashboard Currency</label>
-                    <select class="form-control" id="profileCurrency" name="currency">
+                    <select class="form-control" id="profileCurrency" name="currency" onchange="filterTimezones()">
                         <?php foreach ($currencyOptions as $code => $label): ?>
                             <option value="<?= $code ?>" <?= (($profile['currency'] ?? 'TZS') === $code) ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <small style="color:var(--on-surface-med);">Applied to your dashboard, revenue and vouchers. Saved for your account.</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="profileTimezone">Server Timezone</label>
+                    <select class="form-control" id="profileTimezone" name="timezone">
+                        <?php foreach (appTimezonesForCurrency($profile['currency'] ?? 'TZS') as $tz): ?>
+                            <option value="<?= htmlspecialchars($tz) ?>" <?= ((($profile['timezone'] ?? $defaultTimezone) === $tz) ? 'selected' : '') ?>>
+                                <?= appTimezoneLabel($tz) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small style="color:var(--on-surface-med);">Used for all server dates/times across the entire app. Filtered by your currency.</small>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="profileCurrentPass">Current Password</label>
@@ -205,4 +208,38 @@ include __DIR__ . '/../components/header.php';
 </div>
 
 <?php include __DIR__ . '/../components/footer.php'; ?>
+
+<?php
+$tzMapJson = [];
+foreach ($currencyOptions as $code => $_label) {
+    $tzMapJson[$code] = array_map(function ($tz) {
+        return ['value' => $tz, 'label' => strip_tags(appTimezoneLabel($tz))];
+    }, appTimezonesForCurrency($code));
+}
+?>
+<script>
+const CURRENCY_TIMEZONES = <?= json_encode($tzMapJson, JSON_UNESCAPED_SLASHES) ?>;
+const currentTZ = <?= json_encode($_SESSION['timezone'] ?? $profile['timezone'] ?? $defaultTimezone, JSON_UNESCAPED_SLASHES) ?>;
+
+function filterTimezones() {
+    const currency = document.getElementById('profileCurrency').value;
+    const select = document.getElementById('profileTimezone');
+    const tzs = CURRENCY_TIMEZONES[currency] || CURRENCY_TIMEZONES['TZS'];
+    select.innerHTML = '';
+    let foundCurrent = false;
+    tzs.forEach(function (tz) {
+        const opt = document.createElement('option');
+        opt.value = tz.value;
+        opt.textContent = tz.label;
+        if (tz.value === currentTZ) {
+            opt.selected = true;
+            foundCurrent = true;
+        }
+        select.appendChild(opt);
+    });
+    if (!foundCurrent && tzs.length) {
+        select.selectedIndex = 0;
+    }
+}
+</script>
 <?php ob_end_flush(); ?>

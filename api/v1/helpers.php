@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+require_once __DIR__ . '/../../db/locale.php';
+
 function db() {
     static $pdo = null;
     if ($pdo === null) {
@@ -45,13 +47,15 @@ function getAccountId() {
     }
 
     $db = db();
-    $stmt = $db->prepare("SELECT account_id, created_at FROM tokens WHERE token = ?");
+    $stmt = $db->prepare("SELECT t.account_id, t.created_at, a.timezone FROM tokens t LEFT JOIN accounts a ON a.id = t.account_id WHERE t.token = ?");
     $stmt->execute([$token]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
         respond(['success' => false, 'error' => 'Invalid token'], 401);
     }
+
+    date_default_timezone_set(appValidTimezone($row['timezone'] ?? 'Africa/Dar_es_Salaam'));
 
     $created = strtotime($row['created_at']);
     if (time() - $created > 86400 * 7) {

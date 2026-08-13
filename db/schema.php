@@ -175,6 +175,10 @@ addColumnIfMissing($db, 'routers', 'tenant_id', 'INTEGER DEFAULT NULL');
 addColumnIfMissing($db, 'accounts', 'currency', "TEXT DEFAULT 'TZS'");
 addColumnIfMissing($db, 'admins', 'currency', "TEXT DEFAULT 'TZS'");
 
+// Server timezone preference per account / admin
+addColumnIfMissing($db, 'accounts', 'timezone', "TEXT DEFAULT 'Africa/Dar_es_Salaam'");
+addColumnIfMissing($db, 'admins', 'timezone', "TEXT DEFAULT 'Africa/Dar_es_Salaam'");
+
 // Multi-tenant admin management: the super admin controls ALL tenant accounts.
 // Each account is a "general admin" running their own WISP instance.
 addColumnIfMissing($db, 'accounts', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited
@@ -186,9 +190,6 @@ addColumnIfMissing($db, 'admins', 'role', "TEXT DEFAULT 'admin'");           // 
 addColumnIfMissing($db, 'admins', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited
 addColumnIfMissing($db, 'admins', 'status', 'INTEGER DEFAULT 1');             // 1 = active, 0 = disabled
 addColumnIfMissing($db, 'admins', 'created_by', 'INTEGER DEFAULT NULL');      // superadmin id who created them
-
-// Attribute voucher creation to a tenant account (used for per-tenant usage limits)
-addColumnIfMissing($db, 'vouchers', 'created_by', 'INTEGER DEFAULT NULL');
 
 // Bootstrap: guarantee at least one superadmin exists (promote the original seed admin)
 $superCount = (int)$db->query("SELECT COUNT(*) FROM admins WHERE role = 'superadmin'")->fetchColumn();
@@ -231,6 +232,8 @@ CREATE TABLE IF NOT EXISTS vouchers (
 )
 ");
 
+// Attribute voucher creation to a tenant account (used for per-tenant usage limits)
+addColumnIfMissing($db, 'vouchers', 'created_by', 'INTEGER DEFAULT NULL');
 addColumnIfMissing($db, 'vouchers', 'customer_name', 'TEXT DEFAULT NULL');
 addColumnIfMissing($db, 'vouchers', 'used_mac', 'TEXT DEFAULT NULL');
 addColumnIfMissing($db, 'vouchers', 'reminder_sent', 'INTEGER DEFAULT 0');

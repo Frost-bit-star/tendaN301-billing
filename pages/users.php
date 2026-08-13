@@ -34,6 +34,11 @@ function fmtBytes($b) {
     return $b . ' B';
 }
 
+// Normalize a MAC address to a canonical uppercase hex string (e.g. AABBCCDDEEFF)
+function normalizeMac($mac) {
+    return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
+}
+
 // Fetch currently connected sessions from a MikroTik router
 function getMikrotikActiveSessions($router) {
     $mode = ($router['service_mode'] ?? 'hotspot') === 'pppoe' ? 'pppoe' : 'hotspot';
@@ -68,8 +73,8 @@ function formatRemainingTime($seconds) {
     return "{$days}d {$hours}h {$minutes}m {$secs}s";
 }
 
-// Fetch whitelist from API with improved error handling
-function getRouterWhitelist($routerId) {
+// Fetch every device the router knows about: whitelist (allowed), blacklist (blocked) and online clients
+function getRouterDevices($routerId) {
     $url = "/auth/v2.php";
     $payload = json_encode([
         "action" => "get_users",
@@ -89,11 +94,22 @@ function getRouterWhitelist($routerId) {
     curl_close($ch);
 
     if ($res === false) {
-        return [];
+        return ['whitelist' => [], 'blacklist' => [], 'online' => []];
     }
 
     $data = json_decode($res, true);
-    return $data && !empty($data['results'][0]['whitelist']) ? array_keys($data['results'][0]['whitelist']) : [];
+    $result = $data['results'][0] ?? [];
+
+    return [
+        'whitelist' => $result['whitelist'] ?? [],
+        'blacklist' => $result['blacklist'] ?? [],
+        'online'    => $result['online_clients'] ?? []
+    ];
+}
+
+// Fetch whitelist MACs only (used by sync)
+function getRouterWhitelist($routerId) {
+    return array_keys(getRouterDevices($routerId)['whitelist']);
 }
 
 // Handle POST actions (plan change, delete)
@@ -298,26 +314,157 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <?php
-        // Fetch all users for the router
+        $now = time();
+
+        // All billing records for this router (active, disabled and expired)
         $stmt = $db->prepare("
             SELECT b.*, p.name AS plan_name, p.days, p.hours, p.minutes
             FROM billing b
-            JOIN plans p ON b.plan_id = p.id
+            LEFT JOIN plans p ON b.plan_id = p.id
             WHERE b.router_id = ?
             ORDER BY b.created_at DESC
         ");
         $stmt->execute([$router['id']]);
         $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Fetch whitelist and compare
-        $whitelistMacs = array_map(function($mac) {
-            return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
-        }, getRouterWhitelist($router['id']));
-        $dbMacs = array_map(function($u) {
-            return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $u['mac'])));
-        }, $users);
+        // Used vouchers for this router (linked to a device by used_mac)
+        $stmtV = $db->prepare("
+            SELECT v.*, p.name AS plan_name, p.days, p.hours, p.minutes
+            FROM vouchers v
+            LEFT JOIN plans p ON v.plan_id = p.id
+            WHERE v.router_id = ? AND v.status = 'used' AND v.used_mac IS NOT NULL AND v.used_mac != ''
+        ");
+        $stmtV->execute([$router['id']]);
+        $vouchers = $stmtV->fetchAll(PDO::FETCH_ASSOC);
+
+        // Every device the router currently knows about
+        $routerDevices = getRouterDevices($router['id']);
+        $wlByNorm = [];
+        foreach ($routerDevices['whitelist'] as $m => $host) $wlByNorm[normalizeMac($m)] = ['mac' => $m, 'host' => $host];
+        $blByNorm = [];
+        foreach ($routerDevices['blacklist'] as $m => $host) $blByNorm[normalizeMac($m)] = ['mac' => $m, 'host' => $host];
+
+        // Index billing + vouchers by normalized MAC
+        $billingByMac = [];
+        foreach ($users as $u) $billingByMac[normalizeMac($u['mac'])] = $u;
+        $voucherByMac = [];
+        foreach ($vouchers as $v) $voucherByMac[normalizeMac($v['used_mac'])] = $v;
+
+        $dbMacs = array_keys($billingByMac);
+        $whitelistMacs = array_keys($wlByNorm);
+        $blacklistMacs = array_keys($blByNorm);
         $missingInDb = array_diff($whitelistMacs, $dbMacs);
         $extraInDb   = array_diff($dbMacs, $whitelistMacs);
+
+        // Merge everything into one list: DB users + whitelist-only + blacklist-only
+        $rows = [];
+        $seenMacs = [];
+
+        foreach ($users as $u) {
+            $norm = normalizeMac($u['mac']);
+            $v = $voucherByMac[$norm] ?? null;
+            $endTs = $u['end_at'] ? strtotime($u['end_at']) : null;
+            $startTs = ($v && $v['used_at']) ? strtotime($v['used_at']) : strtotime($u['created_at']);
+            $startTs = $startTs ?: $now;
+            $isActive = (int)$u['internet_access'] === 1 && $endTs && $endTs > $now;
+            $isExpired = $endTs && $endTs <= $now;
+            $isDisabled = !$isActive && !$isExpired && (int)$u['internet_access'] === 0;
+
+            if ($isActive) {
+                $usedSec = max(0, $now - $startTs);
+                $remainSec = max(0, $endTs - $now);
+                $chip = 'active'; $label = 'Active';
+            } elseif ($isExpired) {
+                $usedSec = max(0, $endTs - $startTs);
+                $remainSec = 0;
+                $chip = 'expired'; $label = 'Expired';
+            } elseif ($isDisabled) {
+                $usedSec = $startTs ? max(0, ($endTs ? min($now, $endTs) : $now) - $startTs) : null;
+                $remainSec = 0;
+                $chip = 'inactive'; $label = 'Disabled';
+            } else {
+                $usedSec = $startTs ? max(0, $now - $startTs) : null;
+                $remainSec = 0;
+                $chip = 'inactive'; $label = 'Inactive';
+            }
+
+            $rows[] = [
+                'billing_id'   => $u['id'],
+                'mac'          => $u['mac'],
+                'name'         => $u['name'] ?: ($v['customer_name'] ?? ($wlByNorm[$norm]['host'] ?? $blByNorm[$norm]['host'] ?? 'Unknown')),
+                'phone_number' => $u['phone_number'] ?: ($v['phone'] ?? ''),
+                'plan_id'      => $u['plan_id'],
+                'plan_name'    => $u['plan_name'] ?: ($v['plan_name'] ?? null),
+                'days'         => $u['days'] ?? ($v['days'] ?? 0),
+                'hours'        => $u['hours'] ?? ($v['hours'] ?? 0),
+                'minutes'      => $u['minutes'] ?? ($v['minutes'] ?? 0),
+                'used_at'      => $v['used_at'] ?? null,
+                'created_at'   => $u['created_at'],
+                'end_at'       => $u['end_at'],
+                'start_ts'     => $startTs,
+                'used_seconds' => $usedSec,
+                'remaining_seconds' => $remainSec,
+                'is_active'    => $isActive,
+                'chip'         => $chip,
+                'status_label' => $label,
+            ];
+            $seenMacs[$norm] = true;
+        }
+
+        // Devices on the router whitelist but not in the DB (on router, never billed)
+        foreach ($wlByNorm as $norm => $wl) {
+            if (isset($seenMacs[$norm])) continue;
+            $seenMacs[$norm] = true;
+            $v = $voucherByMac[$norm] ?? null;
+            $startTs = ($v && $v['used_at']) ? strtotime($v['used_at']) : null;
+
+            $rows[] = [
+                'billing_id'   => null,
+                'mac'          => $wl['mac'],
+                'name'         => $wl['host'] ?: ($v['customer_name'] ?? 'Unknown'),
+                'phone_number' => $v['phone'] ?? '',
+                'plan_id'      => null,
+                'plan_name'    => $v['plan_name'] ?? null,
+                'days'         => $v['days'] ?? 0,
+                'hours'        => $v['hours'] ?? 0,
+                'minutes'      => $v['minutes'] ?? 0,
+                'used_at'      => $v['used_at'] ?? null,
+                'created_at'   => null,
+                'end_at'       => null,
+                'start_ts'     => $startTs,
+                'used_seconds' => $startTs ? max(0, $now - $startTs) : null,
+                'remaining_seconds' => null,
+                'is_active'    => false,
+                'chip'         => 'info',
+                'status_label' => 'On Router (Not Billed)',
+            ];
+        }
+
+        // Devices on the router blacklist (blocked, not active)
+        foreach ($blByNorm as $norm => $bl) {
+            if (isset($seenMacs[$norm])) continue;
+            $seenMacs[$norm] = true;
+            $rows[] = [
+                'billing_id'   => null,
+                'mac'          => $bl['mac'],
+                'name'         => $bl['host'] ?: 'Unknown',
+                'phone_number' => '',
+                'plan_id'      => null,
+                'plan_name'    => null,
+                'days'         => 0,
+                'hours'        => 0,
+                'minutes'      => 0,
+                'used_at'      => null,
+                'created_at'   => null,
+                'end_at'       => null,
+                'start_ts'     => null,
+                'used_seconds' => null,
+                'remaining_seconds' => null,
+                'is_active'    => false,
+                'chip'         => 'inactive',
+                'status_label' => 'Blocked',
+            ];
+        }
         ?>
 
         <div class="alert alert-info" style="margin:16px">
@@ -331,7 +478,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </span>
         </div>
 
-        <?php if ($users): ?>
+        <?php if ($rows): ?>
             <div class="table-wrapper">
                 <table>
                     <thead>
@@ -340,7 +487,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <th>Phone Number</th>
                             <th>MAC Address</th>
                             <th>Plan</th>
-                            <th>Plan Duration</th>
+                            <th>Status</th>
+                            <th>Time Used</th>
                             <th>Remaining Time</th>
                             <th>Created At</th>
                             <th>Ends At</th>
@@ -348,30 +496,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($users as $user):
-                            $remainingSeconds = max(strtotime($user['end_at']) - time(), 0);
-                            $planDuration = ($user['days'] ?? 0) . "d " . ($user['hours'] ?? 0) . "h " . ($user['minutes'] ?? 0) . "m";
+                        <?php foreach ($rows as $row):
+                            $planDuration = ($row['days'] ?? 0) . "d " . ($row['hours'] ?? 0) . "h " . ($row['minutes'] ?? 0) . "m";
+                            $startTs = $row['start_ts'] ?? null;
+                            $usedSeconds = $row['used_seconds'] ?? null;
                         ?>
-                        <tr id="user-<?php echo $user['id']; ?>"
+                        <tr id="user-<?php echo $row['billing_id'] ?? ''; ?>"
                             data-router-id="<?php echo $router['id']; ?>"
-                            data-mac="<?php echo $user['mac']; ?>">
-                            <td style="font-weight:500"><?php echo htmlspecialchars($user['name']); ?></td>
-                            <td><?php echo htmlspecialchars($user['phone_number']); ?></td>
-                            <td><code><?php echo htmlspecialchars($user['mac']); ?></code></td>
-                            <td><?php echo htmlspecialchars($user['plan_name']); ?></td>
-                            <td><?php echo $planDuration; ?></td>
-                            <td class="remaining-time" data-end="<?php echo $user['end_at']; ?>" style="font-size:12px">
-                                <?php echo formatRemainingTime($remainingSeconds); ?>
-                            </td>
-                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $user['created_at']; ?></td>
-                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $user['end_at']; ?></td>
+                            data-mac="<?php echo htmlspecialchars($row['mac']); ?>">
+                            <td style="font-weight:500"><?php echo htmlspecialchars($row['name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['phone_number']); ?></td>
+                            <td><code><?php echo htmlspecialchars($row['mac']); ?></code></td>
+                            <td><?php echo $row['plan_name'] ? htmlspecialchars($row['plan_name']) . ' <span style="color:var(--on-surface-med);font-size:11px">(' . $planDuration . ')</span>' : '—'; ?></td>
                             <td>
+                                <span class="chip <?php echo $row['chip']; ?>"><span class="chip-dot"></span><?php echo htmlspecialchars($row['status_label']); ?></span>
+                            </td>
+                            <td class="time-used" <?php if ($startTs): ?>data-start="<?php echo $startTs; ?>"<?php if (!empty($row['is_active'])): ?> data-live="1"<?php endif; endif; ?> style="font-size:12px">
+                                <?php echo $usedSeconds !== null ? formatRemainingTime($usedSeconds) : '—'; ?>
+                            </td>
+                            <td class="remaining-time" <?php echo $row['end_at'] ? 'data-end="' . $row['end_at'] . '"' : ''; ?> style="font-size:12px">
+                                <?php echo $row['end_at'] ? formatRemainingTime($row['remaining_seconds'] ?? 0) : '—'; ?>
+                            </td>
+                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $row['created_at'] ?? '—'; ?></td>
+                            <td style="font-size:12px;color:var(--on-surface-med)"><?php echo $row['end_at'] ?? '—'; ?></td>
+                            <td>
+                                <?php if (!empty($row['billing_id'])): ?>
                                 <div class="td-actions">
                                     <form method="POST" class="mb-0">
-                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                        <input type="hidden" name="user_id" value="<?php echo $row['billing_id']; ?>">
                                         <select name="new_plan_id" class="form-control" style="padding:5px 10px;font-size:12px">
                                             <?php foreach ($plans as $plan): ?>
-                                                <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $user['plan_id'] ? 'selected' : ''; ?>>
+                                                <option value="<?php echo $plan['id']; ?>" <?php echo $plan['id'] == $row['plan_id'] ? 'selected' : ''; ?>>
                                                     <?php echo htmlspecialchars($plan['name']); ?>
                                                 </option>
                                             <?php endforeach; ?>
@@ -379,19 +534,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <button type="submit" class="btn btn-secondary btn-sm" style="width:100%">Change Plan</button>
                                     </form>
                                     <form method="POST" class="mb-0">
-                                        <input type="hidden" name="delete_user_id" value="<?php echo $user['id']; ?>">
+                                        <input type="hidden" name="delete_user_id" value="<?php echo $row['billing_id']; ?>">
                                         <button type="submit" class="btn btn-danger btn-sm" style="width:100%" onclick="return confirm('Delete this user?')">Delete</button>
                                     </form>
                                     <form method="POST" class="mb-0 throttle-form">
-                                        <input type="hidden" name="throttle_user_id" value="<?php echo $user['id']; ?>">
+                                        <input type="hidden" name="throttle_user_id" value="<?php echo $row['billing_id']; ?>">
                                         <input type="number" name="upload_speed" class="form-control" style="padding:5px 10px;font-size:12px" placeholder="Upload (kbps)" step="0.01" required>
                                         <input type="number" name="download_speed" class="form-control" style="padding:5px 10px;font-size:12px" placeholder="Download (kbps)" step="0.01" required>
                                         <button type="submit" class="btn btn-outline btn-sm" style="width:100%">Throttle</button>
                                     </form>
                                     <button class="btn btn-primary btn-sm unthrottle-btn" style="width:100%"
                                         data-router-id="<?php echo $router['id']; ?>"
-                                        data-mac="<?php echo $user['mac']; ?>">Unthrottle</button>
+                                        data-mac="<?php echo $row['mac']; ?>">Unthrottle</button>
                                 </div>
+                                <?php else: ?>
+                                    <span style="font-size:12px;color:var(--on-surface-med)">—</span>
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endforeach; ?>
@@ -410,6 +568,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script>
 // Real-time clock
+function fmtDur(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    let d = Math.floor(sec / 86400);
+    let h = Math.floor((sec % 86400) / 3600);
+    let m = Math.floor((sec % 3600) / 60);
+    let s = sec % 60;
+    return `${d}d ${h}h ${m}m ${s}s`;
+}
+
 function updateClock() {
     const now = new Date();
 
@@ -426,16 +593,20 @@ function updateClock() {
     const dateOptions = { weekday: "long", month: "long", day: "numeric" };
     document.getElementById("date").textContent = now.toLocaleDateString(undefined, dateOptions);
 
+    const nowSec = Math.floor(now.getTime() / 1000);
+
     // Update remaining time
-    document.querySelectorAll('.remaining-time').forEach(td => {
+    document.querySelectorAll('.remaining-time[data-end]').forEach(td => {
         const endAt = new Date(td.dataset.end);
-        let remaining = Math.floor((endAt - now) / 1000);
-        if (remaining < 0) remaining = 0;
-        let d = Math.floor(remaining / 86400);
-        let h = Math.floor((remaining % 86400) / 3600);
-        let m = Math.floor((remaining % 3600) / 60);
-        let s = remaining % 60;
-        td.textContent = `${d}d ${h}h ${m}m ${s}s`;
+        if (isNaN(endAt.getTime())) return;
+        td.textContent = fmtDur((endAt.getTime() / 1000) - nowSec);
+    });
+
+    // Update time used for live (active) users
+    document.querySelectorAll('.time-used[data-live]').forEach(td => {
+        const start = parseInt(td.dataset.start, 10);
+        if (!start) return;
+        td.textContent = fmtDur(nowSec - start);
     });
 }
 
