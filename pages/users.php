@@ -39,8 +39,11 @@ function normalizeMac($mac) {
     return strtoupper(preg_replace('/[^A-F0-9]/', '', str_replace(':', '', $mac)));
 }
 
-// Fetch currently connected sessions from a MikroTik router
-function getMikrotikActiveSessions($router) {
+// Sync ALL users from a MikroTik router into the server database.
+// Pulls both the currently connected sessions (active) and every user record
+// on the router (dead/expired included) and stores the snapshot in the
+// `hotspot_users` table. Returns the live sessions plus the stored users.
+function syncMikrotikUsers($db, $router) {
     $mode = ($router['service_mode'] ?? 'hotspot') === 'pppoe' ? 'pppoe' : 'hotspot';
 
     if (($router['provisioning_status'] ?? 'offline') !== 'online') {
@@ -55,9 +58,87 @@ function getMikrotikActiveSessions($router) {
     try {
         $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
         $api->connect();
-        $sessions = ($mode === 'pppoe') ? $api->getPppActiveUsers() : $api->getHotspotActiveUsers();
+
+        if ($mode === 'pppoe') {
+            $sessions = $api->getPppActiveUsers();
+            $allUsers = $api->getPppSecrets();
+        } else {
+            $sessions = $api->getHotspotActiveUsers();
+            $allUsers = $api->getHotspotUsers();
+        }
         $api->close();
-        return ['ok' => true, 'mode' => $mode, 'sessions' => $sessions];
+
+        // Usernames with a live session right now
+        $activeNames = [];
+        foreach ($sessions as $s) {
+            $n = $s['user'] ?? $s['name'] ?? '';
+            if ($n !== '') $activeNames[$n] = true;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $upsert = $db->prepare("
+            INSERT INTO hotspot_users
+                (router_id, username, status, profile, limit_uptime, uptime, bytes_in, bytes_out, disabled, comment, first_seen, last_seen, last_sync)
+            VALUES
+                (:router_id, :username, :status, :profile, :limit_uptime, :uptime, :bytes_in, :bytes_out, :disabled, :comment, :now, :now, :now)
+            ON CONFLICT(router_id, username) DO UPDATE SET
+                status       = excluded.status,
+                profile      = excluded.profile,
+                limit_uptime = excluded.limit_uptime,
+                uptime       = excluded.uptime,
+                bytes_in     = excluded.bytes_in,
+                bytes_out    = excluded.bytes_out,
+                disabled     = excluded.disabled,
+                comment      = excluded.comment,
+                last_seen    = excluded.last_seen,
+                last_sync    = excluded.last_sync
+        ");
+
+        $stored = [];
+        foreach ($allUsers as $u) {
+            $username = $u['name'] ?? $u['user'] ?? '';
+            if ($username === '') continue;
+
+            $disabled = ($u['disabled'] ?? 'false') === 'true' || ($u['disabled'] ?? 'no') === 'yes' ? 1 : 0;
+            $status = isset($activeNames[$username]) ? 'active' : ($disabled ? 'disabled' : 'dead');
+
+            $upsert->execute([
+                ':router_id'   => $router['id'],
+                ':username'    => $username,
+                ':status'      => $status,
+                ':profile'     => $u['profile'] ?? null,
+                ':limit_uptime'=> $u['limit-uptime'] ?? null,
+                ':uptime'      => $u['uptime'] ?? null,
+                ':bytes_in'    => (int)($u['bytes-in'] ?? 0),
+                ':bytes_out'   => (int)($u['bytes-out'] ?? 0),
+                ':disabled'    => $disabled,
+                ':comment'     => $u['comment'] ?? null,
+                ':now'         => $now,
+            ]);
+
+            $stored[] = [
+                'username'      => $username,
+                'status'        => $status,
+                'profile'       => $u['profile'] ?? null,
+                'limit_uptime'  => $u['limit-uptime'] ?? null,
+                'uptime'        => $u['uptime'] ?? null,
+                'bytes_in'      => (int)($u['bytes-in'] ?? 0),
+                'bytes_out'     => (int)($u['bytes-out'] ?? 0),
+                'disabled'      => $disabled,
+                'comment'       => $u['comment'] ?? null,
+            ];
+        }
+
+        // Update routers.last_sync marker
+        $db->prepare("UPDATE routers SET last_sync = :t WHERE id = :id")
+            ->execute([':t' => time(), ':id' => $router['id']]);
+
+        return [
+            'ok'       => true,
+            'mode'     => $mode,
+            'sessions' => $sessions,
+            'users'    => $stored,
+        ];
     } catch (Exception $e) {
         return ['ok' => false, 'mode' => $mode, 'error' => $e->getMessage()];
     }
@@ -159,9 +240,14 @@ function getMikrotikSessionTiming($db, $routerId, $session) {
     ];
 }
 
-// Fetch every device the router knows about: whitelist (allowed), blacklist (blocked) and online clients
+// Fetch every device the router knows about: whitelist (allowed/active),
+// blacklist (blocked/expired/dead) and online clients.
+// Reaches the local /auth/v2.php API over HTTP(S) using the current host and
+// forwards the browser session so the request is scoped to the logged-in tenant.
 function getRouterDevices($routerId) {
-    $url = "/auth/v2.php";
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $url = "$scheme://$host/auth/v2.php";
     $payload = json_encode([
         "action" => "get_users",
         "router_id" => $routerId
@@ -173,11 +259,19 @@ function getRouterDevices($routerId) {
         CURLOPT_POST => true,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
         CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_COOKIE => session_name() . '=' . session_id(),
         CURLOPT_TIMEOUT => 10
     ]);
 
+    // The sub-request needs to read this same PHP session (for tenant scoping),
+    // so release the session lock before calling it or v2.php would block.
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+
     $res = curl_exec($ch);
     curl_close($ch);
+
+    // Re-acquire the session lock for the rest of the page.
+    if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
     if ($res === false) {
         return ['whitelist' => [], 'blacklist' => [], 'online' => []];
@@ -320,19 +414,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <?php foreach ($routers as $router): ?>
     <?php if (($router['type'] ?? 'tenda') === 'mikrotik'):
-        $mtk = getMikrotikActiveSessions($router);
+        $mtk = syncMikrotikUsers($db, $router);
         $mtkStatus = $router['provisioning_status'] ?? 'offline';
         $mtkChip = $mtkStatus === 'online' ? 'active' : ($mtkStatus === 'provisioning' || $mtkStatus === 'pending' ? 'pending' : 'inactive');
         $mtkChipLabel = $mtkStatus === 'provisioning' || $mtkStatus === 'pending' ? 'pending' : $mtkStatus;
     ?>
     <div class="card" style="margin-bottom:24px">
-        <div class="card-header">
-            <div class="card-title">
-                <i class="fas fa-router"></i> <?php echo htmlspecialchars($router['name']); ?>
-                <span class="chip <?php echo $mtkChip; ?>"><span class="chip-dot"></span><?php echo htmlspecialchars($mtkChipLabel); ?></span>
+            <div class="card-header">
+                <div class="card-title">
+                    <i class="fas fa-router"></i> <?php echo htmlspecialchars($router['name']); ?>
+                    <span class="chip <?php echo $mtkChip; ?>"><span class="chip-dot"></span><?php echo htmlspecialchars($mtkChipLabel); ?></span>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-outline btn-sm mtk-cleanup-btn"><i class="fas fa-broom"></i> Run cleanup</button>
+                    <button class="btn btn-outline btn-sm" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
             </div>
-            <button class="btn btn-outline btn-sm" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
-        </div>
         <div class="card-body">
             <?php if (!$mtk['ok']): ?>
                 <div class="alert alert-warning" style="margin:16px">
@@ -406,6 +503,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="empty-state-icon"><i class="fas fa-wifi"></i></div>
                         <h3>No connected users</h3>
                         <p>No active sessions right now on this router.</p>
+                    </div>
+                <?php endif; ?>
+
+                <?php $mtkUsers = $mtk['users'] ?? [];
+                if ($mtkUsers):
+                    $actN = $deadN = $disN = 0;
+                    foreach ($mtkUsers as $mu) {
+                        if ($mu['status'] === 'active') $actN++;
+                        elseif ($mu['status'] === 'disabled') $disN++;
+                        else $deadN++;
+                    } ?>
+                    <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+                        <div style="display:flex;align-items:center;gap:8px;margin:0 16px 8px">
+                            <i class="fas fa-database"></i>
+                            <strong>All Users Stored on Server</strong>
+                            <span style="color:var(--on-surface-med);font-size:13px">(<?php echo count($mtkUsers); ?> total &middot; <?php echo $actN; ?> active &middot; <?php echo $deadN; ?> dead &middot; <?php echo $disN; ?> disabled)</span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Status</th>
+                                        <th>Profile</th>
+                                        <th>Limit Uptime</th>
+                                        <th>Uptime</th>
+                                        <th>Traffic In</th>
+                                        <th>Traffic Out</th>
+                                        <th>Comment</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($mtkUsers as $mu):
+                                        $muChip = $mu['status'] === 'active' ? 'active' : ($mu['status'] === 'disabled' ? 'inactive' : 'expired');
+                                        $muLabel = ucfirst($mu['status']); ?>
+                                    <tr>
+                                        <td style="font-weight:500"><?php echo htmlspecialchars($mu['username']); ?></td>
+                                        <td><span class="chip <?php echo $muChip; ?>"><span class="chip-dot"></span><?php echo $muLabel; ?></span></td>
+                                        <td><?php echo htmlspecialchars($mu['profile'] ?? '—'); ?></td>
+                                        <td><?php echo htmlspecialchars($mu['limit_uptime'] ?? '—'); ?></td>
+                                        <td><?php echo htmlspecialchars($mu['uptime'] ?? '—'); ?></td>
+                                        <td><?php echo htmlspecialchars(fmtBytes($mu['bytes_in'] ?? 0)); ?></td>
+                                        <td><?php echo htmlspecialchars(fmtBytes($mu['bytes_out'] ?? 0)); ?></td>
+                                        <td><?php echo htmlspecialchars($mu['comment'] ?? '—'); ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 <?php endif; ?>
             <?php endif; ?>
@@ -731,6 +877,35 @@ function updateClock() {
 // Initial run
 updateClock();
 setInterval(updateClock, 1000);
+
+// Manual MikroTik cleanup of expired users
+document.querySelectorAll('.mtk-cleanup-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        if (!confirm('Remove all expired MikroTik users and disconnect their sessions?')) return;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cleaning...';
+        try {
+            const res = await fetch('/api/vouchers.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'cleanup_expired' })
+            });
+            const json = await res.json();
+            if (json.success && json.cleanup) {
+                const c = json.cleanup;
+                alert(`Cleanup done: ${c.expired} expired across ${c.routers} router(s), ${c.removed} user(s) removed, ${c.disconnected} session(s) disconnected.${c.failed.length ? '\nFailed: ' + c.failed.join(', ') : ''}`);
+            } else {
+                alert(json.error || 'Cleanup failed');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error running cleanup');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-broom"></i> Run cleanup';
+        location.reload();
+    });
+});
 
 // Manual unthrottle
 document.querySelectorAll('.unthrottle-btn').forEach(btn => {

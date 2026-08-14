@@ -33,6 +33,68 @@ if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     $action = $input['action'] ?? 'generate';
 
+    if ($action === 'cleanup_expired') {
+        // Require an authenticated session (admins, or tenant users)
+        if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+            jsonResponse(['error' => 'Not authenticated'], 401);
+        }
+
+        require_once __DIR__ . '/mikrotik_api.php';
+
+        $now = time();
+        $stmt = $db->query("
+            SELECT v.id, v.code, v.router_id, v.used_at, v.expires_at,
+                   (p.days * 86400 + p.hours * 3600 + p.minutes * 60) AS plan_seconds
+            FROM vouchers v
+            JOIN plans p ON v.plan_id = p.id
+            JOIN routers r ON v.router_id = r.id
+            WHERE v.status = 'used' AND r.type = 'mikrotik'
+        ");
+        $expiredByRouter = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $v) {
+            $isExpired = (!empty($v['expires_at']) && strtotime($v['expires_at']) <= $now);
+            if (!$isExpired && (int)$v['plan_seconds'] > 0 && !empty($v['used_at'])) {
+                $isExpired = (strtotime($v['used_at']) + (int)$v['plan_seconds']) <= $now;
+            }
+            if ($isExpired) {
+                $expiredByRouter[(int)$v['router_id']][] = $v;
+            }
+        }
+
+        $totals = ['routers' => 0, 'expired' => 0, 'removed' => 0, 'disconnected' => 0, 'failed' => []];
+        foreach ($expiredByRouter as $routerId => $vouchers) {
+            $rStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
+            $rStmt->execute([$routerId]);
+            $router = $rStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$router) continue;
+
+            $apiIP = !empty($router['wireguard_ip']) && $router['wireguard_ip'] !== '0.0.0.0' ? $router['wireguard_ip'] : $router['ip'];
+            $apiPort = intval($router['port'] ?: 8729);
+
+            try {
+                $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+                $api->connect();
+
+                foreach ($vouchers as $v) {
+                    try {
+                        $totals['removed'] += $api->removeHotspotUserByUsername($v['code']) ? 1 : 0;
+                        $totals['disconnected'] += (int)$api->disconnectHotspotUser($v['code']);
+                    } catch (Exception $e) {
+                        $totals['failed'][] = $v['code'];
+                    }
+                }
+
+                $api->close();
+            } catch (Exception $e) {
+                $totals['failed'] = array_merge($totals['failed'], array_column($vouchers, 'code'));
+            }
+            $totals['routers']++;
+            $totals['expired'] += count($vouchers);
+        }
+
+        jsonResponse(['success' => true, 'cleanup' => $totals]);
+    }
+
     if ($action === 'generate') {
         // Require an authenticated session (admins, or tenant users)
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {

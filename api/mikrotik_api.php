@@ -184,10 +184,14 @@ class MikroTikAPI {
     }
 
     public function removeHotspotUser($username) {
-        $find = $this->command(['/ip/hotspot/user/find', "?name=$username"]);
-        if (!empty($find)) {
-            $id = $find[0] ?? $find;
-            return $this->command(['/ip/hotspot/user/remove', "=.id=$id"]);
+        $found = $this->command(['/ip/hotspot/user/print', '?name=' . $username]);
+        if (is_array($found)) {
+            foreach ($found as $item) {
+                $id = is_array($item) ? ($item['.id'] ?? null) : null;
+                if ($id) {
+                    return $this->command(['/ip/hotspot/user/remove', "=.id=$id"]);
+                }
+            }
         }
         return null;
     }
@@ -200,17 +204,35 @@ class MikroTikAPI {
         return $this->command(['/ip/hotspot/active/remove', "=.id=$activeId"]);
     }
 
+    public function disconnectHotspotUser($username) {
+        $active = $this->command(['/ip/hotspot/active/print', "?user=$username"]);
+        $removed = 0;
+        if (is_array($active)) {
+            foreach ($active as $a) {
+                $id = is_array($a) ? ($a['.id'] ?? null) : null;
+                if ($id) {
+                    $this->command(['/ip/hotspot/active/remove', "=.id=$id"]);
+                    $removed++;
+                }
+            }
+        }
+        return $removed;
+    }
+
     public function getHotspotActiveCount() {
         $result = $this->command(['/ip/hotspot/active/print']);
         return $result;
     }
 
     public function removeHotspotUserByUsername($username) {
-        $find = $this->command(['/ip/hotspot/user/find', "?name=$username"]);
-        if (!empty($find)) {
-            $id = $find[0]['.id'] ?? ($find[0] ?? null);
-            if ($id) {
-                return $this->command(['/ip/hotspot/user/remove', "=.id=$id"]);
+        $found = $this->command(['/ip/hotspot/user/print', '?name=' . $username]);
+        if (is_array($found)) {
+            foreach ($found as $item) {
+                $id = is_array($item) ? ($item['.id'] ?? null) : null;
+                if ($id) {
+                    $this->command(['/ip/hotspot/user/remove', "=.id=$id"]);
+                    return true;
+                }
             }
         }
         return null;
@@ -306,6 +328,14 @@ class MikroTikAPI {
 
     public function getPppActiveUsers() {
         return $this->command(['/ppp/active/print']);
+    }
+
+    public function getHotspotUsers() {
+        return $this->command(['/ip/hotspot/user/print']);
+    }
+
+    public function getPppSecrets() {
+        return $this->command(['/ppp/secret/print']);
     }
 
     public function getHotspotUserStats() {

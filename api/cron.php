@@ -94,6 +94,86 @@ try {
     ];
 
     // ==========================
+    // STEP 1b: Expire MikroTik hotspot users
+    // RouterOS only disconnects sessions when limit-uptime runs out and keeps
+    // the /ip/hotspot/user record forever, so we remove + disconnect from here
+    // once the voucher's plan window (used_at + duration) is over.
+    // ==========================
+    require_once __DIR__ . '/mikrotik_api.php';
+
+    $now = time();
+    $expiredVouchersStmt = $db->query("
+        SELECT v.id, v.code, v.router_id, v.used_at, v.expires_at,
+               (p.days * 86400 + p.hours * 3600 + p.minutes * 60) AS plan_seconds
+        FROM vouchers v
+        JOIN plans p ON v.plan_id = p.id
+        JOIN routers r ON v.router_id = r.id
+        WHERE v.status = 'used' AND r.type = 'mikrotik'
+    ");
+    $expiredVouchers = $expiredVouchersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $expiredByRouter = [];
+    foreach ($expiredVouchers as $v) {
+        $isExpired = (!empty($v['expires_at']) && strtotime($v['expires_at']) <= $now);
+        if (!$isExpired && (int)$v['plan_seconds'] > 0 && !empty($v['used_at'])) {
+            $isExpired = (strtotime($v['used_at']) + (int)$v['plan_seconds']) <= $now;
+        }
+        if ($isExpired) {
+            $expiredByRouter[(int)$v['router_id']][] = $v;
+        }
+    }
+
+    $mtkResults = [];
+    foreach ($expiredByRouter as $routerId => $vouchers) {
+        $rStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
+        $rStmt->execute([$routerId]);
+        $router = $rStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$router) continue;
+
+        $apiIP = !empty($router['wireguard_ip']) && $router['wireguard_ip'] !== '0.0.0.0' ? $router['wireguard_ip'] : $router['ip'];
+        $apiPort = intval($router['port'] ?: 8729);
+        $removed = 0;
+        $disconnected = 0;
+        $failed = [];
+
+        try {
+            $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+            $api->connect();
+
+            foreach ($vouchers as $v) {
+                try {
+                    $removed += $api->removeHotspotUserByUsername($v['code']) ? 1 : 0;
+                    $disconnected += (int)$api->disconnectHotspotUser($v['code']);
+                } catch (Exception $e) {
+                    $failed[] = $v['code'];
+                }
+            }
+
+            $api->close();
+        } catch (Exception $e) {
+            $mtkResults[] = [
+                'router_id' => $routerId,
+                'name' => $router['name'],
+                'status' => 'error',
+                'error' => $e->getMessage(),
+            ];
+            continue;
+        }
+
+        $mtkResults[] = [
+            'router_id' => $routerId,
+            'name' => $router['name'],
+            'status' => 'cleaned',
+            'expired' => count($vouchers),
+            'removed' => $removed,
+            'disconnected' => $disconnected,
+            'failed' => $failed,
+        ];
+    }
+
+    $results['mikrotik_expired'] = $mtkResults;
+
+    // ==========================
     // STEP 2: Sync routers + push QoS
     // ==========================
     require_once __DIR__ . '/../auth/config.php';

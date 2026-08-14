@@ -198,6 +198,44 @@ if ($superCount === 0) {
 }
 
 // -------------------------
+// Hotspot users table (server-side mirror of ALL MikroTik hotspot/PPPoE users:
+// active sessions plus dead/expired user records pulled from the router)
+// -------------------------
+$db->exec("
+CREATE TABLE IF NOT EXISTS hotspot_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    router_id INTEGER NOT NULL,
+    username TEXT NOT NULL,
+    status TEXT DEFAULT 'active',          -- 'active' | 'dead' | 'disabled'
+    profile TEXT DEFAULT NULL,
+    limit_uptime TEXT DEFAULT NULL,
+    uptime TEXT DEFAULT NULL,
+    bytes_in INTEGER DEFAULT 0,
+    bytes_out INTEGER DEFAULT 0,
+    disabled INTEGER DEFAULT 0,
+    comment TEXT DEFAULT NULL,
+    first_seen TEXT DEFAULT NULL,
+    last_seen TEXT DEFAULT NULL,
+    last_sync TEXT DEFAULT NULL,
+    FOREIGN KEY(router_id) REFERENCES routers(id),
+    UNIQUE(router_id, username)
+)
+");
+
+// Add missing hotspot_users columns if script re-run
+addColumnIfMissing($db, 'hotspot_users', 'status', "TEXT DEFAULT 'active'");
+addColumnIfMissing($db, 'hotspot_users', 'profile', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'hotspot_users', 'limit_uptime', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'hotspot_users', 'uptime', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'hotspot_users', 'bytes_in', 'INTEGER DEFAULT 0');
+addColumnIfMissing($db, 'hotspot_users', 'bytes_out', 'INTEGER DEFAULT 0');
+addColumnIfMissing($db, 'hotspot_users', 'disabled', 'INTEGER DEFAULT 0');
+addColumnIfMissing($db, 'hotspot_users', 'comment', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'hotspot_users', 'first_seen', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'hotspot_users', 'last_seen', 'TEXT DEFAULT NULL');
+addColumnIfMissing($db, 'hotspot_users', 'last_sync', 'TEXT DEFAULT NULL');
+
+// -------------------------
 // Add missing columns for devices table if script re-run
 // -------------------------
 addColumnIfMissing($db, 'billing', 'remaining_time', 'INTEGER DEFAULT 0');
