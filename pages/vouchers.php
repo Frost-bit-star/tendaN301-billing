@@ -12,13 +12,16 @@ include __DIR__ . '/../components/header.php';
 .status-pill.used { background: #FCE8E6; color: #C5221F; }
 .status-pill.expired { background: var(--surface-3); color: var(--on-surface-med); }
 
-.print-area { display: none; }
+.print-area {
+    position: absolute; left: -10000px; top: 0;
+    width: 100%;
+}
 
 @media print {
     body * { visibility: hidden; }
     .print-area, .print-area * { visibility: visible; }
     .print-area {
-        display: block !important; position: absolute; left: 0; top: 0;
+        position: absolute; left: 0; top: 0;
         width: 100%; background: #fff; padding: 0.5rem;
     }
     .print-voucher {
