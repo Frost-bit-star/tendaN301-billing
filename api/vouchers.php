@@ -41,25 +41,53 @@ if ($method === 'POST') {
 
         require_once __DIR__ . '/mikrotik_api.php';
 
-        $now = time();
         $stmt = $db->query("
             SELECT v.id, v.code, v.router_id, v.used_at, v.expires_at,
-                   (p.days * 86400 + p.hours * 3600 + p.minutes * 60) AS plan_seconds
+                   (p.days * 86400 + p.hours * 3600 + p.minutes * 60) AS plan_seconds,
+                   r.tenant_id
             FROM vouchers v
             JOIN plans p ON v.plan_id = p.id
             JOIN routers r ON v.router_id = r.id
             WHERE v.status = 'used' AND r.type = 'mikrotik'
         ");
+        $usedVouchers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Group by router so we can resolve each router's tenant timezone before
+        // computing expiry (used_at is stored in local clock time).
+        $vouchersByRouter = [];
+        foreach ($usedVouchers as $v) {
+            $vouchersByRouter[(int)$v['router_id']][] = $v;
+        }
+
         $expiredByRouter = [];
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $v) {
-            $isExpired = (!empty($v['expires_at']) && strtotime($v['expires_at']) <= $now);
-            if (!$isExpired && (int)$v['plan_seconds'] > 0 && !empty($v['used_at'])) {
-                $isExpired = (strtotime($v['used_at']) + (int)$v['plan_seconds']) <= $now;
+        foreach ($vouchersByRouter as $routerId => $vouchers) {
+            $routerTz = 'UTC';
+            $tenantId = $vouchers[0]['tenant_id'] ?? null;
+            if ($tenantId) {
+                $tzStmt = $db->prepare("SELECT timezone FROM accounts WHERE id = ?");
+                $tzStmt->execute([$tenantId]);
+                $tz = $tzStmt->fetchColumn();
+                if ($tz) $routerTz = $tz;
             }
-            if ($isExpired) {
-                $expiredByRouter[(int)$v['router_id']][] = $v;
+            date_default_timezone_set($routerTz);
+            $now = time();
+
+            // A used voucher is expired when its plan window (used_at + duration)
+            // is over - regardless of whether the user actually connected. Fall
+            // back to expires_at only when used_at/plan are not available.
+            foreach ($vouchers as $v) {
+                $isExpired = false;
+                if ((int)$v['plan_seconds'] > 0 && !empty($v['used_at'])) {
+                    $isExpired = (strtotime($v['used_at']) + (int)$v['plan_seconds']) <= $now;
+                } elseif (!empty($v['expires_at'])) {
+                    $isExpired = strtotime($v['expires_at']) <= $now;
+                }
+                if ($isExpired) {
+                    $expiredByRouter[(int)$routerId][] = $v;
+                }
             }
         }
+        date_default_timezone_set('UTC');
 
         $totals = ['routers' => 0, 'expired' => 0, 'removed' => 0, 'disconnected' => 0, 'failed' => []];
         foreach ($expiredByRouter as $routerId => $vouchers) {
@@ -217,8 +245,10 @@ if ($method === 'POST') {
         $totalSeconds = ($voucher['days'] ?? 0) * 86400 + ($voucher['hours'] ?? 0) * 3600 + ($voucher['minutes'] ?? 0) * 60;
         $endAt = date('Y-m-d H:i:s', time() + $totalSeconds);
 
-        $db->prepare("UPDATE vouchers SET status = 'used', used_at = :ts WHERE id = :id")
-           ->execute([':ts' => date('Y-m-d H:i:s'), ':id' => $voucher['id']]);
+        // Record the actual plan window: the voucher expires when the plan
+        // duration ends, not at the original creation-time + 30 day value.
+        $db->prepare("UPDATE vouchers SET status = 'used', used_at = :ts, expires_at = :end_at WHERE id = :id")
+           ->execute([':ts' => date('Y-m-d H:i:s'), ':end_at' => $endAt, ':id' => $voucher['id']]);
 
         jsonResponse([
             'success' => true,

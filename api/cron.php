@@ -101,8 +101,7 @@ try {
     // ==========================
     require_once __DIR__ . '/mikrotik_api.php';
 
-    $now = time();
-    $expiredVouchersStmt = $db->query("
+    $usedVouchersStmt = $db->query("
         SELECT v.id, v.code, v.router_id, v.used_at, v.expires_at,
                (p.days * 86400 + p.hours * 3600 + p.minutes * 60) AS plan_seconds
         FROM vouchers v
@@ -110,25 +109,65 @@ try {
         JOIN routers r ON v.router_id = r.id
         WHERE v.status = 'used' AND r.type = 'mikrotik'
     ");
-    $expiredVouchers = $expiredVouchersStmt->fetchAll(PDO::FETCH_ASSOC);
+    $usedVouchers = $usedVouchersStmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $expiredByRouter = [];
-    foreach ($expiredVouchers as $v) {
-        $isExpired = (!empty($v['expires_at']) && strtotime($v['expires_at']) <= $now);
-        if (!$isExpired && (int)$v['plan_seconds'] > 0 && !empty($v['used_at'])) {
-            $isExpired = (strtotime($v['used_at']) + (int)$v['plan_seconds']) <= $now;
-        }
-        if ($isExpired) {
-            $expiredByRouter[(int)$v['router_id']][] = $v;
-        }
+    // Group all used vouchers by router so we can resolve each router's tenant
+    // timezone before computing expiry (used_at is stored in local clock time).
+    $vouchersByRouter = [];
+    foreach ($usedVouchers as $v) {
+        $vouchersByRouter[(int)$v['router_id']][] = $v;
     }
 
     $mtkResults = [];
-    foreach ($expiredByRouter as $routerId => $vouchers) {
+    foreach ($vouchersByRouter as $routerId => $vouchers) {
         $rStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
         $rStmt->execute([$routerId]);
         $router = $rStmt->fetch(PDO::FETCH_ASSOC);
         if (!$router) continue;
+
+        // Resolve tenant timezone: used_at/expires_at are stored in the tenant's
+        // local clock, so parse them with that timezone or expiry shifts by the
+        // UTC offset (e.g. Africa/Dar_es_Salaam = UTC+3 -> 3h late).
+        $routerTz = 'UTC';
+        if (!empty($router['tenant_id'])) {
+            $tzStmt = $db->prepare("SELECT timezone FROM accounts WHERE id = ?");
+            $tzStmt->execute([$router['tenant_id']]);
+            $tz = $tzStmt->fetchColumn();
+            if ($tz) $routerTz = $tz;
+        }
+        date_default_timezone_set($routerTz);
+        $now = time();
+
+        // A used voucher is expired when its plan window (used_at + duration) is
+        // over - regardless of whether the user actually connected. Fall back to
+        // expires_at only when used_at/plan are not available.
+        $expiredVouchers = [];
+        foreach ($vouchers as $v) {
+            $isExpired = false;
+            if ((int)$v['plan_seconds'] > 0 && !empty($v['used_at'])) {
+                $isExpired = (strtotime($v['used_at']) + (int)$v['plan_seconds']) <= $now;
+            } elseif (!empty($v['expires_at'])) {
+                $isExpired = strtotime($v['expires_at']) <= $now;
+            }
+            if ($isExpired) $expiredVouchers[] = $v;
+        }
+
+        // Persist expiry: mark the voucher 'expired' and correct expires_at to
+        // the real plan end so past_users displays it and we don't re-scan it.
+        $markStmt = $db->prepare("UPDATE vouchers SET status = 'expired', expires_at = ? WHERE id = ?");
+
+        if (empty($expiredVouchers)) {
+            $mtkResults[] = [
+                'router_id' => $routerId,
+                'name' => $router['name'],
+                'status' => 'cleaned',
+                'expired' => 0,
+                'removed' => 0,
+                'disconnected' => 0,
+                'failed' => [],
+            ];
+            continue;
+        }
 
         $apiIP = !empty($router['wireguard_ip']) && $router['wireguard_ip'] !== '0.0.0.0' ? $router['wireguard_ip'] : $router['ip'];
         $apiPort = intval($router['port'] ?: 8728);
@@ -153,7 +192,7 @@ try {
                 if ($name !== '' && isset($a['.id'])) $activeIdsByName[$name] = $a['.id'];
             }
 
-            foreach ($vouchers as $v) {
+            foreach ($expiredVouchers as $v) {
                 $code = $v['code'];
                 try {
                     if (isset($userIdsByName[$code])) {
@@ -180,16 +219,28 @@ try {
             continue;
         }
 
+        // Router pass succeeded: persist the expiry now so past_users shows the
+        // real plan end and we don't re-scan these vouchers on every run.
+        foreach ($expiredVouchers as $v) {
+            $planEnd = (int)$v['plan_seconds'] > 0 && !empty($v['used_at'])
+                ? strtotime($v['used_at']) + (int)$v['plan_seconds']
+                : strtotime($v['expires_at']);
+            $markStmt->execute([date('Y-m-d H:i:s', $planEnd), $v['id']]);
+        }
+
         $mtkResults[] = [
             'router_id' => $routerId,
             'name' => $router['name'],
             'status' => 'cleaned',
-            'expired' => count($vouchers),
+            'expired' => count($expiredVouchers),
             'removed' => $removed,
             'disconnected' => $disconnected,
             'failed' => $failed,
         ];
     }
+
+    // Restore a stable timezone for the rest of the worker (status/date output).
+    date_default_timezone_set('UTC');
 
     $results['mikrotik_expired'] = $mtkResults;
 

@@ -86,9 +86,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             $mins = floor(($duration % 3600) / 60);
             $uptime = "${hours}h${mins}m0s";
 
-            $stmt = $db->prepare("UPDATE vouchers SET status = 'used', used_at = :ts, used_mac = :mac, router_id = :rid, phone = :phone WHERE id = :id");
+            $stmt = $db->prepare("UPDATE vouchers SET status = 'used', used_at = :ts, used_mac = :mac, router_id = :rid, phone = :phone, expires_at = :end_at WHERE id = :id");
             $stmt->execute([
                 ':ts' => date('Y-m-d H:i:s'),
+                ':end_at' => date('Y-m-d H:i:s', time() + $duration),
                 ':mac' => $mac,
                 ':rid' => $router['id'],
                 ':phone' => $phone,
