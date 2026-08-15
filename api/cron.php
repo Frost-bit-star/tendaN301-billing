@@ -131,7 +131,7 @@ try {
         if (!$router) continue;
 
         $apiIP = !empty($router['wireguard_ip']) && $router['wireguard_ip'] !== '0.0.0.0' ? $router['wireguard_ip'] : $router['ip'];
-        $apiPort = intval($router['port'] ?: 8729);
+        $apiPort = intval($router['port'] ?: 8728);
         $removed = 0;
         $disconnected = 0;
         $failed = [];
@@ -140,12 +140,32 @@ try {
             $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
             $api->connect();
 
+            // Fetch router's current user records + active sessions ONCE,
+            // then only issue remove commands for codes actually present.
+            $userIdsByName = [];
+            foreach ($api->getHotspotUsers() as $u) {
+                $name = $u['name'] ?? '';
+                if ($name !== '' && isset($u['.id'])) $userIdsByName[$name] = $u['.id'];
+            }
+            $activeIdsByName = [];
+            foreach ($api->getHotspotActiveUsers() as $a) {
+                $name = $a['user'] ?? '';
+                if ($name !== '' && isset($a['.id'])) $activeIdsByName[$name] = $a['.id'];
+            }
+
             foreach ($vouchers as $v) {
+                $code = $v['code'];
                 try {
-                    $removed += $api->removeHotspotUserByUsername($v['code']) ? 1 : 0;
-                    $disconnected += (int)$api->disconnectHotspotUser($v['code']);
+                    if (isset($userIdsByName[$code])) {
+                        $api->command(['/ip/hotspot/user/remove', '=.id=' . $userIdsByName[$code]]);
+                        $removed++;
+                    }
+                    if (isset($activeIdsByName[$code])) {
+                        $api->command(['/ip/hotspot/active/remove', '=.id=' . $activeIdsByName[$code]]);
+                        $disconnected++;
+                    }
                 } catch (Exception $e) {
-                    $failed[] = $v['code'];
+                    $failed[] = $code;
                 }
             }
 
@@ -216,7 +236,9 @@ try {
         return false;
     }
 
-    $routers = $db->query("SELECT * FROM routers")->fetchAll(PDO::FETCH_ASSOC);
+    // STEP 2 only applies to Tenda routers (QoS sync over HTTP).
+    // MikroTik routers are handled via the API in STEP 1b, so skip them here.
+    $routers = $db->query("SELECT * FROM routers WHERE type != 'mikrotik' OR type IS NULL")->fetchAll(PDO::FETCH_ASSOC);
     $routerResults = [];
 
     foreach ($routers as $routerData) {
