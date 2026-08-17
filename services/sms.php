@@ -86,7 +86,7 @@ function sendExpiryReminders($db) {
     return ['sent' => $sent, 'errors' => $errors];
 }
 
-if (php_sapi_name() !== 'cli' && !defined('STDIN')) {
+if (php_sapi_name() !== 'cli' && !defined('STDIN') && basename($_SERVER['SCRIPT_FILENAME'] ?? '') === basename(__FILE__)) {
     header('Content-Type: application/json');
 
     $input = json_decode(file_get_contents('php://input'), true);
