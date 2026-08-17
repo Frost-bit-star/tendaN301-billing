@@ -30,7 +30,7 @@ if ($method === 'GET') {
                    p.name as plan_name
             FROM vouchers v
             LEFT JOIN plans p ON v.plan_id = p.id
-            WHERE v.status = 'used'
+            WHERE v.status IN ('used', 'expired')
               AND v.phone IS NOT NULL AND v.phone != ''
             ORDER BY v.used_at DESC
         ")->fetchAll(PDO::FETCH_ASSOC);
