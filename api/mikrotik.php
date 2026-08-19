@@ -298,47 +298,56 @@ function generateProvisionScript($db, $routerId, $name, $wireguardIP, $deviceId,
     ];
 }
 
+function getWgPeerData() {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $output = [];
+    exec("wg show wg0", $output);
+    $currentKey = null;
+    $peers = [];
+    foreach ($output as $line) {
+        if (preg_match('/^\s*peer:\s*(\S+)/', $line, $m)) {
+            $currentKey = $m[1];
+            $peers[$currentKey] = ['handshake' => 0];
+        } elseif ($currentKey && preg_match('/^\s*latest handshake:\s*(.+)/', $line, $m)) {
+            $hs = trim($m[1]);
+            $total = 0;
+            if (preg_match('/(\d+)\s+days?/', $hs, $d)) $total += intval($d[1]) * 86400;
+            if (preg_match('/(\d+)\s+hours?/', $hs, $h)) $total += intval($h[1]) * 3600;
+            if (preg_match('/(\d+)\s+minutes?/', $hs, $m2)) $total += intval($m2[1]) * 60;
+            if (preg_match('/(\d+)\s+seconds?/', $hs, $s)) $total += intval($s[1]);
+            $peers[$currentKey]['handshake'] = $total > 0 ? time() - $total : 0;
+        }
+    }
+    $cache = $peers;
+    return $cache;
+}
+
 function isRouterOnlineWg($router) {
     if (empty($router['wg_pubkey'])) return false;
+    if (empty($router['wireguard_ip'])) return false;
 
-    $wgIP = $router['wireguard_ip'] ?? '';
-    if (empty($wgIP)) return false;
+    $peers = getWgPeerData();
+    $pubkey = $router['wg_pubkey'];
+    if (!isset($peers[$pubkey])) return false;
 
-    // First check if WireGuard peer exists at all
-    if (!peerExists($router['wg_pubkey'])) return false;
-
-    // Try connecting to API port — if TCP succeeds, device is online
-    $fp = @fsockopen($wgIP, 8729, $errno, $errstr, 3);
-    if ($fp) {
-        fclose($fp);
-        return true;
-    }
-    return false;
+    $handshake = $peers[$pubkey]['handshake'];
+    if ($handshake <= 0) return false;
+    return (time() - $handshake) < 180;
 }
 
 function peerExists($peerPubKey) {
-    $output = [];
-    exec("wg show wg0 peers | grep -c " . escapeshellarg($peerPubKey), $output, $returnCode);
-    $count = intval(trim(implode('', $output)));
-    return $count > 0;
+    $peers = getWgPeerData();
+    return isset($peers[$peerPubKey]);
 }
 
 function checkWgHandshake($peerPubKey) {
-    $output = [];
-    exec("wg show wg0 latest-handshakes | grep " . escapeshellarg($peerPubKey), $output);
-    foreach ($output as $line) {
-        if (strpos($line, $peerPubKey) !== false) {
-            $parts = explode("\t", $line);
-            if (isset($parts[1]) && intval($parts[1]) > 0) {
-                $handshakeTime = intval($parts[1]);
-                $now = time();
-                if (($now - $handshakeTime) < 180) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
+    $peers = getWgPeerData();
+    if (!isset($peers[$peerPubKey])) return false;
+    $handshake = $peers[$peerPubKey]['handshake'];
+    if ($handshake <= 0) return false;
+    return (time() - $handshake) < 180;
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
