@@ -220,13 +220,18 @@ if ($method === 'POST') {
 
     if ($action === 'redeem') {
         $code = trim($input['code'] ?? '');
+        $routerId = $input['router_id'] ?? null;
 
         if (empty($code)) {
             jsonResponse(['error' => 'Voucher code is required'], 400);
         }
 
-        $stmt = $db->prepare("SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes FROM vouchers v LEFT JOIN plans p ON v.plan_id = p.id WHERE v.code = :code");
-        $stmt->execute([':code' => $code]);
+        if (empty($routerId)) {
+            jsonResponse(['error' => 'Router ID is required'], 400);
+        }
+
+        $stmt = $db->prepare("SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes FROM vouchers v LEFT JOIN plans p ON v.plan_id = p.id WHERE v.code = :code AND v.router_id = :rid");
+        $stmt->execute([':code' => $code, ':rid' => $routerId]);
         $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$voucher) {

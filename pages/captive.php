@@ -57,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         if (empty($voucherCode)) {
             $error = 'Please enter a voucher code';
         } else {
-            $stmt = $db->prepare("SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes FROM vouchers v LEFT JOIN plans p ON v.plan_id = p.id WHERE v.code = :code");
-            $stmt->execute([':code' => $voucherCode]);
+            $stmt = $db->prepare("SELECT v.*, p.name as plan_name, p.days, p.hours, p.minutes FROM vouchers v LEFT JOIN plans p ON v.plan_id = p.id WHERE v.code = :code AND v.router_id = :rid");
+            $stmt->execute([':code' => $voucherCode, ':rid' => $router['id']]);
             $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if (!$voucher) {
