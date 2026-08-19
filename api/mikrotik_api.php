@@ -351,6 +351,6 @@ class MikroTikAPI {
     }
 
     public function getInterfaceStats() {
-        return $this->command(['/interface/print', 'stats']);
+        return $this->command(['/interface/print']);
     }
 }

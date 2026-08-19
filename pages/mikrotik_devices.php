@@ -105,7 +105,7 @@ $deviceId = $_GET['id'] ?? null;
         <button class="btn btn-secondary btn-sm" onclick="loadResources()"><i class="fas fa-sync"></i> Refresh</button>
     </div>
     <div class="card-body">
-        <div id="resourcesLoading" class="text-center py-3">
+        <div id="resourcesLoading" class="text-center py-3" style="display:none;">
             <i class="fas fa-spinner fa-spin"></i> Loading...
         </div>
         <div id="resourcesContent" style="display:none;">
@@ -163,7 +163,7 @@ $deviceId = $_GET['id'] ?? null;
         </div>
     </div>
     <div class="card-body">
-        <div id="streamLoading" class="text-center py-3">
+        <div id="streamLoading" class="text-center py-3" style="display:none;">
             <i class="fas fa-spinner fa-spin"></i> Connecting...
         </div>
         <div id="streamContent" style="display:none;">
@@ -403,7 +403,10 @@ async function loadResources() {
     document.getElementById('streamError').style.display = 'none';
 
     try {
-        const res = await fetch(`/api/mikrotik.php?action=resources&router_id=${deviceData.id}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(`/api/mikrotik.php?action=resources&router_id=${deviceData.id}`, { signal: controller.signal });
+        clearTimeout(timeout);
         const data = await res.json();
         document.getElementById('resourcesLoading').style.display = 'none';
         document.getElementById('streamLoading').style.display = 'none';
@@ -424,10 +427,11 @@ async function loadResources() {
     } catch (e) {
         document.getElementById('resourcesLoading').style.display = 'none';
         document.getElementById('streamLoading').style.display = 'none';
+        const msg = e.name === 'AbortError' ? 'Router not reachable (timeout)' : e.message;
         document.getElementById('resourcesError').style.display = 'block';
-        document.getElementById('resourcesErrorMsg').textContent = e.message;
+        document.getElementById('resourcesErrorMsg').textContent = msg;
         document.getElementById('streamError').style.display = 'block';
-        document.getElementById('streamErrorMsg').textContent = e.message;
+        document.getElementById('streamErrorMsg').textContent = msg;
     }
 }
 
