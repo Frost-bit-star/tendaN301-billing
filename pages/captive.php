@@ -10,15 +10,24 @@ $appCurrencySymbol = $appCurrencyMap[$_SESSION['currency'] ?? 'TZS'] ?? 'TSh';
 appSetTimezone($_SESSION['timezone'] ?? $defaultTimezone);
 
 $routerDeviceId = $_GET['router'] ?? '';
-$clientMAC = $_GET['mac'] ?? $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '';
 $redirURL = $_GET['url'] ?? 'https://jasiri.stackverify.site/success';
 $error = '';
 $success = '';
 $autoLogin = false;
 $showPhoneForm = false;
 
+$rawMAC = trim($_GET['mac'] ?? '');
+if (preg_match('/^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/', $rawMAC)) {
+    $clientMAC = $rawMAC;
+} else {
+    $clientMAC = '';
+}
+
 if (empty($clientMAC) && isset($_SERVER['HTTP_CLIENT_MAC'])) {
-    $clientMAC = $_SERVER['HTTP_CLIENT_MAC'];
+    $candidate = trim($_SERVER['HTTP_CLIENT_MAC']);
+    if (preg_match('/^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/', $candidate)) {
+        $clientMAC = $candidate;
+    }
 }
 
 $stmt = $db->prepare("SELECT * FROM routers WHERE device_id = :did AND type = 'mikrotik'");

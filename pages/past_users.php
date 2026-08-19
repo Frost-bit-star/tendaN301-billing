@@ -173,17 +173,27 @@ unset($u);
             <tbody>
                 <?php foreach ($users as $u): ?>
                 <tr>
-                    <td style="font-weight:500"><?php
-                        $displayName = '';
-                        if (!empty($u['mac'])) $displayName .= htmlspecialchars($u['mac']);
-                        if (!empty($u['voucher_code'])) $displayName .= ($displayName ? '<br>' : '') . '<span style="color:var(--primary)">' . htmlspecialchars($u['voucher_code']) . '</span>';
-                        echo $displayName ?: '—';
-                    ?></td>
+                    <td style="font-weight:500">
+                        <?php echo htmlspecialchars($u['name'] ?: '—'); ?>
+                        <?php if (!empty($u['mac']) && preg_match('/^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/', $u['mac'])): ?>
+                            <br><small style="color:var(--on-surface-med);font-family:'Courier New',monospace;font-size:11px"><?php echo htmlspecialchars($u['mac']); ?></small>
+                        <?php endif; ?>
+                        <?php if (!empty($u['voucher_code'])): ?>
+                            <br><small style="color:var(--primary);font-family:'Courier New',monospace;font-size:11px"><?php echo htmlspecialchars($u['voucher_code']); ?></small>
+                        <?php endif; ?>
+                    </td>
                     <td style="font-family:'Courier New',monospace;font-weight:600;letter-spacing:1px"><?php echo htmlspecialchars($u['phone']); ?></td>
                     <td><span class="chip <?php echo $u['chip']; ?>"><span class="chip-dot"></span><?php echo $u['status']; ?></span></td>
                     <td><?php echo htmlspecialchars($u['plan_name'] ?: '—'); ?></td>
                     <td><?php echo htmlspecialchars($u['router_name'] ?: '—'); ?></td>
-                    <td><code><?php echo htmlspecialchars($u['mac'] ?: '—'); ?></code></td>
+                    <td><code><?php
+                        $macVal = $u['mac'] ?? '';
+                        if (preg_match('/^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/', $macVal)) {
+                            echo htmlspecialchars($macVal);
+                        } else {
+                            echo '—';
+                        }
+                    ?></code></td>
                     <td style="font-size:12px;color:var(--on-surface-med)"><?php echo htmlspecialchars($u['created_at'] ?: '—'); ?></td>
                     <td style="font-size:12px;color:var(--on-surface-med)"><?php echo htmlspecialchars($u['end_at'] ?: '—'); ?></td>
                 </tr>
