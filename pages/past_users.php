@@ -31,10 +31,13 @@ if ($searchDigits !== null) {
     $billingWhere[] = 'REPLACE(REPLACE(REPLACE(REPLACE(b.phone_number," ",""),"-",""),"(",""),")","") LIKE :digits';
     $voucherWhere[] = 'REPLACE(REPLACE(REPLACE(REPLACE(v.phone," ",""),"-",""),"(",""),")","") LIKE :digits';
     $params[':digits'] = $searchDigits;
-} elseif ($searchTerm !== null) {
-    $billingWhere[] = '(b.phone_number LIKE :q OR b.name LIKE :q)';
-    $voucherWhere[] = '(v.phone LIKE :q OR v.customer_name LIKE :q)';
+}
+
+if ($searchTerm !== null) {
+    $billingWhere[] = '(b.phone_number LIKE :q OR b.name LIKE :q OR REPLACE(REPLACE(b.mac,":",""),"-","") LIKE :mac_q)';
+    $voucherWhere[] = '(v.phone LIKE :q OR v.customer_name LIKE :q OR REPLACE(REPLACE(v.used_mac,":",""),"-","") LIKE :mac_q)';
     $params[':q'] = $searchTerm;
+    $params[':mac_q'] = '%' . preg_replace('/[^0-9a-fA-F]/', '', $query) . '%';
 }
 
 $billingWhereSql = $billingWhere ? ' AND ' . implode(' AND ', $billingWhere) : '';
@@ -48,6 +51,7 @@ $stmt = $db->prepare("
         b.name                      AS name,
         b.phone_number              AS phone,
         b.mac                       AS mac,
+        NULL                        AS voucher_code,
         b.plan_id                   AS plan_id,
         b.internet_access           AS internet_access,
         b.created_at                AS created_at,
@@ -71,6 +75,7 @@ $stmt = $db->prepare("
         v.customer_name             AS name,
         v.phone                     AS phone,
         v.used_mac                  AS mac,
+        v.code                      AS voucher_code,
         v.plan_id                   AS plan_id,
         NULL                        AS internet_access,
         v.used_at                   AS created_at,
@@ -132,7 +137,7 @@ unset($u);
             <div style="position:relative;flex:1;min-width:220px">
                 <svg viewBox="0 0 24 24" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:16px;height:16px;fill:var(--on-surface-med)"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                 <input type="text" name="q" class="form-control" style="padding-left:32px"
-                       placeholder="Search by mobile number (e.g. 0758 224 994)…"
+                       placeholder="Search by mobile number, MAC address, or name…"
                        value="<?php echo htmlspecialchars($query); ?>" autocomplete="off">
             </div>
             <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Search</button>
@@ -168,7 +173,12 @@ unset($u);
             <tbody>
                 <?php foreach ($users as $u): ?>
                 <tr>
-                    <td style="font-weight:500"><?php echo htmlspecialchars($u['name'] ?: '—'); ?></td>
+                    <td style="font-weight:500"><?php
+                        $displayName = '';
+                        if (!empty($u['mac'])) $displayName .= htmlspecialchars($u['mac']);
+                        if (!empty($u['voucher_code'])) $displayName .= ($displayName ? '<br>' : '') . '<span style="color:var(--primary)">' . htmlspecialchars($u['voucher_code']) . '</span>';
+                        echo $displayName ?: '—';
+                    ?></td>
                     <td style="font-family:'Courier New',monospace;font-weight:600;letter-spacing:1px"><?php echo htmlspecialchars($u['phone']); ?></td>
                     <td><span class="chip <?php echo $u['chip']; ?>"><span class="chip-dot"></span><?php echo $u['status']; ?></span></td>
                     <td><?php echo htmlspecialchars($u['plan_name'] ?: '—'); ?></td>

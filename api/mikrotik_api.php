@@ -345,4 +345,12 @@ class MikroTikAPI {
     public function getInterfaceTraffic() {
         return $this->command(['/interface/monitor-traffic', '=once=', '=interface=jasiri-wg']);
     }
+
+    public function getSystemResources() {
+        return $this->command(['/system/resource/print']);
+    }
+
+    public function getInterfaceStats() {
+        return $this->command(['/interface/print', 'stats']);
+    }
 }

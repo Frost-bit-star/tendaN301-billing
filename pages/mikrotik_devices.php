@@ -101,54 +101,117 @@ $deviceId = $_GET['id'] ?? null;
 
 <div class="card" style="margin-top:20px;">
     <div class="card-header">
-        <span class="card-title"><i class="fas fa-chart-area"></i> Bandwidth Usage</span>
-        <button class="btn btn-secondary btn-sm" onclick="loadBandwidth()"><i class="fas fa-sync"></i> Refresh</button>
+        <span class="card-title"><i class="fas fa-microchip"></i> Router Resources</span>
+        <button class="btn btn-secondary btn-sm" onclick="loadResources()"><i class="fas fa-sync"></i> Refresh</button>
     </div>
     <div class="card-body">
-        <div id="bandwidthLoading" class="text-center py-3">
+        <div id="resourcesLoading" class="text-center py-3">
             <i class="fas fa-spinner fa-spin"></i> Loading...
         </div>
-        <div id="bandwidthContent" style="display:none;">
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>User</th><th>IP</th><th>Bytes In</th><th>Bytes Out</th><th>Uptime</th></tr></thead>
-                    <tbody id="bandwidthTable"></tbody>
-                </table>
+        <div id="resourcesContent" style="display:none;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;">
+                <div class="resource-stat">
+                    <div class="resource-label">CPU Usage</div>
+                    <div class="resource-value" id="resCpu">—</div>
+                    <div class="resource-bar"><div class="resource-bar-fill" id="resCpuBar"></div></div>
+                </div>
+                <div class="resource-stat">
+                    <div class="resource-label">Memory</div>
+                    <div class="resource-value" id="resMem">—</div>
+                    <div class="resource-bar"><div class="resource-bar-fill" id="resMemBar"></div></div>
+                </div>
+                <div class="resource-stat">
+                    <div class="resource-label">Disk</div>
+                    <div class="resource-value" id="resDisk">—</div>
+                    <div class="resource-bar"><div class="resource-bar-fill" id="resDiskBar"></div></div>
+                </div>
+                <div class="resource-stat">
+                    <div class="resource-label">Uptime</div>
+                    <div class="resource-value" id="resUptime">—</div>
+                </div>
+                <div class="resource-stat">
+                    <div class="resource-label">RouterOS</div>
+                    <div class="resource-value" id="resVersion">—</div>
+                </div>
+                <div class="resource-stat">
+                    <div class="resource-label">Board</div>
+                    <div class="resource-value" id="resBoard">—</div>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <h6 style="margin-bottom:12px;color:var(--on-surface-med);"><i class="fas fa-network-wired"></i> Interfaces</h6>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Name</th><th>Type</th><th>RX Rate</th><th>TX Rate</th><th>RX Bytes</th><th>TX Bytes</th><th>Status</th></tr></thead>
+                        <tbody id="interfacesTable"></tbody>
+                    </table>
+                </div>
             </div>
         </div>
-        <div id="bandwidthEmpty" class="text-center text-muted py-3" style="display:none;">
-            <i class="fas fa-wifi"></i> No active users
-        </div>
-        <div id="bandwidthError" class="text-center text-danger py-3" style="display:none;">
-            <i class="fas fa-exclamation-triangle"></i> <span id="bandwidthErrorMsg">Failed to load</span>
+        <div id="resourcesError" class="text-center text-danger py-3" style="display:none;">
+            <i class="fas fa-exclamation-triangle"></i> <span id="resourcesErrorMsg">Failed to load</span>
         </div>
     </div>
 </div>
 
 <div class="card" style="margin-top:20px;">
-    <div class="card-header" style="cursor:pointer" onclick="toggleTerminal()">
-        <span class="card-title"><i class="fas fa-terminal"></i> SSH Terminal</span>
-        <div>
-            <button class="btn btn-primary btn-sm" id="openTermBtn" onclick="event.stopPropagation();startTerminal()"><i class="fas fa-play"></i> Open Terminal</button>
-            <button class="btn btn-danger btn-sm" id="closeTermBtn" onclick="event.stopPropagation();stopTerminal()" style="display:none"><i class="fas fa-stop"></i> Close</button>
+    <div class="card-header">
+        <span class="card-title"><i class="fas fa-chart-line"></i> Live Resource Stream</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <span id="streamDot" style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;"></span>
+            <small id="streamLabel" style="color:var(--on-surface-med);">Streaming</small>
         </div>
     </div>
-    <div class="card-body p-0" id="terminalContainer" style="display:none;height:450px;background:#1a1a2e">
-        <iframe id="terminalFrame" style="width:100%;height:100%;border:none;display:none"></iframe>
-        <div id="terminalLoading" class="d-flex align-items-center justify-content-center h-100 text-white">
-            <div class="text-center">
-                <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
-                <p>Connecting to router SSH...</p>
+    <div class="card-body">
+        <div id="streamLoading" class="text-center py-3">
+            <i class="fas fa-spinner fa-spin"></i> Connecting...
+        </div>
+        <div id="streamContent" style="display:none;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;">
+                <div class="stream-gauge">
+                    <canvas id="gaugeCpu" width="120" height="120"></canvas>
+                    <div class="gauge-label">CPU</div>
+                    <div class="gauge-value" id="streamCpu">0%</div>
+                </div>
+                <div class="stream-gauge">
+                    <canvas id="gaugeMem" width="120" height="120"></canvas>
+                    <div class="gauge-label">Memory</div>
+                    <div class="gauge-value" id="streamMem">0%</div>
+                </div>
+                <div class="stream-gauge">
+                    <canvas id="gaugeDisk" width="120" height="120"></canvas>
+                    <div class="gauge-label">Disk</div>
+                    <div class="gauge-value" id="streamDisk">0%</div>
+                </div>
+                <div class="stream-gauge">
+                    <canvas id="gaugeUsers" width="120" height="120"></canvas>
+                    <div class="gauge-label">Active Users</div>
+                    <div class="gauge-value" id="streamUsers">0</div>
+                </div>
+            </div>
+            <div style="margin-top:20px;">
+                <canvas id="cpuHistory" height="100"></canvas>
             </div>
         </div>
-        <div id="terminalError" class="d-flex align-items-center justify-content-center h-100 text-danger" style="display:none">
-            <div class="text-center">
-                <i class="fas fa-exclamation-triangle fa-2x mb-3"></i>
-                <p id="terminalErrorMsg">Connection failed</p>
-            </div>
+        <div id="streamError" class="text-center text-danger py-3" style="display:none;">
+            <i class="fas fa-exclamation-triangle"></i> <span id="streamErrorMsg">Connection lost</span>
         </div>
     </div>
 </div>
+
+<style>
+.stream-gauge { display:flex; flex-direction:column; align-items:center; padding:12px; background:var(--surface-2); border-radius:var(--radius-md); }
+.gauge-label { font-size:0.75rem; color:var(--on-surface-med); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+.gauge-value { font-size:1.1rem; font-weight:700; color:var(--on-surface); }
+</style>
+
+<style>
+.resource-stat { background:var(--surface-2); border-radius:var(--radius-md); padding:16px; }
+.resource-label { font-size:0.75rem; color:var(--on-surface-med); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.resource-value { font-size:1.25rem; font-weight:600; color:var(--on-surface); }
+.resource-bar { height:6px; background:var(--surface-4); border-radius:3px; margin-top:8px; overflow:hidden; }
+.resource-bar-fill { height:100%; border-radius:3px; transition:width 0.5s ease; }
+</style>
 
 <script>
 let deviceData = null;
@@ -238,117 +301,240 @@ function fmtBytes(b) {
     return b + ' B';
 }
 
-async function loadBandwidth() {
+function fmtRate(r) {
+    if (!r || r === '0') return '—';
+    return r;
+}
+
+function setBarColor(bar, pct) {
+    if (pct < 50) bar.style.background = 'var(--green)';
+    else if (pct < 80) bar.style.background = 'var(--yellow)';
+    else bar.style.background = 'var(--red)';
+}
+
+function drawGauge(canvasId, pct, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2, r = Math.min(w, h) / 2 - 8;
+
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0.75 * Math.PI, 2.25 * Math.PI);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+
+    const range = 1.5 * Math.PI;
+    const end = 0.75 * Math.PI + (pct / 100) * range;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0.75 * Math.PI, end);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+}
+
+const cpuHistoryData = [];
+const MAX_HISTORY = 60;
+
+function drawCpuHistory() {
+    const canvas = document.getElementById('cpuHistory');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.parentElement.clientWidth;
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (cpuHistoryData.length < 2) return;
+
+    const step = w / (MAX_HISTORY - 1);
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    ctx.lineWidth = 1;
+    for (let y = 0; y <= 100; y += 25) {
+        const py = h - (y / 100) * h;
+        ctx.moveTo(0, py);
+        ctx.lineTo(w, py);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    cpuHistoryData.forEach((val, i) => {
+        const x = i * step;
+        const y = h - (val / 100) * h;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = cpuHistoryData[cpuHistoryData.length - 1] > 80 ? '#ef4444' : cpuHistoryData[cpuHistoryData.length - 1] > 50 ? '#eab308' : '#22c55e';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const gradient = ctx.createLinearGradient(0, 0, 0, h);
+    gradient.addColorStop(0, ctx.strokeStyle + '33');
+    gradient.addColorStop(1, ctx.strokeStyle + '00');
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('CPU % (last ' + MAX_HISTORY + ' samples)', 4, 14);
+}
+
+function colorForPct(pct) {
+    if (pct < 50) return '#22c55e';
+    if (pct < 80) return '#eab308';
+    return '#ef4444';
+}
+
+async function loadResources() {
     if (!deviceData) return;
-    document.getElementById('bandwidthLoading').style.display = 'block';
-    document.getElementById('bandwidthContent').style.display = 'none';
-    document.getElementById('bandwidthEmpty').style.display = 'none';
-    document.getElementById('bandwidthError').style.display = 'none';
+    document.getElementById('resourcesLoading').style.display = 'block';
+    document.getElementById('resourcesContent').style.display = 'none';
+    document.getElementById('resourcesError').style.display = 'none';
+    document.getElementById('streamLoading').style.display = 'block';
+    document.getElementById('streamContent').style.display = 'none';
+    document.getElementById('streamError').style.display = 'none';
 
     try {
-        const res = await fetch(`/api/mikrotik.php?action=bandwidth&router_id=${deviceData.id}`);
+        const res = await fetch(`/api/mikrotik.php?action=resources&router_id=${deviceData.id}`);
         const data = await res.json();
-        document.getElementById('bandwidthLoading').style.display = 'none';
+        document.getElementById('resourcesLoading').style.display = 'none';
+        document.getElementById('streamLoading').style.display = 'none';
 
         if (!res.ok || data.error) {
-            document.getElementById('bandwidthError').style.display = 'block';
-            document.getElementById('bandwidthErrorMsg').textContent = data.error || 'API connection failed';
+            document.getElementById('resourcesError').style.display = 'block';
+            document.getElementById('resourcesErrorMsg').textContent = data.error || 'API connection failed';
+            document.getElementById('streamError').style.display = 'block';
+            document.getElementById('streamErrorMsg').textContent = data.error || 'API connection failed';
             return;
         }
 
-        const users = data.active_users || [];
-        if (users.length === 0) {
-            document.getElementById('bandwidthEmpty').style.display = 'block';
-            return;
-        }
+        updateResourceCards(data);
+        updateStreamGauges(data);
 
-        document.getElementById('bandwidthContent').style.display = 'block';
-        document.getElementById('bandwidthTable').innerHTML = users.map(u => `
-            <tr>
-                <td>${escapeHtml(u['user'] || u['name'] || '—')}</td>
-                <td>${escapeHtml(u['address'] || '—')}</td>
-                <td>${fmtBytes(u['bytes-in'] || 0)}</td>
-                <td>${fmtBytes(u['bytes-out'] || 0)}</td>
-                <td>${escapeHtml(u['uptime'] || '—')}</td>
-            </tr>
-        `).join('');
+        document.getElementById('resourcesContent').style.display = 'block';
+        document.getElementById('streamContent').style.display = 'block';
     } catch (e) {
-        document.getElementById('bandwidthLoading').style.display = 'none';
-        document.getElementById('bandwidthError').style.display = 'block';
-        document.getElementById('bandwidthErrorMsg').textContent = e.message;
+        document.getElementById('resourcesLoading').style.display = 'none';
+        document.getElementById('streamLoading').style.display = 'none';
+        document.getElementById('resourcesError').style.display = 'block';
+        document.getElementById('resourcesErrorMsg').textContent = e.message;
+        document.getElementById('streamError').style.display = 'block';
+        document.getElementById('streamErrorMsg').textContent = e.message;
     }
 }
 
-loadBandwidth();
-setInterval(loadBandwidth, 30000);
+function updateResourceCards(data) {
+    const r = data.resources || {};
+    const totalMem = parseInt(r['total-memory'] || 0);
+    const freeMem = parseInt(r['free-memory'] || 0);
+    const usedMem = totalMem - freeMem;
+    const memPct = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0;
 
-function toggleTerminal() {
-    const c = document.getElementById('terminalContainer');
-    c.style.display = c.style.display === 'none' ? 'block' : 'none';
+    const totalDisk = parseInt(r['total disk-space'] || 0);
+    const freeDisk = parseInt(r['free disk-space'] || 0);
+    const usedDisk = totalDisk - freeDisk;
+    const diskPct = totalDisk > 0 ? Math.round((usedDisk / totalDisk) * 100) : 0;
+
+    const cpuLoad = parseInt(r['cpu-load'] || 0);
+
+    document.getElementById('resCpu').textContent = cpuLoad + '%';
+    const cpuBar = document.getElementById('resCpuBar');
+    cpuBar.style.width = cpuLoad + '%';
+    setBarColor(cpuBar, cpuLoad);
+
+    document.getElementById('resMem').textContent = fmtBytes(usedMem) + ' / ' + fmtBytes(totalMem);
+    const memBar = document.getElementById('resMemBar');
+    memBar.style.width = memPct + '%';
+    setBarColor(memBar, memPct);
+
+    document.getElementById('resDisk').textContent = fmtBytes(usedDisk) + ' / ' + fmtBytes(totalDisk);
+    const diskBar = document.getElementById('resDiskBar');
+    diskBar.style.width = diskPct + '%';
+    setBarColor(diskBar, diskPct);
+
+    document.getElementById('resUptime').textContent = r.uptime || '—';
+    document.getElementById('resVersion').textContent = (r['version'] || '—') + (r['firmware'] ? ' (' + r['firmware'] + ')' : '');
+    document.getElementById('resBoard').textContent = r['board-name'] || r['platform'] || '—';
+
+    const ifaces = data.interfaces || [];
+    const exclude = ['jsbridge', 'l2tp0', 'pptp-client', 'ovpn-client', 'sstp-client', 'lte1'];
+    const filtered = ifaces.filter(iface => {
+        const name = (iface.name || '').toLowerCase();
+        return !exclude.some(ex => name.includes(ex)) && !name.startsWith('loopback');
+    });
+
+    document.getElementById('interfacesTable').innerHTML = filtered.map(iface => {
+        const status = iface['running'] === 'true' || iface['disabled'] === 'false';
+        const statusHtml = status
+            ? '<span class="chip active"><span class="chip-dot"></span>UP</span>'
+            : '<span class="chip inactive"><span class="chip-dot"></span>DOWN</span>';
+        return `<tr>
+            <td><strong>${escapeHtml(iface.name || '—')}</strong></td>
+            <td>${escapeHtml(iface.type || '—')}</td>
+            <td>${fmtRate(iface['rx-rate'] || iface['rate'])}</td>
+            <td>${fmtRate(iface['tx-rate'] || iface['rate'])}</td>
+            <td>${fmtBytes(iface['rx-byte'] || 0)}</td>
+            <td>${fmtBytes(iface['tx-byte'] || 0)}</td>
+            <td>${statusHtml}</td>
+        </tr>`;
+    }).join('');
 }
 
-async function startTerminal() {
-    const btn = document.getElementById('openTermBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
-    document.getElementById('terminalError').style.display = 'none';
-    document.getElementById('terminalLoading').style.display = 'flex';
-    document.getElementById('terminalFrame').style.display = 'none';
-    document.getElementById('terminalContainer').style.display = 'block';
+function updateStreamGauges(data) {
+    const r = data.resources || {};
+    const totalMem = parseInt(r['total-memory'] || 0);
+    const freeMem = parseInt(r['free-memory'] || 0);
+    const usedMem = totalMem - freeMem;
+    const memPct = totalMem > 0 ? Math.round((usedMem / totalMem) * 100) : 0;
 
-    try {
-        const res = await fetch('/api/ssh_terminal.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'start', router_id: deviceData.id })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed');
+    const totalDisk = parseInt(r['total disk-space'] || 0);
+    const freeDisk = parseInt(r['free disk-space'] || 0);
+    const usedDisk = totalDisk - freeDisk;
+    const diskPct = totalDisk > 0 ? Math.round((usedDisk / totalDisk) * 100) : 0;
 
-        const frame = document.getElementById('terminalFrame');
-        frame.onload = function() {
-            document.getElementById('terminalLoading').style.display = 'none';
-            this.style.display = 'block';
-        };
-        frame.src = 'http://' + window.location.hostname + ':' + data.port + '/';
+    const cpuLoad = parseInt(r['cpu-load'] || 0);
+    const userCount = (data.active_users || []).length;
 
-        btn.style.display = 'none';
-        document.getElementById('closeTermBtn').style.display = 'inline-block';
+    cpuHistoryData.push(cpuLoad);
+    if (cpuHistoryData.length > MAX_HISTORY) cpuHistoryData.shift();
 
-        setTimeout(function() {
-            if (document.getElementById('terminalLoading').style.display !== 'none') {
-                document.getElementById('terminalLoading').style.display = 'none';
-                document.getElementById('terminalError').style.display = 'flex';
-                document.getElementById('terminalErrorMsg').textContent = 'Connection timed out. Router may be offline.';
-            }
-        }, 10000);
-    } catch (err) {
-        document.getElementById('terminalLoading').style.display = 'none';
-        document.getElementById('terminalError').style.display = 'flex';
-        document.getElementById('terminalErrorMsg').textContent = err.message;
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-play"></i> Open Terminal';
-    }
+    drawGauge('gaugeCpu', cpuLoad, colorForPct(cpuLoad));
+    drawGauge('gaugeMem', memPct, colorForPct(memPct));
+    drawGauge('gaugeDisk', diskPct, colorForPct(diskPct));
+    drawGauge('gaugeUsers', Math.min(userCount * 5, 100), userCount > 0 ? '#3b82f6' : '#6b7280');
+
+    document.getElementById('streamCpu').textContent = cpuLoad + '%';
+    document.getElementById('streamMem').textContent = memPct + '%';
+    document.getElementById('streamDisk').textContent = diskPct + '%';
+    document.getElementById('streamUsers').textContent = userCount;
+
+    document.getElementById('streamDot').style.background = 'var(--green)';
+    document.getElementById('streamLabel').textContent = 'Live — ' + new Date().toLocaleTimeString();
+
+    drawCpuHistory();
 }
 
-async function stopTerminal() {
-    try {
-        await fetch('/api/ssh_terminal.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'stop', router_id: deviceData.id })
-        });
-    } catch (e) {}
-    document.getElementById('terminalFrame').style.display = 'none';
-    document.getElementById('terminalFrame').src = '';
-    document.getElementById('terminalLoading').style.display = 'flex';
-    document.getElementById('closeTermBtn').style.display = 'none';
-    document.getElementById('openTermBtn').style.display = 'inline-block';
+let streamInterval = null;
+
+function startStream() {
+    if (streamInterval) clearInterval(streamInterval);
+    streamInterval = setInterval(loadResources, 5000);
 }
 
-window.addEventListener('beforeunload', function() { stopTerminal(); });
-</script>
+loadResources().then(() => startStream());
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 <?php else: ?>
 <!-- DEVICE LIST VIEW -->

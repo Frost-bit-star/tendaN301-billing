@@ -650,6 +650,38 @@ if ($method === 'GET') {
         }
     }
 
+    if ($action === 'resources') {
+        $routerId = $_GET['router_id'] ?? null;
+        if (!$routerId) jsonResponse(['error' => 'router_id required'], 400);
+
+        $stmt = $db->prepare("SELECT * FROM routers WHERE id = :id AND type = 'mikrotik'");
+        $stmt->execute([':id' => $routerId]);
+        $router = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$router) jsonResponse(['error' => 'Router not found'], 404);
+
+        $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
+        $apiPort = intval($router['port'] ?: 8729);
+
+        try {
+            $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
+            $api->connect();
+
+            $resources = $api->getSystemResources();
+            $active = $api->getHotspotActiveUsers();
+            $interfaces = $api->getInterfaceStats();
+            $api->close();
+
+            jsonResponse([
+                'success' => true,
+                'resources' => $resources[0] ?? [],
+                'active_users' => $active,
+                'interfaces' => $interfaces,
+            ]);
+        } catch (Exception $e) {
+            jsonResponse(['error' => 'API connection failed: ' . $e->getMessage()], 500);
+        }
+    }
+
     if ($action === 'dashboard_stats') {
         $tenantId = $_SESSION['account_id'] ?? null;
         $role = $_SESSION['role'] ?? null;
