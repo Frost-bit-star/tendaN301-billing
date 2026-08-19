@@ -147,7 +147,7 @@ async function loadWirelessSsid() {
 
 async function loadDevice() {
     try {
-        const res = await fetch('/api/mikrotik.php?action=get&router_id=<?= json_encode($deviceId) ?>');
+        const res = await fetch('/api/mikrotik.php?action=get&router_id=<?= (int)$deviceId ?>');
         const data = await res.json();
         deviceData = data.router || null;
         if (!deviceData) {

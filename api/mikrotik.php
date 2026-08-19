@@ -569,14 +569,6 @@ if ($method === 'GET') {
         $router = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$router) jsonResponse(['error' => 'Router not found'], 404);
 
-        $router['online'] = isRouterOnlineWg($router);
-        $newStatus = $router['online'] ? 'online' : $router['provisioning_status'];
-        if ($newStatus !== $router['provisioning_status']) {
-            $db->prepare("UPDATE routers SET provisioning_status = :status WHERE id = :id")
-               ->execute([':status' => $newStatus, ':id' => $router['id']]);
-            $router['provisioning_status'] = $newStatus;
-        }
-
         jsonResponse(['router' => $router]);
     }
 
