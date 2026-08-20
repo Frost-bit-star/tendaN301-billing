@@ -95,16 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             $mins = floor(($duration % 3600) / 60);
             $uptime = "${hours}h${mins}m0s";
 
-            $stmt = $db->prepare("UPDATE vouchers SET status = 'used', used_at = :ts, used_mac = :mac, router_id = :rid, phone = :phone, expires_at = :end_at WHERE id = :id");
-            $stmt->execute([
-                ':ts' => date('Y-m-d H:i:s'),
-                ':end_at' => date('Y-m-d H:i:s', time() + $duration),
-                ':mac' => $mac,
-                ':rid' => $router['id'],
-                ':phone' => $phone,
-                ':id' => $voucher['id'],
-            ]);
-
             try {
                 $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
                 $apiPort = intval($router['port'] ?: 8729);
@@ -112,14 +102,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
                 $api->connect();
                 $api->addHotspotUser('hotspot1', $voucher['code'], $voucher['code'], $uptime);
                 $api->close();
-                $autoLogin = true;
-                $success = 'Voucher activated! Connecting you now...';
             } catch (Exception $e) {
-                $autoLogin = false;
-                $success = 'Voucher activated! Go back and login with your voucher code as both username and password.';
+                $error = 'Network error — could not activate voucher. Please try again.';
+                $_SESSION['pending_voucher'] = $voucher;
+                $_SESSION['pending_mac'] = $mac;
+                $showPhoneForm = true;
+                $voucherCode = $voucher['code'];
             }
 
-            unset($_SESSION['pending_voucher'], $_SESSION['pending_mac']);
+            if (empty($error)) {
+                $stmt = $db->prepare("UPDATE vouchers SET status = 'used', used_at = :ts, used_mac = :mac, router_id = :rid, phone = :phone, expires_at = :end_at WHERE id = :id");
+                $stmt->execute([
+                    ':ts' => date('Y-m-d H:i:s'),
+                    ':end_at' => date('Y-m-d H:i:s', time() + $duration),
+                    ':mac' => $mac,
+                    ':rid' => $router['id'],
+                    ':phone' => $phone,
+                    ':id' => $voucher['id'],
+                ]);
+                $autoLogin = true;
+                $success = 'Voucher activated! Connecting you now...';
+            }
+
+            if (empty($error)) {
+                unset($_SESSION['pending_voucher'], $_SESSION['pending_mac']);
+            }
         }
     }
 }
