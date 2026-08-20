@@ -455,7 +455,7 @@ function updatePrintPreview() {
             var el = document.getElementById('qr-' + i);
             if (el && typeof QRCode !== 'undefined') {
                 el.innerHTML = '';
-                new QRCode(el, { text: v.code, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.L, render: 'image' });
+                new QRCode(el, { text: v.code, width: 36, height: 36, correctLevel: QRCode.CorrectLevel.L, render: 'image' });
             }
         });
     }, 50);
