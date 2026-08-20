@@ -44,6 +44,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $newCurrency = 'TZS';
             }
             $newTimezone = appValidTimezone($_POST['timezone'] ?? '');
+            $newPhoneCode = $_POST['phone_code'] ?? '+255';
+            if (!array_key_exists($newPhoneCode, $phoneCodeOptions)) {
+                $newPhoneCode = '+255';
+            }
 
             if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
                 $msgError = 'Please enter a valid email address.';
@@ -67,16 +71,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (empty($msgError)) {
                     if ($role === 'user') {
-                        $db->prepare("UPDATE accounts SET name = ?, email = ?, currency = ?, timezone = ? WHERE id = ?")
-                           ->execute([$newName, $newEmail, $newCurrency, $newTimezone, $profile['id']]);
+                        $db->prepare("UPDATE accounts SET name = ?, email = ?, currency = ?, timezone = ?, phone_code = ? WHERE id = ?")
+                           ->execute([$newName, $newEmail, $newCurrency, $newTimezone, $newPhoneCode, $profile['id']]);
                         $_SESSION['username'] = $newName;
                     } else {
-                        $db->prepare("UPDATE admins SET email = ?, currency = ?, timezone = ? WHERE username = ?")
-                           ->execute([$newEmail, $newCurrency, $newTimezone, $profile['username']]);
+                        $db->prepare("UPDATE admins SET email = ?, currency = ?, timezone = ?, phone_code = ? WHERE username = ?")
+                           ->execute([$newEmail, $newCurrency, $newTimezone, $newPhoneCode, $profile['username']]);
                     }
                     $_SESSION['account_email'] = $newEmail;
                     $_SESSION['currency'] = $newCurrency;
                     $_SESSION['timezone'] = $newTimezone;
+                    $_SESSION['phone_code'] = $newPhoneCode;
                     date_default_timezone_set($newTimezone);
                     $msgSuccess = 'Profile updated. Currency is now ' . $newCurrency . ' and timezone is now ' . $newTimezone . '.';
                     $profile['email'] = $newEmail;
@@ -170,6 +175,15 @@ include __DIR__ . '/../components/header.php';
                         <?php endforeach; ?>
                     </select>
                     <small style="color:var(--on-surface-med);">Used for all server dates/times across the entire app. Filtered by your currency.</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="profilePhoneCode">Country Phone Code</label>
+                    <select class="form-control" id="profilePhoneCode" name="phone_code">
+                        <?php foreach ($phoneCodeOptions as $code => $label): ?>
+                            <option value="<?= htmlspecialchars($code) ?>" <?= (($profile['phone_code'] ?? '+255') === $code) ? 'selected' : '' ?>><?= htmlspecialchars($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small style="color:var(--on-surface-med);">Used for SMS delivery. Customers on the captive portal will enter their number with this prefix.</small>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="profileCurrentPass">Current Password</label>

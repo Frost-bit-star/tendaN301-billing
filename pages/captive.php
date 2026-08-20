@@ -40,11 +40,15 @@ if (!$router) {
 }
 
 // Use the router owner's configured timezone so activation timestamps are correct
+$phoneCode = '+255';
 if ($router && !empty($router['tenant_id'])) {
-    $tzStmt = $db->prepare("SELECT timezone FROM accounts WHERE id = ?");
+    $tzStmt = $db->prepare("SELECT timezone, phone_code FROM accounts WHERE id = ?");
     $tzStmt->execute([$router['tenant_id']]);
-    $tenantTz = $tzStmt->fetchColumn();
-    if ($tenantTz) appSetTimezone($tenantTz);
+    $tenantRow = $tzStmt->fetch(PDO::FETCH_ASSOC);
+    if ($tenantRow) {
+        if ($tenantRow['timezone']) appSetTimezone($tenantRow['timezone']);
+        if ($tenantRow['phone_code']) $phoneCode = $tenantRow['phone_code'];
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
@@ -52,6 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
     $phone = trim($_POST['phone'] ?? '');
     $mac = trim($_POST['mac'] ?? $clientMAC);
     $step = $_POST['step'] ?? '1';
+
+    // Build full international number from country code + local digits
+    $submittedCode = trim($_POST['phone_code'] ?? $phoneCode);
+    $localDigits = preg_replace('/[^0-9]/', '', $phone);
+    $fullPhone = $submittedCode . $localDigits;
 
     if ($step === '1') {
         if (empty($voucherCode)) {
@@ -81,13 +90,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         if (!$voucher) {
             $error = 'Session expired, please enter your voucher code again';
             unset($_SESSION['pending_voucher'], $_SESSION['pending_mac']);
-        } elseif (empty($phone)) {
-            $error = 'Please enter your mobile number';
+        } elseif (empty($localDigits) || strlen($localDigits) < 9) {
+            $error = 'Weka namba kamili ya simu (angalau tarakimu 9)';
             $_SESSION['pending_mac'] = $mac;
             $showPhoneForm = true;
             $voucherCode = $voucher['code'];
         } else {
-            $phone = preg_replace('/[^0-9]/', '', $phone);
+            $phone = $fullPhone;
             $voucherCode = $voucher['code'];
             $duration = ($voucher['days'] ?? 0) * 86400 + ($voucher['hours'] ?? 0) * 3600 + ($voucher['minutes'] ?? 0) * 60;
             if ($duration <= 0) $duration = 3600;
@@ -397,8 +406,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         <form method="POST" action="?router=<?= urlencode($routerDeviceId) ?>&mac=<?= urlencode($clientMAC) ?>">
             <div class="form-group">
                 <label>Namba ya Simu</label>
-                <input type="tel" name="phone" placeholder="0758 224 994" required autofocus
-                    oninput="this.value = this.value.replace(/[^0-9]/g,'')">
+                <div style="display:flex;align-items:center;gap:0;">
+                    <span style="background:#e8f0fe;border:1px solid #ccc;border-right:none;border-radius:8px 0 0 8px;padding:10px 10px;font-weight:600;color:#333;white-space:nowrap;"><?= htmlspecialchars($phoneCode) ?></span>
+                    <input type="tel" name="phone" placeholder="758 224 994" required autofocus
+                        style="border-radius:0 8px 8px 0;flex:1;"
+                        pattern="[0-9]{9,12}"
+                        title="Weka namba kamili ya simu bila extensions"
+                        oninput="this.value = this.value.replace(/[^0-9]/g,'')">
+                </div>
+                <input type="hidden" name="phone_code" value="<?= htmlspecialchars($phoneCode) ?>">
+                <small style="color:#666;">Weka namba yako ya simu bila kitambulisho cha nchi</small>
             </div>
             <input type="hidden" name="mac" value="<?= htmlspecialchars($clientMAC) ?>">
             <input type="hidden" name="step" value="2">

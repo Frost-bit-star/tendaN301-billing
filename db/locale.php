@@ -29,6 +29,20 @@ $appCurrencyMap = [
     'MWK' => 'MK',
 ];
 
+$phoneCodeOptions = [
+    '+255' => '🇹🇿 +255 — Tanzania',
+    '+254' => '🇰🇪 +254 — Kenya',
+    '+256' => '🇺🇬 +256 — Uganda',
+    '+250' => '🇷🇼 +250 — Rwanda',
+    '+234' => '🇳🇬 +234 — Nigeria',
+    '+260' => '🇿🇲 +260 — Zambia',
+    '+233' => '🇬🇭 +233 — Ghana',
+    '+265' => '🇲🇼 +265 — Malawi',
+    '+1'   => '🇺🇸 +1 — USA/Canada',
+    '+44'  => '🇬🇧 +44 — UK',
+    '+91'  => '🇮🇳 +91 — India',
+];
+
 // Timezones relevant to each currency's region.
 $currencyTimezones = [
     'TZS' => ['Africa/Dar_es_Salaam'],

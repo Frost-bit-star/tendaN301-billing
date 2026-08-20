@@ -179,6 +179,10 @@ addColumnIfMissing($db, 'admins', 'currency', "TEXT DEFAULT 'TZS'");
 addColumnIfMissing($db, 'accounts', 'timezone', "TEXT DEFAULT 'Africa/Dar_es_Salaam'");
 addColumnIfMissing($db, 'admins', 'timezone', "TEXT DEFAULT 'Africa/Dar_es_Salaam'");
 
+// Country phone code for SMS (e.g. +255)
+addColumnIfMissing($db, 'accounts', 'phone_code', "TEXT DEFAULT '+255'");
+addColumnIfMissing($db, 'admins', 'phone_code', "TEXT DEFAULT '+255'");
+
 // Multi-tenant admin management: the super admin controls ALL tenant accounts.
 // Each account is a "general admin" running their own WISP instance.
 addColumnIfMissing($db, 'accounts', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited

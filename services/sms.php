@@ -5,10 +5,13 @@ define('SMS_API_URL', 'https://gateway.stackverify.site/api/sms/send');
 
 function sendSms($number, $message) {
     $number = preg_replace('/[^0-9]/', '', $number);
-    if (substr($number, 0, 1) !== '0' && strlen($number) === 9) {
-        $number = '255' . $number;
-    }
-    if (substr($number, 0, 1) !== '+') {
+    if (strlen($number) >= 10 && substr($number, 0, 1) !== '0') {
+        // Already in international format without +
+        $number = '+' . $number;
+    } elseif (substr($number, 0, 1) === '0') {
+        // Local number starting with 0 — assume Tanzania
+        $number = '+255' . substr($number, 1);
+    } else {
         $number = '+' . $number;
     }
 
