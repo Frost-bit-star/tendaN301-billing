@@ -410,9 +410,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
                     <span style="background:#e8f0fe;border:1px solid #ccc;border-right:none;border-radius:8px 0 0 8px;padding:10px 10px;font-weight:600;color:#333;white-space:nowrap;"><?= htmlspecialchars($phoneCode) ?></span>
                     <input type="tel" name="phone" placeholder="758 224 994" required autofocus
                         style="border-radius:0 8px 8px 0;flex:1;"
-                        pattern="[0-9]{9,12}"
-                        title="Weka namba kamili ya simu bila extensions"
-                        oninput="this.value = this.value.replace(/[^0-9]/g,'')">
+                        pattern="[1-9][0-9]{8,11}"
+                        title="Weka namba kamili ya simu bila sifuri ya mwanzo"
+                        oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/^0+/,'')">
                 </div>
                 <input type="hidden" name="phone_code" value="<?= htmlspecialchars($phoneCode) ?>">
                 <small style="color:#666;">Weka namba yako ya simu bila kitambulisho cha nchi</small>
