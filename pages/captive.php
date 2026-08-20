@@ -401,13 +401,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         <form method="POST" action="?router=<?= urlencode($routerDeviceId) ?>&mac=<?= urlencode($clientMAC) ?>">
             <div class="form-group">
                 <label>Namba ya Vocha</label>
-                <input type="text" name="voucher_code" placeholder="0000 0000" maxlength="11" required autofocus
+                <input type="text" id="voucherInput" name="voucher_code" placeholder="0000 0000" maxlength="11" required autofocus
                     oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()">
             </div>
             <input type="hidden" name="mac" value="<?= htmlspecialchars($clientMAC) ?>">
             <input type="hidden" name="step" value="1">
             <button type="submit" class="btn">Unganisha</button>
         </form>
+        <div style="text-align:center;margin-top:12px;">
+            <button type="button" id="scanQrBtn" class="btn" style="background:#555;font-size:13px;padding:8px 16px;box-shadow:none;" onclick="startQrScan()">
+                <i class="fas fa-qrcode"></i> Skani Kiotomatiki
+            </button>
+        </div>
+        <div id="qr-reader" style="width:100%;max-width:300px;margin:12px auto 0;display:none;border-radius:10px;overflow:hidden;"></div>
         <?php endif; ?>
 
         <div class="support-info">
@@ -435,6 +441,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
         <p>Inaunganisha Jasiri WiFi...</p>
     </div>
 
+    <script src="/assets/js/html5-qrcode.min.js"></script>
+    <script>
+        let html5QrCode = null;
+        function startQrScan() {
+            const reader = document.getElementById('qr-reader');
+            if (reader.style.display === 'none') {
+                reader.style.display = 'block';
+                document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-times"></i> Funga';
+                html5QrCode = new Html5Qrcode('qr-reader');
+                html5QrCode.start(
+                    { facingMode: 'environment' },
+                    { fps: 5, qrbox: { width: 200, height: 200 } },
+                    function onScanSuccess(decodedText) {
+                        var code = decodedText.replace(/[^0-9]/g, '').substring(0, 8);
+                        if (code.length === 8) {
+                            var formatted = code.substring(0,4) + ' ' + code.substring(4);
+                            document.getElementById('voucherInput').value = formatted;
+                            html5QrCode.stop().then(function() { html5QrCode.clear(); }).catch(function(){});
+                            reader.style.display = 'none';
+                            document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-qrcode"></i> Skani Kiotomatiki';
+                        }
+                    }
+                ).catch(function() {
+                    reader.style.display = 'none';
+                    document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-qrcode"></i> Skani Kiotomatiki';
+                });
+            } else {
+                if (html5QrCode) {
+                    html5QrCode.stop().then(function() { html5QrCode.clear(); }).catch(function(){});
+                }
+                reader.style.display = 'none';
+                document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-qrcode"></i> Skani Kiotomatiki';
+            }
+        }
+    </script>
     <script>
         const loginForm = document.querySelector("form[method='POST']");
         if (loginForm) {

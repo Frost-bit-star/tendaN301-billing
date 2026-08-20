@@ -42,6 +42,14 @@ include __DIR__ . '/../components/header.php';
     .print-voucher .detail {
         font-size: 0.75rem; color: #555; margin: 2px 0;
     }
+    .print-voucher .qr-code {
+        margin: 6px auto 4px;
+    }
+    .print-voucher .qr-code canvas,
+    .print-voucher .qr-code img {
+        display: block;
+        margin: 0 auto;
+    }
 }
 </style>
 
@@ -263,6 +271,7 @@ include __DIR__ . '/../components/header.php';
 
 </div>
 
+<script src="/assets/js/qrcode.min.js"></script>
 <script>
 let allPlans = [];
 let allVouchers = [];
@@ -430,15 +439,26 @@ function updatePrintPreview() {
     `).join('') + '</div>';
 
     // Print layout (hidden, shown only on print)
-    printArea.innerHTML = selected.map(v => `
+    printArea.innerHTML = selected.map((v, i) => `
         <div class="print-voucher">
             <h4>${escapeHtml(v.router_ssid || 'Jasiri WiFi')}</h4>
             <div class="code">${v.code}</div>
+            <div class="qr-code" id="qr-${i}"></div>
             <div class="detail"><strong>Package:</strong> ${escapeHtml(v.plan_name || '—')}</div>
             <div class="detail"><strong>Price:</strong> ${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</div>
             <div class="detail"><strong>Expires:</strong> ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
         </div>
     `).join('');
+
+    setTimeout(function() {
+        selected.forEach((v, i) => {
+            var el = document.getElementById('qr-' + i);
+            if (el && typeof QRCode !== 'undefined') {
+                el.innerHTML = '';
+                new QRCode(el, { text: v.code, width: 64, height: 64, correctLevel: QRCode.CorrectLevel.L });
+            }
+        });
+    }, 50);
 }
 
 function escapeHtml(str) {
