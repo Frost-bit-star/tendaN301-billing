@@ -469,9 +469,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
     <script>
         let html5QrCode = null;
         function startQrScan() {
-            const reader = document.getElementById('qr-reader');
+            var reader = document.getElementById('qr-reader');
             if (reader.style.display === 'none') {
+                if (typeof Html5Qrcode === 'undefined') {
+                    reader.innerHTML = '<p style="color:#c00;font-size:13px;padding:12px;">Programu ya skani haipatikani. Weka namba ya vocha mkononi.</p>';
+                    reader.style.display = 'block';
+                    setTimeout(function() { reader.style.display = 'none'; reader.innerHTML = ''; }, 4000);
+                    return;
+                }
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    reader.innerHTML = '<p style="color:#c00;font-size:13px;padding:12px;">Camera haipatikani kwenye kivinjari hiki. Weka namba ya vocha mkononi.</p>';
+                    reader.style.display = 'block';
+                    setTimeout(function() { reader.style.display = 'none'; reader.innerHTML = ''; }, 4000);
+                    return;
+                }
                 reader.style.display = 'block';
+                reader.innerHTML = '';
                 document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-times"></i> Funga';
                 html5QrCode = new Html5Qrcode('qr-reader');
                 html5QrCode.start(
@@ -487,8 +500,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
                             document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-qrcode"></i> Skani Kiotomatiki';
                         }
                     }
-                ).catch(function() {
-                    reader.style.display = 'none';
+                ).catch(function(err) {
+                    reader.innerHTML = '<p style="color:#c00;font-size:13px;padding:12px;">Camera haipatikani. Weka namba ya vocha mkononi.</p>';
+                    setTimeout(function() { reader.style.display = 'none'; reader.innerHTML = ''; }, 4000);
                     document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-qrcode"></i> Skani Kiotomatiki';
                 });
             } else {
@@ -496,6 +510,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
                     html5QrCode.stop().then(function() { html5QrCode.clear(); }).catch(function(){});
                 }
                 reader.style.display = 'none';
+                reader.innerHTML = '';
                 document.getElementById('scanQrBtn').innerHTML = '<i class="fas fa-qrcode"></i> Skani Kiotomatiki';
             }
         }
