@@ -148,9 +148,15 @@ include __DIR__ . '/../components/header.php';
             </form>
             <div id="generatedCodes" style="display:none;margin-top:16px;">
                 <div class="alert alert-success">
-                    <strong><i class="fas fa-check-circle"></i> Generated!</strong>
+                    <div class="flex-row">
+                        <strong><i class="fas fa-check-circle"></i> Generated!</strong>
+                        <button type="button" class="btn btn-primary btn-sm" id="printGeneratedBtn" onclick="printGenerated()" style="display:none;">
+                            <i class="fas fa-print"></i> Print Vouchers
+                        </button>
+                    </div>
                     <div id="generatedList" style="margin-top:8px;"></div>
                 </div>
+                <div id="generatedPreview"></div>
             </div>
         </div>
     </div>
@@ -439,7 +445,15 @@ function updatePrintPreview() {
     `).join('') + '</div>';
 
     // Print layout (hidden, shown only on print)
-    printArea.innerHTML = selected.map((v, i) => `
+    printArea.innerHTML = selected.map((v, i) => buildPrintVoucherHtml(v, i)).join('');
+
+    setTimeout(function() {
+        renderPrintQrCodes(selected);
+    }, 50);
+}
+
+function buildPrintVoucherHtml(v, i) {
+    return `
         <div class="print-voucher">
             <h4>${escapeHtml(v.router_ssid || 'Jasiri WiFi')}</h4>
             <div class="code">${v.code}</div>
@@ -448,17 +462,27 @@ function updatePrintPreview() {
             <div class="detail"><strong>Price:</strong> ${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</div>
             <div class="detail"><strong>Expires:</strong> ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</div>
         </div>
-    `).join('');
+    `;
+}
 
-    setTimeout(function() {
-        selected.forEach((v, i) => {
-            var el = document.getElementById('qr-' + i);
-            if (el && typeof QRCode !== 'undefined') {
-                el.innerHTML = '';
-                new QRCode(el, { text: v.code, width: 36, height: 36, correctLevel: QRCode.CorrectLevel.L, render: 'image' });
-            }
-        });
-    }, 50);
+function renderPrintQrCodes(list) {
+    list.forEach((v, i) => {
+        var el = document.getElementById('qr-' + i);
+        if (el && typeof QRCode !== 'undefined') {
+            el.innerHTML = '';
+            new QRCode(el, { text: v.code, width: 36, height: 36, correctLevel: QRCode.CorrectLevel.L, render: 'image' });
+        }
+    });
+}
+
+let lastGenerated = [];
+
+function printGenerated() {
+    if (!lastGenerated.length) return;
+    const printArea = document.getElementById('printArea');
+    printArea.innerHTML = lastGenerated.map((v, i) => buildPrintVoucherHtml(v, i)).join('');
+    setTimeout(function() { renderPrintQrCodes(lastGenerated); }, 50);
+    setTimeout(function() { window.print(); }, 150);
 }
 
 function escapeHtml(str) {
@@ -506,6 +530,28 @@ document.getElementById('generateForm').addEventListener('submit', async functio
         listEl.innerHTML = data.vouchers.map(v =>
             `<span class="voucher-code" style="font-size:1.2rem;margin-right:1rem;">${v.code}</span>`
         ).join('');
+
+        const routerIdVal = document.getElementById('genRouter').value;
+        const router = allRouters.find(r => String(r.id) === String(routerIdVal));
+        lastGenerated = (data.vouchers || []).map(v => ({
+            ...v,
+            plan_name: v.plan || '',
+            router_ssid: router ? router.name : 'Jasiri WiFi'
+        }));
+
+        document.getElementById('generatedPreview').innerHTML =
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:12px;">' +
+            lastGenerated.map(v => `
+                <div style="border:2px dashed var(--surface-4);padding:16px;text-align:center;border-radius:var(--radius-md);background:var(--surface);">
+                    <strong style="color:var(--blue-500);">${escapeHtml(v.router_ssid || 'Jasiri WiFi')}</strong><br>
+                    <div class="voucher-code" style="font-size:1.4rem;letter-spacing:3px;margin:8px 0;">${v.code}</div>
+                    <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
+                    <small>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small>
+                </div>
+            `).join('') + '</div>';
+
+        const printBtn = document.getElementById('printGeneratedBtn');
+        printBtn.style.display = 'inline-flex';
 
         loadStats();
     } catch (err) {
