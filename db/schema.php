@@ -183,6 +183,10 @@ addColumnIfMissing($db, 'admins', 'timezone', "TEXT DEFAULT 'Africa/Dar_es_Salaa
 addColumnIfMissing($db, 'accounts', 'phone_code', "TEXT DEFAULT '+255'");
 addColumnIfMissing($db, 'admins', 'phone_code', "TEXT DEFAULT '+255'");
 
+// Branding: business name shown on the captive portal (falls back to 'WISP')
+addColumnIfMissing($db, 'accounts', 'business_name', "TEXT DEFAULT ''");
+addColumnIfMissing($db, 'admins', 'business_name', "TEXT DEFAULT ''");
+
 // Multi-tenant admin management: the super admin controls ALL tenant accounts.
 // Each account is a "general admin" running their own WISP instance.
 addColumnIfMissing($db, 'accounts', 'voucher_limit', 'INTEGER DEFAULT -1');     // -1 = unlimited

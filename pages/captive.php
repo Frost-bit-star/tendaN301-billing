@@ -41,14 +41,29 @@ if (!$router) {
 
 // Use the router owner's configured timezone so activation timestamps are correct
 $phoneCode = '+255';
+$businessName = '';
 if ($router && !empty($router['tenant_id'])) {
-    $tzStmt = $db->prepare("SELECT timezone, phone_code FROM accounts WHERE id = ?");
+    $tzStmt = $db->prepare("SELECT timezone, phone_code, business_name FROM accounts WHERE id = ?");
     $tzStmt->execute([$router['tenant_id']]);
     $tenantRow = $tzStmt->fetch(PDO::FETCH_ASSOC);
     if ($tenantRow) {
         if ($tenantRow['timezone']) appSetTimezone($tenantRow['timezone']);
         if ($tenantRow['phone_code']) $phoneCode = $tenantRow['phone_code'];
+        if (!empty(trim($tenantRow['business_name'] ?? ''))) $businessName = trim($tenantRow['business_name']);
     }
+}
+
+// Fall back to an admin's business name, then a generic placeholder
+if ($businessName === '') {
+    try {
+        $bnStmt = $db->query("SELECT TRIM(business_name) FROM admins WHERE business_name IS NOT NULL AND TRIM(business_name) != '' ORDER BY CASE WHEN role = 'superadmin' THEN 0 ELSE 1 END, id ASC LIMIT 1");
+        $businessName = (string)$bnStmt->fetchColumn();
+    } catch (Exception $e) {
+        $businessName = '';
+    }
+}
+if ($businessName === '') {
+    $businessName = 'WISP';
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
@@ -145,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jasiri WiFi - Unganisha</title>
+    <title><?= htmlspecialchars($businessName) ?> - Unganisha</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
@@ -360,7 +375,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             <div class="logo-icon-wrapper">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61l1.42-1.42C5.64 15.05 5 13.6 5 12c0-3.87 3.13-7 7-7s7 3.13 7 7c0 1.6-.64 3.05-1.39 4.19l1.42 1.42C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 4c-2.76 0-5 2.24-5 5 0 1.18.42 2.26 1.12 3.11l1.42-1.42C9.17 13.34 9 12.69 9 12c0-1.66 1.34-3 3-3s3 1.34 3 3c0 .69-.17 1.34-.54 1.69l1.42 1.42C18.58 14.26 19 13.18 19 12c0-2.76-2.24-5-5-5zm0 4c-.55 0-1 .45-1 1 0 .28.11.53.29.71l1.42 1.42c.18.18.43.29.71.29.55 0 1-.45 1-1 0-.55-.45-1-1-1zm0 4a3.001 3.001 0 0 1-2.83-2H14.83A3.001 3.001 0 0 1 12 15z"/></svg>
             </div>
-            <h1>Jasiri WiFi</h1>
+            <h1><?= htmlspecialchars($businessName) ?></h1>
             <p><?= $showPhoneForm ? 'Thibitisha namba yako ya simu' : 'Weka namba ya vocha yako kuingia mtandaoni' ?></p>
         </div>
 
@@ -444,7 +459,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
             Una tatizo? Wasiliana na huduma kwa wateja: <span>0758244994</span>
         </div>
 
-        <div class="footer">Imeywezeshwa na Jasiri WiFi</div>
+        <div class="footer">Imeywezeshwa na <?= htmlspecialchars($businessName) ?></div>
     </div>
 
     <div class="connecting-overlay" id="connectingOverlay">
@@ -462,7 +477,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
                 <circle cx="100" cy="100" r="90" fill="#7CC133"/>
             </svg>
         </div>
-        <p>Inaunganisha Jasiri WiFi...</p>
+        <p>Inaunganisha <?= htmlspecialchars($businessName) ?>...</p>
     </div>
 
     <script src="/assets/js/html5-qrcode.min.js"></script>

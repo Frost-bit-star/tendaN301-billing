@@ -48,6 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!array_key_exists($newPhoneCode, $phoneCodeOptions)) {
                 $newPhoneCode = '+255';
             }
+            $newBusinessName = trim($_POST['business_name'] ?? '');
+            if (mb_strlen($newBusinessName) > 40) {
+                $newBusinessName = mb_substr($newBusinessName, 0, 40);
+            }
 
             if (!filter_var($newEmail, FILTER_VALIDATE_EMAIL)) {
                 $msgError = 'Please enter a valid email address.';
@@ -71,12 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if (empty($msgError)) {
                     if ($role === 'user') {
-                        $db->prepare("UPDATE accounts SET name = ?, email = ?, currency = ?, timezone = ?, phone_code = ? WHERE id = ?")
-                           ->execute([$newName, $newEmail, $newCurrency, $newTimezone, $newPhoneCode, $profile['id']]);
+                        $db->prepare("UPDATE accounts SET name = ?, email = ?, currency = ?, timezone = ?, phone_code = ?, business_name = ? WHERE id = ?")
+                           ->execute([$newName, $newEmail, $newCurrency, $newTimezone, $newPhoneCode, $newBusinessName, $profile['id']]);
                         $_SESSION['username'] = $newName;
                     } else {
-                        $db->prepare("UPDATE admins SET email = ?, currency = ?, timezone = ?, phone_code = ? WHERE username = ?")
-                           ->execute([$newEmail, $newCurrency, $newTimezone, $newPhoneCode, $profile['username']]);
+                        $db->prepare("UPDATE admins SET email = ?, currency = ?, timezone = ?, phone_code = ?, business_name = ? WHERE username = ?")
+                           ->execute([$newEmail, $newCurrency, $newTimezone, $newPhoneCode, $newBusinessName, $profile['username']]);
                     }
                     $_SESSION['account_email'] = $newEmail;
                     $_SESSION['currency'] = $newCurrency;
@@ -87,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $profile['email'] = $newEmail;
                     $profile['currency'] = $newCurrency;
                     $profile['timezone'] = $newTimezone;
+                    $profile['business_name'] = $newBusinessName;
                     if ($role === 'user') $profile['name'] = $newName;
                 }
             }
@@ -184,6 +189,11 @@ include __DIR__ . '/../components/header.php';
                         <?php endforeach; ?>
                     </select>
                     <small style="color:var(--on-surface-med);">Used for SMS delivery. Customers on the captive portal will enter their number with this prefix.</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="profileBusinessName">Business Name</label>
+                    <input type="text" class="form-control" id="profileBusinessName" name="business_name" maxlength="40" value="<?= htmlspecialchars($profile['business_name'] ?? '') ?>" placeholder="e.g. Jasiri WiFi">
+                    <small style="color:var(--on-surface-med);">Shown as the brand on the captive portal page. Leave empty to use the default placeholder "WISP".</small>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="profileCurrentPass">Current Password</label>
