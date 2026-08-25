@@ -69,7 +69,7 @@ function sendExpiryReminders($db) {
         $remaining = $endAt - $now;
 
         if ($remaining > 0 && $remaining <= 300) {
-            $message = "Mudo wako unakaribia kikomo. interneti itakata hivi karibuni nunua vocher ongeza mda wako wa kuendelea.";
+            $message = "Muda wako unakaribia kikomo chake. interneti itakata hivi karibuni nunua voucher ongeza muda wako wa kuendelea.";
             $result = sendSms($v['phone'], $message);
 
             if ($result['success']) {
