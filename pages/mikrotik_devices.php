@@ -138,8 +138,10 @@ async function loadWirelessSsid() {
     try {
         const res = await fetch(`/api/wireless.php?action=get&router_id=${deviceData.id}`);
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed');
         document.getElementById('ssid').value = data.ssid || deviceData.ssid || 'JasiriWiFi';
+        if (data.reachable === false) {
+            document.getElementById('wirelessMsg').innerHTML = '<div class="alert alert-warning py-2"><i class="fas fa-exclamation-triangle"></i> Router offline — showing saved config.</div>';
+        }
     } catch (e) {
         document.getElementById('ssid').value = deviceData.ssid || 'JasiriWiFi';
     }

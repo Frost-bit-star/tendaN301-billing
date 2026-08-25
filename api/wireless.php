@@ -60,15 +60,20 @@ if ($method === 'GET') {
 
             wirelessJson([
                 'success' => true,
+                'reachable' => true,
                 'ssid' => $ssid ?: ($router['ssid'] ?? ''),
                 'security_profile' => $securityProfile,
                 'saved_ssid' => $router['ssid'] ?? '',
             ]);
         } catch (Exception $e) {
             wirelessJson([
-                'error' => 'API connection failed: ' . $e->getMessage(),
+                'success' => true,
+                'reachable' => false,
+                'ssid' => $router['ssid'] ?? '',
+                'security_profile' => '',
                 'saved_ssid' => $router['ssid'] ?? '',
-            ], 500);
+                'message' => 'Router unreachable, using saved config',
+            ]);
         }
     }
 
@@ -119,7 +124,13 @@ if ($method === 'POST') {
                 'ssid' => $actualSsid ?: $ssid,
             ]);
         } catch (Exception $e) {
-            wirelessJson(['error' => 'API connection failed: ' . $e->getMessage()], 500);
+            $stmt = $db->prepare("UPDATE routers SET ssid = :ssid WHERE id = :id");
+            $stmt->execute([':ssid' => $ssid, ':id' => $routerId]);
+            wirelessJson([
+                'success' => true,
+                'message' => "SSID saved: $ssid (router offline, will apply on next connection)",
+                'ssid' => $ssid,
+            ]);
         }
     }
 

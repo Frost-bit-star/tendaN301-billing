@@ -49,6 +49,7 @@ class MikroTikAPI {
         $this->sendSentence($words);
         $all = [];
         $current = [];
+        $hasTrap = false;
         while (true) {
             $word = $this->readWord();
             if ($word === false) break;
@@ -57,13 +58,23 @@ class MikroTikAPI {
                 continue;
             }
             if ($word === '!done') break;
-            if ($word === '!trap' || $word === '!re') {
+            if ($word === '!trap') {
                 if (!empty($current)) { $all[] = $current; $current = []; }
+                $hasTrap = true;
+                continue;
+            }
+            if ($word === '!re') {
+                if (!empty($current)) { $all[] = $current; $current = []; }
+                $hasTrap = false;
                 continue;
             }
             $this->parseWord($word, $current);
         }
         if (!empty($current)) $all[] = $current;
+        if ($hasTrap && !empty($all)) {
+            $last = end($all);
+            $all[array_key_last($all)]['!trap'] = true;
+        }
         return $all;
     }
 
