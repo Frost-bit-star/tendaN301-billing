@@ -187,7 +187,7 @@ include __DIR__ . '/../components/header.php';
             </div>
         </div>
         <div class="card-body">
-            <div id="batchActions" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-md);display:none;align-items:center;gap:12px;">
+            <div id="batchActions" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-md);align-items:center;gap:12px;">
                 <span id="batchCount" style="font-weight:600;font-size:13px;"></span>
                 <button class="btn btn-danger btn-sm" onclick="batchDelete()"><i class="fas fa-trash"></i> Delete Selected</button>
                 <button class="btn btn-outline btn-sm" onclick="clearSelection()">Cancel</button>
