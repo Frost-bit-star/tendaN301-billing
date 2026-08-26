@@ -283,6 +283,7 @@ addColumnIfMissing($db, 'vouchers', 'created_by', 'INTEGER DEFAULT NULL');
 addColumnIfMissing($db, 'vouchers', 'customer_name', 'TEXT DEFAULT NULL');
 addColumnIfMissing($db, 'vouchers', 'used_mac', 'TEXT DEFAULT NULL');
 addColumnIfMissing($db, 'vouchers', 'reminder_sent', 'INTEGER DEFAULT 0');
+addColumnIfMissing($db, 'vouchers', 'is_capped', 'INTEGER DEFAULT 0');
 
 // -------------------------
 if (php_sapi_name() === 'cli') {

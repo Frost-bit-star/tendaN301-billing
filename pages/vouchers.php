@@ -141,6 +141,13 @@ include __DIR__ . '/../components/header.php';
                         <label class="form-label">Customer Name</label>
                         <input type="text" class="form-control" id="genCustomer" placeholder="Optional">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Speed Cap</label>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-top:8px;">
+                            <input type="checkbox" id="genCapped" style="width:18px;height:18px;cursor:pointer;">
+                            <span style="font-size:13px;font-weight:500;">Capped (1 Mbps / 500 Kbps)</span>
+                        </label>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary" id="generateBtn">
                     <i class="fas fa-cogs"></i> Generate Vouchers
@@ -190,13 +197,14 @@ include __DIR__ . '/../components/header.php';
                             <th>Customer</th>
                             <th>Phone</th>
                             <th>Price</th>
+                            <th>Speed</th>
                             <th>Status</th>
                             <th>Expires</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="voucherTableBody">
-                        <tr><td colspan="9" style="text-align:center;color:var(--on-surface-med);padding:24px;">Loading...</td></tr>
+                        <tr><td colspan="10" style="text-align:center;color:var(--on-surface-med);padding:24px;">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -337,14 +345,14 @@ async function loadVouchers() {
         allVouchers = data.vouchers || [];
         renderVoucherTable();
     } catch (e) {
-        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--red);padding:24px;">Failed to load vouchers</td></tr>';
+        document.getElementById('voucherTableBody').innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--red);padding:24px;">Failed to load vouchers</td></tr>';
     }
 }
 
 function renderVoucherTable() {
     const tbody = document.getElementById('voucherTableBody');
     if (allVouchers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--on-surface-med);padding:24px;">No vouchers found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--on-surface-med);padding:24px;">No vouchers found</td></tr>';
         return;
     }
     tbody.innerHTML = allVouchers.map(v => `
@@ -355,6 +363,7 @@ function renderVoucherTable() {
             <td>${escapeHtml(v.customer_name || '—')}</td>
             <td>${v.phone ? escapeHtml(v.phone) : '—'}</td>
             <td>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</td>
+            <td>${v.is_capped ? '<span style="color:#e67e22;font-weight:600;font-size:12px;">1M/500K</span>' : '<span style="color:var(--on-surface-med);font-size:12px;">Uncapped</span>'}</td>
             <td><span class="status-pill ${v.status}">${v.status}</span></td>
             <td>${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
             <td>
@@ -387,6 +396,7 @@ async function loadPrintVouchers() {
                 <span style="flex:1;">
                     <span class="voucher-code" style="font-size:0.85rem;">${v.code}</span>
                     <small style="color:var(--on-surface-med);"> - ${escapeHtml(v.plan_name || '')} - ${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small>
+                    ${v.is_capped ? '<small style="color:#e67e22;font-weight:600;"> (Capped)</small>' : ''}
                 </span>
             </label>
         `).join('') || '<p style="color:var(--on-surface-med)">No vouchers found</p>';
@@ -439,7 +449,8 @@ function updatePrintPreview() {
                 <div class="voucher-code" style="font-size:1.4rem;letter-spacing:3px;margin:8px 0;">${v.code}</div>
                 <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
                 <small>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small><br>
-                <small style="color:var(--on-surface-med);">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</small>
+                <small style="color:var(--on-surface-med);">Exp: ${v.expires_at ? new Date(v.expires_at).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'}) : '—'}</small><br>
+                ${v.is_capped ? '<small style="color:#e67e22;font-weight:600;">Speed: 1 Mbps ↓ / 500 Kbps ↑</small>' : ''}
             </div>
         </div>
     `).join('') + '</div>';
@@ -517,7 +528,8 @@ document.getElementById('generateForm').addEventListener('submit', async functio
                 router_id: document.getElementById('genRouter').value,
                 quantity: document.getElementById('genQuantity').value,
                 price: document.getElementById('genPrice').value,
-                customer_name: document.getElementById('genCustomer').value
+                customer_name: document.getElementById('genCustomer').value,
+                is_capped: document.getElementById('genCapped').checked ? 1 : 0
             })
         });
         const data = await res.json();
@@ -536,7 +548,8 @@ document.getElementById('generateForm').addEventListener('submit', async functio
         lastGenerated = (data.vouchers || []).map(v => ({
             ...v,
             plan_name: v.plan || '',
-            router_ssid: router ? router.name : 'Jasiri WiFi'
+            router_ssid: router ? router.name : 'Jasiri WiFi',
+            is_capped: v.is_capped || 0
         }));
 
         document.getElementById('generatedPreview').innerHTML =
@@ -546,7 +559,8 @@ document.getElementById('generateForm').addEventListener('submit', async functio
                     <strong style="color:var(--blue-500);">${escapeHtml(v.router_ssid || 'Jasiri WiFi')}</strong><br>
                     <div class="voucher-code" style="font-size:1.4rem;letter-spacing:3px;margin:8px 0;">${v.code}</div>
                     <small style="font-weight:600;">${escapeHtml(v.plan_name || '')}</small><br>
-                    <small>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small>
+                    <small>${window.APP_CURRENCY} ${parseInt(v.price || 0).toLocaleString()}</small><br>
+                    ${v.is_capped ? '<small style="color:#e67e22;font-weight:600;">Speed: 1 Mbps ↓ / 500 Kbps ↑</small>' : ''}
                 </div>
             `).join('') + '</div>';
 

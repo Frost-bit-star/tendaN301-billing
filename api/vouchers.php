@@ -136,6 +136,7 @@ if ($method === 'POST') {
         $price = floatval($input['price'] ?? 0);
         $quantity = max(1, min(100, intval($input['quantity'] ?? 1)));
         $expiresAt = $input['expires_at'] ?? null;
+        $isCapped = intval($input['is_capped'] ?? 0);
 
         // Per-admin voucher caps: tenant accounts (role 'user') use accounts.voucher_limit,
         // platform staff (role 'admin') use admins.voucher_limit. Superadmin is unlimited.
@@ -180,8 +181,8 @@ if ($method === 'POST') {
 
         $vouchers = [];
         $stmt = $db->prepare("
-            INSERT INTO vouchers (code, plan_id, router_id, phone, customer_name, price, status, expires_at, created_by)
-            VALUES (:code, :plan_id, :router_id, :phone, :customer_name, :price, 'active', :expires_at, :created_by)
+            INSERT INTO vouchers (code, plan_id, router_id, phone, customer_name, price, status, expires_at, created_by, is_capped)
+            VALUES (:code, :plan_id, :router_id, :phone, :customer_name, :price, 'active', :expires_at, :created_by, :is_capped)
         ");
 
         for ($i = 0; $i < $quantity; $i++) {
@@ -204,6 +205,7 @@ if ($method === 'POST') {
                 ':price' => $price,
                 ':expires_at' => $expiresAt,
                 ':created_by' => $creatorId,
+                ':is_capped' => $isCapped,
             ]);
 
             $vouchers[] = [
@@ -212,6 +214,7 @@ if ($method === 'POST') {
                 'plan' => $plan['name'],
                 'price' => $price,
                 'expires_at' => $expiresAt,
+                'is_capped' => $isCapped,
             ];
         }
 

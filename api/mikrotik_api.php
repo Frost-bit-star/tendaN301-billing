@@ -182,15 +182,19 @@ class MikroTikAPI {
         return $value;
     }
 
-    public function addHotspotUser($server, $username, $password, $limitUptime) {
-        $result = $this->command([
+    public function addHotspotUser($server, $username, $password, $limitUptime, $rateLimit = null) {
+        $cmd = [
             '/ip/hotspot/user/add',
             "=server=$server",
             "=name=$username",
             "=password=$password",
             "=limit-uptime=$limitUptime",
             "=comment=Jasiri voucher",
-        ]);
+        ];
+        if ($rateLimit) {
+            $cmd[] = "=rate-limit=$rateLimit";
+        }
+        $result = $this->command($cmd);
         return $result;
     }
 
