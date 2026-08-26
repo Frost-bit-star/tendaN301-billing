@@ -476,43 +476,54 @@ if ($method === 'GET') {
 if ($method === 'DELETE') {
     $input = json_decode(file_get_contents('php://input'), true);
     $id = $input['id'] ?? $_GET['id'] ?? null;
+    $ids = $input['ids'] ?? ($id ? [$id] : []);
 
-    if (!$id) {
-        jsonResponse(['error' => 'Voucher ID required'], 400);
+    if (empty($ids)) {
+        jsonResponse(['error' => 'Voucher ID(s) required'], 400);
     }
 
-    $stmt = $db->prepare("SELECT * FROM vouchers WHERE id = :id");
-    $stmt->execute([':id' => $id]);
-    $voucher = $stmt->fetch(PDO::FETCH_ASSOC);
+    $deleted = 0;
+    $failed = 0;
 
-    if (!$voucher) {
-        jsonResponse(['error' => 'Voucher not found'], 404);
+    $idPlaceholders = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $db->prepare("SELECT * FROM vouchers WHERE id IN ($idPlaceholders)");
+    $stmt->execute(array_values($ids));
+    $vouchers = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $usedVouchers = array_filter($vouchers, fn($v) => $v['status'] === 'used' && !empty($v['router_id']));
+    $routerVouchers = [];
+    foreach ($usedVouchers as $v) {
+        $routerVouchers[(int)$v['router_id']][] = $v;
     }
 
-    if ($voucher['status'] === 'used' && !empty($voucher['router_id'])) {
+    if (!empty($routerVouchers)) {
         require_once __DIR__ . '/mikrotik_api.php';
-        $rStmt = $db->prepare("SELECT * FROM routers WHERE id = :id");
-        $rStmt->execute([':id' => $voucher['router_id']]);
-        $router = $rStmt->fetch(PDO::FETCH_ASSOC);
+        foreach ($routerVouchers as $routerId => $rvs) {
+            $rStmt = $db->prepare("SELECT * FROM routers WHERE id = ?");
+            $rStmt->execute([$routerId]);
+            $router = $rStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$router) continue;
 
-        if ($router) {
             $apiIP = !empty($router['wireguard_ip']) ? $router['wireguard_ip'] : $router['ip'];
             $apiPort = intval($router['port'] ?: 8729);
             try {
                 $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
                 $api->connect();
-                $api->removeHotspotUserByUsername($voucher['code']);
+                foreach ($rvs as $v) {
+                    $api->removeHotspotUserByUsername($v['code']);
+                }
                 $api->close();
             } catch (Exception $e) {
-                // MikroTik unreachable - still delete from DB
+                // Router unreachable - still delete from DB
             }
         }
     }
 
-    $stmt = $db->prepare("DELETE FROM vouchers WHERE id = :id");
-    $stmt->execute([':id' => $id]);
+    $delStmt = $db->prepare("DELETE FROM vouchers WHERE id IN ($idPlaceholders)");
+    $delStmt->execute(array_values($ids));
+    $deleted = $delStmt->rowCount();
 
-    jsonResponse(['success' => true]);
+    jsonResponse(['success' => true, 'deleted' => $deleted]);
 }
 
 jsonResponse(['error' => 'Invalid request'], 400);

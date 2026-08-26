@@ -187,10 +187,16 @@ include __DIR__ . '/../components/header.php';
             </div>
         </div>
         <div class="card-body">
+            <div id="batchActions" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--surface-2);border-radius:var(--radius-md);display:none;align-items:center;gap:12px;">
+                <span id="batchCount" style="font-weight:600;font-size:13px;"></span>
+                <button class="btn btn-danger btn-sm" onclick="batchDelete()"><i class="fas fa-trash"></i> Delete Selected</button>
+                <button class="btn btn-outline btn-sm" onclick="clearSelection()">Cancel</button>
+            </div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th style="width:36px;"><input type="checkbox" id="selectAllOnline" onchange="toggleSelectAllOnline()" style="cursor:pointer;"></th>
                             <th>Voucher Code</th>
                             <th>Router</th>
                             <th>Package</th>
@@ -204,7 +210,7 @@ include __DIR__ . '/../components/header.php';
                         </tr>
                     </thead>
                     <tbody id="voucherTableBody">
-                        <tr><td colspan="10" style="text-align:center;color:var(--on-surface-med);padding:24px;">Loading...</td></tr>
+                        <tr><td colspan="11" style="text-align:center;color:var(--on-surface-med);padding:24px;">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -357,6 +363,7 @@ function renderVoucherTable() {
     }
     tbody.innerHTML = allVouchers.map(v => `
         <tr>
+            <td><input type="checkbox" class="online-cb" data-id="${v.id}" data-status="${v.status}" onchange="updateBatchBar()" style="cursor:pointer;"></td>
             <td><span class="voucher-code">${escapeHtml(v.code)}</span></td>
             <td>${escapeHtml(v.router_name || '—')}</td>
             <td>${escapeHtml(v.plan_name || '—')}</td>
@@ -389,6 +396,9 @@ async function loadPrintVouchers() {
         const res = await fetch('/api/vouchers.php?' + params);
         const data = await res.json();
         printVouchers = data.vouchers || [];
+        if (filter) {
+            printVouchers = printVouchers.filter(v => v.status === filter);
+        }
 
         document.getElementById('printCheckboxes').innerHTML = printVouchers.map(v => `
             <label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;margin:0;font-size:13px;">
@@ -591,6 +601,56 @@ async function deleteVoucher(id, status) {
         loadStats();
     } catch (e) {
         alert('Delete failed');
+    }
+}
+
+function toggleSelectAllOnline() {
+    const checked = document.getElementById('selectAllOnline').checked;
+    document.querySelectorAll('.online-cb').forEach(cb => cb.checked = checked);
+    updateBatchBar();
+}
+
+function updateBatchBar() {
+    const checked = document.querySelectorAll('.online-cb:checked');
+    const bar = document.getElementById('batchActions');
+    const count = checked.length;
+    if (count > 0) {
+        document.getElementById('batchCount').textContent = count + ' selected';
+        bar.style.display = 'flex';
+    } else {
+        bar.style.display = 'none';
+    }
+    const allCbs = document.querySelectorAll('.online-cb');
+    document.getElementById('selectAllOnline').checked = allCbs.length > 0 && checked.length === allCbs.length;
+}
+
+function clearSelection() {
+    document.querySelectorAll('.online-cb').forEach(cb => cb.checked = false);
+    document.getElementById('selectAllOnline').checked = false;
+    updateBatchBar();
+}
+
+async function batchDelete() {
+    const checked = document.querySelectorAll('.online-cb:checked');
+    if (!checked.length) return;
+    const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id));
+    const hasUsed = Array.from(checked).some(cb => cb.dataset.status === 'used');
+    const msg = 'Delete ' + ids.length + ' voucher(s)?' + (hasUsed ? '\nUsed vouchers will also be removed from the router.' : '');
+    if (!confirm(msg)) return;
+
+    try {
+        const res = await fetch('/api/vouchers.php', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        clearSelection();
+        loadVouchers();
+        loadStats();
+    } catch (e) {
+        alert('Batch delete failed: ' + e.message);
     }
 }
 
