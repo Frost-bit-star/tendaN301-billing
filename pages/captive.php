@@ -124,8 +124,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $router) {
                 $apiPort = intval($router['port'] ?: 8729);
                 $api = new MikroTikAPI($apiIP, $apiPort, 'jasiri-api', $router['password'] ?? '');
                 $api->connect();
-                $rateLimit = !empty($voucher['is_capped']) ? '1M/500k' : null;
-                $api->addHotspotUser('hotspot1', $voucher['code'], $voucher['code'], $uptime, $rateLimit);
+                $profile = null;
+                if (!empty($voucher['is_capped'])) {
+                    $api->ensureCappedProfile('1M/500k');
+                    $profile = 'capped';
+                }
+                $api->addHotspotUser('hotspot1', $voucher['code'], $voucher['code'], $uptime, null, $profile);
                 $api->close();
             } catch (Exception $e) {
                 $error = 'Network error — could not activate voucher. Please try again.';

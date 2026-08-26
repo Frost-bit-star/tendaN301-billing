@@ -182,7 +182,7 @@ class MikroTikAPI {
         return $value;
     }
 
-    public function addHotspotUser($server, $username, $password, $limitUptime, $rateLimit = null) {
+    public function addHotspotUser($server, $username, $password, $limitUptime, $rateLimit = null, $profile = null) {
         $cmd = [
             '/ip/hotspot/user/add',
             "=server=$server",
@@ -191,11 +191,31 @@ class MikroTikAPI {
             "=limit-uptime=$limitUptime",
             "=comment=Jasiri voucher",
         ];
-        if ($rateLimit) {
+        if ($profile) {
+            $cmd[] = "=profile=$profile";
+        } elseif ($rateLimit) {
             $cmd[] = "=rate-limit=$rateLimit";
         }
         $result = $this->command($cmd);
         return $result;
+    }
+
+    public function ensureCappedProfile($rateLimit = '1M/500k') {
+        $existing = $this->command(['/ip/hotspot/user-profile/find', '?name=capped']);
+        if (!empty($existing)) {
+            return true;
+        }
+        $result = $this->command([
+            '/ip/hotspot/user-profile/add',
+            '=name=capped',
+            "=rate-limit=$rateLimit",
+        ]);
+        foreach ($result as $item) {
+            if (!empty($item['!trap']) || isset($item['!error'])) {
+                return false;
+            }
+        }
+        return true;
     }
 
     public function removeHotspotUser($username) {
