@@ -4,6 +4,8 @@
 if (session_status() == PHP_SESSION_NONE) session_start();
 
 require_once __DIR__ . '/../db/locale.php';
+require_once __DIR__ . '/../auth/session.php';
+authResolve();
 appSetTimezone($_SESSION['timezone'] ?? $defaultTimezone);
 
 $dbPath = __DIR__ . '/../db/routers.db';
@@ -63,16 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif ((int)($account['status'] ?? 1) !== 1) {
         $errorMessage = 'This account has been disabled by the super admin.';
     } elseif (password_verify($password, $account['password'])) {
-        $_SESSION['logged_in'] = true;
-        $_SESSION['username']  = $account['name'];
-        $_SESSION['role']      = 'user';
-        $_SESSION['account_id'] = $account['id'];
-        $_SESSION['account_email'] = $account['email'];
-        $_SESSION['currency']  = $account['currency'] ?: 'TZS';
-        $_SESSION['timezone']  = appValidTimezone($account['timezone'] ?? $defaultTimezone);
-        date_default_timezone_set($_SESSION['timezone']);
+        authLoginUser($account);
 
-        header('Location: /dashboard');
+        header('Location: /dashboard?role=user');
         exit;
     } else {
         $errorMessage = 'Invalid email or password.';
@@ -95,17 +90,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif ((int)($admin['status'] ?? 1) !== 1) {
         $errorMessage = 'This admin account has been disabled. Contact the super admin.';
     } elseif (password_verify($password, $admin['password'])) {
-        $_SESSION['logged_in'] = true;
-        $_SESSION['username'] = $username;
-        $_SESSION['admin_id'] = (int)$admin['id'];
-        // Role comes from the database, never from the form radio buttons
-        $_SESSION['role'] = $admin['role'] ?: 'admin';
-        $_SESSION['currency'] = $admin['currency'] ?: 'TZS';
-        $_SESSION['timezone'] = appValidTimezone($admin['timezone'] ?? $defaultTimezone);
-        date_default_timezone_set($_SESSION['timezone']);
+        $role = $admin['role'] ?: 'admin';
+        authLoginAdmin($admin);
 
         // Super admin runs the platform (manages tenant admins); general staff see the WISP dashboard
-        header('Location: ' . (($_SESSION['role'] === 'superadmin') ? '/admin_dashboard' : '/dashboard'));
+        header('Location: ' . (($role === 'superadmin') ? '/admin_dashboard?role=superadmin' : '/dashboard?role=' . $role));
         exit;
     } else {
         $errorMessage = 'Invalid username or password.';

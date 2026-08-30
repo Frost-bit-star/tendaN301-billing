@@ -86,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['currency'] = $newCurrency;
                     $_SESSION['timezone'] = $newTimezone;
                     $_SESSION['phone_code'] = $newPhoneCode;
+                    authSnapshot($role);
                     date_default_timezone_set($newTimezone);
                     $msgSuccess = 'Profile updated. Currency is now ' . $newCurrency . ' and timezone is now ' . $newTimezone . '.';
                     $profile['email'] = $newEmail;

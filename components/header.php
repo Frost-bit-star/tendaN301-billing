@@ -33,7 +33,60 @@ $appCurrencySymbol = $appCurrencyMap[$appCurrencyCode] ?? $appCurrencyCode;
     <link rel="stylesheet" href="/assets/css/app.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-    window.APP_CURRENCY = '<?= htmlspecialchars($appCurrencySymbol, ENT_QUOTES) ?>';
+    (function () {
+        // ---- Per-tab identity pinning ----
+        // Each browser tab remembers which role it represents in sessionStorage
+        // (per-tab) and sends it to the server as ?role= on every same-origin
+        // navigation and fetch. This keeps a user tab and an admin tab from
+        // sharing/leaking their sessions.
+        try {
+            var VALID = ['user', 'admin', 'superadmin'];
+            var URL_ROLE = new URLSearchParams(location.search).get('role');
+            var tabRole = sessionStorage.getItem('wisp_tab_role');
+            if (VALID.indexOf(URL_ROLE) !== -1) {
+                sessionStorage.setItem('wisp_tab_role', URL_ROLE);
+                tabRole = URL_ROLE;
+            } else if (tabRole && VALID.indexOf(tabRole) !== -1) {
+                var sep = location.search ? '&' : '?';
+                location.replace(location.pathname + location.search + sep + 'role=' + encodeURIComponent(tabRole) + location.hash);
+                return;
+            }
+            window.__wispRole = tabRole || '';
+            function withRole(url) {
+                if (!window.__wispRole) return url;
+                var a = url;
+                try { if (/^https?:/i.test(url)) a = new URL(url).pathname + new URL(url).search; } catch (e) {}
+                var u = a.split('#')[0];
+                var hasQ = u.indexOf('?') !== -1;
+                if (/\brole=/.test(u + '&')) return url;
+                return u + (hasQ ? '&' : '?') + 'role=' + encodeURIComponent(window.__wispRole) + (a.indexOf('#') !== -1 ? '#' + a.split('#')[1] : '');
+            }
+            document.addEventListener('click', function (e) {
+                var a = e.target && e.target.closest ? e.target.closest('a') : null;
+                if (!a) return;
+                var href = a.getAttribute('href') || '';
+                if (!href || href.charAt(0) === '#' || /^[a-z]+:/i.test(href)) return;
+                if (!/\brole=/.test(href)) { a.href = withRole(href); }
+            }, true);
+            var origFetch = window.fetch;
+            if (origFetch) {
+                window.fetch = function (input, init) {
+                    if (typeof input === 'string' && input.charAt(0) === '/') {
+                        input = withRole(input);
+                    } else if (input instanceof Request && typeof input.url === 'string' && input.url.charAt(0) === '/') {
+                        input = new Request(withRole(input.url), input);
+                    }
+                    return origFetch.call(this, input, init);
+                };
+            }
+            var origOpen = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function () {
+                var args = Array.prototype.slice.call(arguments);
+                if (typeof args[1] === 'string' && args[1].charAt(0) === '/') args[1] = withRole(args[1]);
+                return origOpen.apply(this, args);
+            };
+        } catch (e) {}
+        window.APP_CURRENCY = '<?= htmlspecialchars($appCurrencySymbol, ENT_QUOTES) ?>';
     window.APP_CURRENCY_CODE = '<?= htmlspecialchars($appCurrencyCode, ENT_QUOTES) ?>';
     window.APP_TIMEZONE = '<?= htmlspecialchars($_SESSION['timezone'] ?? $defaultTimezone, ENT_QUOTES) ?>';
     function navActive(p) { return location.pathname.replace(/\/+$/, '') === ('/' + p) ? 'active' : ''; }

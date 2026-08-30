@@ -6,20 +6,12 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Clear all session variables
-$_SESSION = array();
+require_once __DIR__ . '/../auth/session.php';
+authResolve();
 
-// Destroy session
-session_destroy();
-
-// Delete session cookie if exists
-if (ini_get("session.use_cookies")) {
-    $params = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000,
-        $params["path"], $params["domain"],
-        $params["secure"], $params["httponly"]
-    );
-}
+// Clear ONLY the currently-active identity (role + its keys + its backup),
+// leaving other identities (e.g. a user login in another tab) intact.
+authLogoutActive();
 
 // Redirect to login page
 header("Location: login");
